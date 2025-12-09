@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Flame, TrendingUp, DollarSign } from 'lucide-react';
+import { Flame, TrendingUp, Target } from 'lucide-react';
 import CastCard from '@/components/CastCard';
 import PredictionModal from '@/components/PredictionModal';
+import UserPredictionModal from '@/components/UserPredictionModal';
 import ActiveBets from '@/components/ActiveBets';
 import PastBets from '@/components/PastBets';
-import { Cast, Prediction } from '@/lib/types';
+import WalletButton from '@/components/WalletButton';
+import { Cast } from '@/lib/types';
 
 export default function Home() {
     const [trendingCasts, setTrendingCasts] = useState<Cast[]>([]);
     const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
+    const [selectedUser, setSelectedUser] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'trending' | 'active' | 'past'>('trending');
     const [loading, setLoading] = useState(true);
 
@@ -46,16 +49,11 @@ export default function Home() {
                                     Prediction Battle
                                 </h1>
                                 <p className="text-sm text-textSecondary">
-                                    Bet on cast performance. Win USDC.
+                                    Aposte em casts. Ganhe USDC.
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-primary" />
-                                <span className="text-sm text-textSecondary">Live</span>
-                            </div>
-                        </div>
+                        <WalletButton />
                     </div>
                 </div>
             </header>
@@ -83,7 +81,7 @@ export default function Home() {
                                     : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            My Active Bets
+                            Minhas Apostas Ativas
                             {activeTab === 'active' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -95,7 +93,7 @@ export default function Home() {
                                     : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Past Bets
+                            Histórico
                             {activeTab === 'past' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -108,12 +106,37 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {activeTab === 'trending' && (
                     <div>
+                        {/* User Prediction Example Banner */}
+                        <div className="mb-8 p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-bold text-textPrimary mb-2 flex items-center gap-2">
+                                        <Target className="w-6 h-6 text-primary" />
+                                        🎯 Novo: Aposte em Atividade de Usuários!
+                                    </h3>
+                                    <p className="text-textSecondary mb-2">
+                                        <span className="font-bold text-textPrimary">Exemplo:</span> Dan Romero vai postar mais de 3 vezes hoje?
+                                    </p>
+                                    <p className="text-xs text-textSecondary">
+                                        Escolha a métrica (posts, likes, seguidores), defina o alvo e aposte!
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedUser('dwr')}
+                                    className="bg-primary hover:bg-secondary text-background font-bold px-6 py-3 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-primary/20"
+                                >
+                                    <Target className="w-5 h-5" />
+                                    Apostar em @dwr
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="mb-6">
                             <h2 className="text-xl font-bold text-textPrimary mb-2">
-                                🔥 Trending Now
+                                🔥 Trending Agora
                             </h2>
                             <p className="text-textSecondary">
-                                Pick a cast and predict if it will hit an engagement target in 24 hours
+                                Escolha um cast e preveja se vai atingir uma meta de engajamento em 24 horas
                             </p>
                         </div>
 
@@ -151,7 +174,7 @@ export default function Home() {
                         ) : (
                             <div className="text-center py-12">
                                 <p className="text-textSecondary">
-                                    No trending casts available. Check back soon!
+                                    Nenhum cast trending disponível. Volte em breve!
                                 </p>
                             </div>
                         )}
@@ -167,6 +190,14 @@ export default function Home() {
                 <PredictionModal
                     cast={selectedCast}
                     onClose={() => setSelectedCast(null)}
+                />
+            )}
+
+            {/* User Prediction Modal */}
+            {selectedUser && (
+                <UserPredictionModal
+                    username={selectedUser}
+                    onClose={() => setSelectedUser(null)}
                 />
             )}
         </main>
