@@ -1,34 +1,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Flame, TrendingUp, Target } from 'lucide-react';
-import CastCard from '@/components/CastCard';
-import PredictionModal from '@/components/PredictionModal';
-import UserPredictionModal from '@/components/UserPredictionModal';
+import { Flame } from 'lucide-react';
+import AdminBetCard from '@/components/AdminBetCard';
 import ActiveBets from '@/components/ActiveBets';
 import PastBets from '@/components/PastBets';
 import WalletButton from '@/components/WalletButton';
-import { Cast } from '@/lib/types';
 
 export default function Home() {
-    const [trendingCasts, setTrendingCasts] = useState<Cast[]>([]);
-    const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
-    const [selectedUser, setSelectedUser] = useState<string | null>(null);
+    const [adminBets, setAdminBets] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'trending' | 'active' | 'past'>('trending');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchTrendingCasts();
+        fetchAdminBets();
     }, []);
 
-    async function fetchTrendingCasts() {
+    async function fetchAdminBets() {
         try {
             setLoading(true);
-            const response = await fetch('/api/casts/trending');
+            const response = await fetch('/api/admin/bets');
             const data = await response.json();
-            setTrendingCasts(data.casts || []);
+            if (data.success) {
+                // Only show active bets
+                const activeBets = (data.bets || []).filter((b: any) => b.status === 'active');
+                setAdminBets(activeBets);
+            }
         } catch (error) {
-            console.error('Error fetching trending casts:', error);
+            console.error('Error fetching admin bets:', error);
         } finally {
             setLoading(false);
         }
@@ -69,7 +68,7 @@ export default function Home() {
                                     : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Trending Casts
+                            Apostas Disponíveis
                             {activeTab === 'trending' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -106,43 +105,18 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {activeTab === 'trending' && (
                     <div>
-                        {/* User Prediction Example Banner */}
-                        <div className="mb-8 p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div>
-                                    <h3 className="text-lg font-bold text-textPrimary mb-2 flex items-center gap-2">
-                                        <Target className="w-6 h-6 text-primary" />
-                                        🎯 Novo: Aposte em Atividade de Usuários!
-                                    </h3>
-                                    <p className="text-textSecondary mb-2">
-                                        <span className="font-bold text-textPrimary">Exemplo:</span> Dan Romero vai postar mais de 3 vezes hoje?
-                                    </p>
-                                    <p className="text-xs text-textSecondary">
-                                        Escolha a métrica (posts, likes, seguidores), defina o alvo e aposte!
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedUser('dwr')}
-                                    className="bg-primary hover:bg-secondary text-background font-bold px-6 py-3 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-primary/20"
-                                >
-                                    <Target className="w-5 h-5" />
-                                    Apostar em @dwr
-                                </button>
-                            </div>
-                        </div>
-
                         <div className="mb-6">
-                            <h2 className="text-xl font-bold text-textPrimary mb-2">
-                                🔥 Trending Agora
+                            <h2 className="text-2xl font-bold text-textPrimary mb-2">
+                                🔥 Apostas Disponíveis
                             </h2>
                             <p className="text-textSecondary">
-                                Escolha um cast e preveja se vai atingir uma meta de engajamento em 24 horas
+                                Escolha uma aposta e preveja o resultado!
                             </p>
                         </div>
 
                         {loading ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {[...Array(6)].map((_, i) => (
+                                {[...Array(3)].map((_, i) => (
                                     <div
                                         key={i}
                                         className="bg-surface border border-darkGray rounded-2xl p-6 animate-pulse"
@@ -154,27 +128,30 @@ export default function Home() {
                                                 <div className="h-3 bg-darkGray rounded w-20" />
                                             </div>
                                         </div>
-                                        <div className="space-y-2 mb-4">
-                                            <div className="h-3 bg-darkGray rounded w-full" />
-                                            <div className="h-3 bg-darkGray rounded w-4/5" />
-                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        ) : trendingCasts.length > 0 ? (
+                        ) : adminBets.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {trendingCasts.map((cast) => (
-                                    <CastCard
-                                        key={cast.hash}
-                                        cast={cast}
-                                        onPredict={() => setSelectedCast(cast)}
+                                {adminBets.map((bet) => (
+                                    <AdminBetCard
+                                        key={bet.id}
+                                        bet={bet}
+                                        onBet={fetchAdminBets}
                                     />
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-12">
-                                <p className="text-textSecondary">
-                                    Nenhum cast trending disponível. Volte em breve!
+                            <div className="text-center py-16 bg-surface border border-darkGray rounded-2xl">
+                                <div className="text-6xl mb-4">🎯</div>
+                                <h3 className="text-xl font-bold text-textPrimary mb-2">
+                                    Nenhuma Aposta Disponível
+                                </h3>
+                                <p className="text-textSecondary mb-4">
+                                    Aguarde o admin criar novas apostas!
+                                </p>
+                                <p className="text-xs text-textSecondary">
+                                    💡 Admin: acesse /admin para criar apostas
                                 </p>
                             </div>
                         )}
@@ -184,22 +161,6 @@ export default function Home() {
                 {activeTab === 'active' && <ActiveBets />}
                 {activeTab === 'past' && <PastBets />}
             </div>
-
-            {/* Prediction Modal */}
-            {selectedCast && (
-                <PredictionModal
-                    cast={selectedCast}
-                    onClose={() => setSelectedCast(null)}
-                />
-            )}
-
-            {/* User Prediction Modal */}
-            {selectedUser && (
-                <UserPredictionModal
-                    username={selectedUser}
-                    onClose={() => setSelectedUser(null)}
-                />
-            )}
         </main>
     );
 }
