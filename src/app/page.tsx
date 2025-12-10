@@ -19,7 +19,7 @@ export default function Home() {
     async function fetchAdminBets() {
         try {
             setLoading(true);
-            const response = await fetch('/api/admin/bets');
+            const response = await fetch('/api/admin/bets', { cache: 'no-store' });
             const data = await response.json();
             if (data.success) {
                 // Only show active bets
@@ -64,8 +64,8 @@ export default function Home() {
                         <button
                             onClick={() => setActiveTab('trending')}
                             className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'trending'
-                                    ? 'text-primary'
-                                    : 'text-textSecondary hover:text-textPrimary'
+                                ? 'text-primary'
+                                : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
                             Apostas Disponíveis
@@ -76,8 +76,8 @@ export default function Home() {
                         <button
                             onClick={() => setActiveTab('active')}
                             className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'active'
-                                    ? 'text-primary'
-                                    : 'text-textSecondary hover:text-textPrimary'
+                                ? 'text-primary'
+                                : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
                             Minhas Apostas Ativas
@@ -88,8 +88,8 @@ export default function Home() {
                         <button
                             onClick={() => setActiveTab('past')}
                             className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'past'
-                                    ? 'text-primary'
-                                    : 'text-textSecondary hover:text-textPrimary'
+                                ? 'text-primary'
+                                : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
                             Histórico
