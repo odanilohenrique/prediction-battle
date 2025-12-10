@@ -123,7 +123,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     functionName: 'transfer',
                     args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
                     // Manual gas for Rabby/Sepolia compatibility
-                    gas: BigInt(120000),
+                    gas: BigInt(200000),
                 });
                 console.log('Transaction broadcast:', hash);
 
