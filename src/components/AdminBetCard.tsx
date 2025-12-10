@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Target, DollarSign, Users, Clock } from 'lucide-react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 
 interface AdminBet {
@@ -32,11 +32,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Wagmi hooks
-    const { address, isConnected } = useAccount();
+    const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
+    const { switchChainAsync } = useSwitchChain();
 
-    // USDC Contract Address (Testnet/Mainnet)
-    const USDC_ADDRESS = process.env.NEXT_PUBLIC_USE_MAINNET === 'true'
+    // Configuration
+    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532; // Base Mainnet (8453) or Base Sepolia (84532)
+
+    // USDC Contract Address
+    const USDC_ADDRESS = IS_MAINNET
         ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // Mainnet
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Sepolia
 
@@ -78,12 +83,30 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         setIsSubmitting(true);
 
         try {
+            // 0. Verify and Switch Chain
+            if (chainId !== EXPECTED_CHAIN_ID) {
+                try {
+                    console.log(`Switching chain from ${chainId} to ${EXPECTED_CHAIN_ID}...`);
+                    if (switchChainAsync) {
+                        await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                    } else {
+                        throw new Error("Troca de rede não suportada pela carteira.");
+                    }
+                } catch (switchError) {
+                    console.error('Failed to switch chain:', switchError);
+                    alert(`⚠️ Erro: Você está na rede errada. Por favor, mude para ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             // 1. Send USDC Transaction
             console.log('Initiating transaction...');
             const amountInWei = parseUnits(amount.toString(), 6); // USDC usually has 6 decimals
 
             let hash;
             try {
+                // Ensure manual gas limit is used for Rabby compatibility on testnets
                 hash = await writeContractAsync({
                     address: USDC_ADDRESS as `0x${string}`,
                     abi: [{
@@ -98,8 +121,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     }],
                     functionName: 'transfer',
                     args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
-                    // Manually setting gas limit can sometimes fix simulation 500 errors
-                    // gas: BigInt(100000), 
+                    // Manual gas for Rabby/Sepolia compatibility
+                    gas: BigInt(120000),
                 });
                 console.log('Transaction sent:', hash);
             } catch (txError) {
@@ -133,7 +156,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Aposta confirmada! Tx: ${hash.substring(0, 10)}...`);
+                alert(`✅ Aposta confirmada! Tx: ${hash ? hash.substring(0, 10) : ''}...`);
                 setShowModal(false);
                 onBet(); // Refresh the list
             } else {
