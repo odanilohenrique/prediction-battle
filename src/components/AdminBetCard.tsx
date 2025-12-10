@@ -79,27 +79,38 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
         try {
             // 1. Send USDC Transaction
+            console.log('Initiating transaction...');
             const amountInWei = parseUnits(amount.toString(), 6); // USDC usually has 6 decimals
 
-            const hash = await writeContractAsync({
-                address: USDC_ADDRESS as `0x${string}`,
-                abi: [{
-                    name: 'transfer',
-                    type: 'function',
-                    stateMutability: 'nonpayable',
-                    inputs: [
-                        { name: 'to', type: 'address' },
-                        { name: 'amount', type: 'uint256' }
-                    ],
-                    outputs: [{ name: '', type: 'bool' }]
-                }],
-                functionName: 'transfer',
-                args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
-            });
-
-            console.log('Transaction sent:', hash);
+            let hash;
+            try {
+                hash = await writeContractAsync({
+                    address: USDC_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'transfer',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [
+                            { name: 'to', type: 'address' },
+                            { name: 'amount', type: 'uint256' }
+                        ],
+                        outputs: [{ name: '', type: 'bool' }]
+                    }],
+                    functionName: 'transfer',
+                    args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
+                    // Manually setting gas limit can sometimes fix simulation 500 errors
+                    // gas: BigInt(100000), 
+                });
+                console.log('Transaction sent:', hash);
+            } catch (txError) {
+                console.error('Wallet transaction error:', txError);
+                // Extract detail from wagmi error if possible
+                const msg = (txError as any).shortMessage || (txError as any).message || 'Erro na carteira';
+                throw new Error(`Erro na transação: ${msg}`);
+            }
 
             // 2. Call backend to register bet
+            console.log('Registering bet in backend...');
             const response = await fetch('/api/predictions/bet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -112,6 +123,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 }),
             });
 
+            // Check for HTTP errors (like 500)
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error Response:', errorText);
+                throw new Error(`Erro no servidor (${response.status}): Tente novamente.`);
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -122,8 +140,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 alert('⚠️ Pagamento enviado, mas erro ao registrar no backend. Entre em contato com suporte.');
             }
         } catch (error) {
-            console.error('Error:', error);
-            alert('❌ Falha ao apostar: ' + (error as any).message);
+            console.error('Error submitting bet:', error);
+            alert(`❌ ${(error as Error).message}`);
         } finally {
             setIsSubmitting(false);
         }
