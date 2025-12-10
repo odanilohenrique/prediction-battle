@@ -4,10 +4,10 @@ import { store, BetParticipant } from '@/lib/store';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { betId, choice, amount } = body;
+        const { betId, choice, amount, userAddress } = body;
 
-        // TODO: Get user ID from authentication
-        const userId = 'demo_user';
+        // Use wallet address as user ID if provided, otherwise fallback to demo_user (though frontend should enforce login)
+        const userId = userAddress || 'demo_user';
 
         // Validate input
         if (!betId || !choice || !amount) {

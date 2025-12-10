@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { X, Target, DollarSign, Users, Clock } from 'lucide-react';
+import { useAccount, useWriteContract } from 'wagmi';
+import { parseUnits } from 'viem';
 
 interface AdminBet {
     id: string;
@@ -28,6 +30,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(0.1);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Wagmi hooks
+    const { address, isConnected } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+
+    // USDC Contract Address (Testnet/Mainnet)
+    const USDC_ADDRESS = process.env.NEXT_PUBLIC_USE_MAINNET === 'true'
+        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // Mainnet
+        : '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Sepolia
+
+    // House Address (where money goes)
+    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     const formatTimeRemaining = () => {
         const remaining = bet.expiresAt - Date.now();
@@ -56,9 +70,36 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
     const handleSubmit = async () => {
+        if (!isConnected || !address) {
+            alert('Por favor, conecte sua carteira primeiro!');
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
+            // 1. Send USDC Transaction
+            const amountInWei = parseUnits(amount.toString(), 6); // USDC usually has 6 decimals
+
+            const hash = await writeContractAsync({
+                address: USDC_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'transfer',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [
+                        { name: 'to', type: 'address' },
+                        { name: 'amount', type: 'uint256' }
+                    ],
+                    outputs: [{ name: '', type: 'bool' }]
+                }],
+                functionName: 'transfer',
+                args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
+            });
+
+            console.log('Transaction sent:', hash);
+
+            // 2. Call backend to register bet
             const response = await fetch('/api/predictions/bet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -66,21 +107,23 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     betId: bet.id,
                     choice,
                     amount,
+                    txHash: hash,
+                    userAddress: address
                 }),
             });
 
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Aposta confirmada! Você apostou ${amount} USDC em ${choice === 'yes' ? 'SIM' : 'NÃO'}`);
+                alert(`✅ Aposta confirmada! Tx: ${hash.substring(0, 10)}...`);
                 setShowModal(false);
                 onBet(); // Refresh the list
             } else {
-                alert('❌ Erro ao apostar: ' + (data.error || 'Erro desconhecido'));
+                alert('⚠️ Pagamento enviado, mas erro ao registrar no backend. Entre em contato com suporte.');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('❌ Falha ao apostar');
+            alert('❌ Falha ao apostar: ' + (error as any).message);
         } finally {
             setIsSubmitting(false);
         }
@@ -170,8 +213,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <button
                                         onClick={() => setChoice('yes')}
                                         className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
-                                                ? 'border-green-500 bg-green-500/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-green-500 bg-green-500/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <div className="text-4xl mb-2">✅</div>
@@ -180,8 +223,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <button
                                         onClick={() => setChoice('no')}
                                         className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
-                                                ? 'border-red-500 bg-red-500/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-red-500 bg-red-500/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <div className="text-4xl mb-2">❌</div>
@@ -201,8 +244,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             key={a}
                                             onClick={() => setAmount(a)}
                                             className={`p-4 rounded-xl border-2 transition-all ${amount === a
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-darkGray hover:border-darkGray/50'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
                                             <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
@@ -226,7 +269,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 disabled={isSubmitting}
                                 className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
                             >
-                                {isSubmitting ? 'Apostando...' : '🎯 Confirmar Aposta'}
+                                {isSubmitting ? 'Confirmando na Carteira...' : '🎯 Confirmar Aposta'}
                             </button>
                         </div>
                     </div>

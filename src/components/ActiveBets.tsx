@@ -1,25 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import BetCard from './BetCard';
 import { UserBet } from '@/lib/types';
 
 export default function ActiveBets() {
     const [bets, setBets] = useState<UserBet[]>([]);
     const [loading, setLoading] = useState(true);
+    const { address, isConnected } = useAccount();
 
     useEffect(() => {
-        fetchActiveBets();
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchActiveBets, 30000);
-        return () => clearInterval(interval);
-    }, []);
+        if (isConnected && address) {
+            fetchActiveBets();
+            const interval = setInterval(fetchActiveBets, 30000);
+            return () => clearInterval(interval);
+        } else {
+            setLoading(false);
+            setBets([]);
+        }
+    }, [isConnected, address]);
 
     async function fetchActiveBets() {
+        if (!address) return;
+
         try {
-            // TODO: Replace with actual user ID from MiniKit auth
-            const userId = 'demo_user';
-            const response = await fetch(`/api/predictions/list?userId=${userId}&status=active`);
+            setLoading(true);
+            const response = await fetch(`/api/predictions/list?userId=${address}&status=active`, { cache: 'no-store' });
             const data = await response.json();
             setBets(data.bets || []);
         } catch (error) {
