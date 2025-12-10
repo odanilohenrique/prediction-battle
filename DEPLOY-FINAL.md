@@ -1,70 +1,51 @@
-# 🚀 Guia de Deploy Vercel (FINAL)
+# 🚀 Guia de Deploy Vercel (FINAL + REDIS)
 
-Este guia cobre o deploy da versão atual com **Painel Admin** e **Testnet Base Sepolia**.
-
----
-
-## 📋 Passo 1: Atualizar GitHub
-
-(Eu já fiz isso para você, mas aqui está o comando se precisar)
-```bash
-git push origin main
-```
+Este guia cobre o deploy da versão atual com **Painel Admin**, **Testnet** e **Banco de Dados Real**.
 
 ---
 
-## ⚙️ Passo 2: Configurar no Vercel
+## ⚙️ Passo 1: Criar Banco de Dados (NOVO!)
 
-1. **Acesse:** [https://vercel.com/new](https://vercel.com/new)
-2. **Importe:** O repositório `prediction-battle`
-3. **Framework Preset:** Next.js (automático)
-4. **Environment Variables:** (IMPORTANTE!)
+Para que as apostas não sumam, precisamos de um banco de dados. O Vercel oferece um grátis.
 
-Você PRECISA adicionar estas 5 variáveis nas configurações do Vercel:
-
-| Nome da Variável | Valor | Descrição |
-|------------------|-------|-----------|
-| `NEYNAR_API_KEY` | `D4D3...CC5B2CEA5FC7` | Sua chave Neynar |
-| `RECEIVER_ADDRESS` | `0x2Cd...B66b4` | Sua carteira mainnet (para taxas) |
-| `NEXT_PUBLIC_ADMIN_ADDRESS` | `0xFbb...cE987` | **Sua carteira testnet (para acesso admin)** |
-| `NEXT_PUBLIC_USE_MAINNET` | `false` | **Define modo testnet (zero risco)** |
-| `NEXT_PUBLIC_URL` | *(Deixe em branco por enquanto)* | Atualize depois com a URL final |
-
-> **Dica:** Copie exatamente os valores que estão no seu `.env.local`.
+1. No painel do seu projeto no Vercel, clique na aba **Storage**.
+2. Clique em **Creates Database** (ou Connect Database).
+3. Escolha **KV** (Redis).
+4. Dê o nome `prediction-db` e clique em **Create**.
+5. Em "Environment Variables", certifique-se que está marcado para adicionar automaticamente ao projeto (geralmente é automático).
+   - Isso vai adicionar variáveis como `KV_URL`, `KV_REST_API_URL`, etc.
 
 ---
 
-## 🚀 Passo 3: Deploy
+## 📋 Passo 2: Atualizar Código no Vercel
 
-1. Click em **Deploy**.
-2. Aguarde ~1-2 minutos.
-3. **Sucesso!** O app estará online.
+Se você já tinha o projeto no Vercel, apenas vá em **Deployments** e certifique-se que o último commit ("Migrate from in-memory store...") foi deployado. Se não, clique em Redeploy.
+
+---
+
+## 🔑 Passo 3: Variáveis de Ambiente (Revisão)
+
+Certifique-se que você tem estas 5 variáveis em **Settings > Environment Variables**:
+
+| Nome da Variável | Valor |
+|------------------|-------|
+| `NEYNAR_API_KEY` | `D4D3...` |
+| `RECEIVER_ADDRESS` | `0x2Cd...` |
+| `NEXT_PUBLIC_ADMIN_ADDRESS` | `0xFbb...` (Seu endereço Testnet) |
+| `NEXT_PUBLIC_USE_MAINNET` | `false` |
+| `NEXT_PUBLIC_ONCHAINKIT_API_KEY` | `eMK4P...` (Sua chave Coinbase) |
+
+> **Nota:** As variáveis do banco (`KV_...`) devem aparecer automaticamente após o Passo 1.
 
 ---
 
 ## 🧪 Passo 4: Verificar Testnet no Vercel
 
-1. Acesse a URL do seu app (ex: `https://prediction-battle.vercel.app`)
-2. Tente conectar sua wallet no botão do topo.
-   - Deve pedir rede **Base Sepolia**.
-3. Acesse `/admin`:
-   - Deve pedir para conectar a carteira `0xFbb...cE987`.
-   - Se funcionar, você verá o dashboard!
-
----
-
-## 🐛 Problemas Comuns
-
-**Erro de Build "Payment Required" no Neynar:**
-- Às vezes o build do Next.js tenta acessar a API. Se falhar, ignore por enquanto, pois em runtime vai funcionar com a chave correta.
-
-**"Acesso Negado" no Admin:**
-- Verifique se copiou o endereço `0xFbb...cE987` EXATAMENTE igual nas variáveis do Vercel.
-- O endereço é case-insensitive, mas por segurança copie igual.
-
-**Wallet não conecta:**
-- Certifique-se de ter rede Base Sepolia no celular/browser.
-- Instale Coinbase Wallet ou MetaMask.
+1. **Acessar Admin:** `seu-app.vercel.app/admin`
+2. **Criar Aposta:** Crie uma nova aposta teste.
+3. **Verificar Home:** Vá para a página inicial.
+   - A aposta DEVE aparecer agora!
+   - E vai continuar lá mesmo se você recarregar.
 
 ---
 
