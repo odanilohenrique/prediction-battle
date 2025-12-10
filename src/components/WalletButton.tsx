@@ -14,12 +14,14 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { disconnect } = useDisconnect();
     const [farcasterUser, setFarcasterUser] = useState<{ username: string; fid: number } | null>(null);
 
-    // Find Coinbase Wallet connector
-    const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK') || connectors[0];
+    // Find connectors (prioritize injected for Rabby/MetaMask)
+    const injectedConnector = connectors.find((c) => c.id === 'injected');
+    const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
+    const targetConnector = injectedConnector || coinbaseConnector || connectors[0];
 
     const handleConnectWallet = () => {
         try {
-            connect({ connector: coinbaseConnector });
+            connect({ connector: targetConnector });
             onConnect?.();
         } catch (error) {
             console.error('Erro ao conectar carteira:', error);
