@@ -1,7 +1,4 @@
-// In-memory storage for admin-created bets
-// Note: In a real production app, this should be replaced by a database (Postgres/Redis)
-// Since Vercel serverless functions are stateless, this data will reset on new deployments/cold starts.
-// For a production MVP, we should use Vercel KV or Supabase.
+import { kv } from '@vercel/kv';
 
 export interface BetParticipant {
     userId: string;
@@ -29,5 +26,50 @@ export interface Bet {
     };
 }
 
-// Global store
-export const adminBets = new Map<string, Bet>();
+const BETS_KEY = 'prediction_bets';
+
+export const store = {
+    // Get all bets
+    async getBets(): Promise<Bet[]> {
+        try {
+            const bets = await kv.hgetall(BETS_KEY);
+            if (!bets) return [];
+            // Redis returns object with id keys, convert to array
+            return Object.values(bets) as Bet[];
+        } catch (error) {
+            console.error('Redis Error (getBets):', error);
+            return [];
+        }
+    },
+
+    // Get single bet
+    async getBet(id: string): Promise<Bet | null> {
+        try {
+            const bet = await kv.hget(BETS_KEY, id);
+            return bet as Bet | null;
+        } catch (error) {
+            console.error('Redis Error (getBet):', error);
+            return null;
+        }
+    },
+
+    // Save/Update bet
+    async saveBet(bet: Bet): Promise<void> {
+        try {
+            await kv.hset(BETS_KEY, { [bet.id]: bet });
+        } catch (error) {
+            console.error('Redis Error (saveBet):', error);
+            throw error;
+        }
+    },
+
+    // Delete bet (optional, for cleanup)
+    async deleteBet(id: string): Promise<void> {
+        try {
+            await kv.hdel(BETS_KEY, id);
+        } catch (error) {
+            console.error('Redis Error (deleteBet):', error);
+            throw error;
+        }
+    }
+};

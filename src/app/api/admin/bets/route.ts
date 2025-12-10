@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { adminBets } from '@/lib/store';
+import { store } from '@/lib/store';
 
 export async function GET() {
     try {
-        const bets = Array.from(adminBets.values());
+        const bets = await store.getBets();
 
         // Calculate stats
         const stats = {

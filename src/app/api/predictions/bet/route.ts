@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminBets } from '@/lib/store';
+import { store, BetParticipant } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -17,8 +17,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get the bet
-        const bet = adminBets.get(betId);
+        // Get the bet from Redis
+        const bet = await store.getBet(betId);
+
         if (!bet) {
             return NextResponse.json(
                 { success: false, error: 'Bet not found' },
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Add participant
-        const participant = {
+        const participant: BetParticipant = {
             userId,
             choice,
             amount,
@@ -52,8 +53,8 @@ export async function POST(request: NextRequest) {
         bet.totalPot += amount;
         bet.participantCount = bet.participants.yes.length + bet.participants.no.length;
 
-        // Save updated bet
-        adminBets.set(betId, bet);
+        // Save updated bet to Redis
+        await store.saveBet(bet);
 
         return NextResponse.json({
             success: true,
@@ -67,5 +68,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
-

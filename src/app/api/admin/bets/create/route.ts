@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminBets, Bet } from '@/lib/store';
+import { store, Bet } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
             },
         };
 
-        adminBets.set(betId, bet);
+        // Save to Redis
+        await store.saveBet(bet);
 
         return NextResponse.json({
             success: true,
