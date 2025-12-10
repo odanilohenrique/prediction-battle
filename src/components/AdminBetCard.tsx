@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Target, DollarSign, Users, Clock } from 'lucide-react';
-import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 
 interface AdminBet {
@@ -35,6 +35,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const { switchChainAsync } = useSwitchChain();
+    const publicClient = usePublicClient();
 
     // Configuration
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
@@ -124,7 +125,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     // Manual gas for Rabby/Sepolia compatibility
                     gas: BigInt(120000),
                 });
-                console.log('Transaction sent:', hash);
+                console.log('Transaction broadcast:', hash);
+
+                // WAIT FOR RECEIPT
+                setIsSubmitting(true); // Keep loading
+                if (!publicClient) throw new Error("Public Client not initialized");
+
+                alert('⏳ Aguardando confirmação na blockchain... (não feche)');
+                const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+                if (receipt.status !== 'success') {
+                    throw new Error('A transação falhou na blockchain.');
+                }
+                console.log('Transaction confirmed:', receipt.transactionHash);
+
+
             } catch (txError) {
                 console.error('Wallet transaction error:', txError);
                 // Extract detail from wagmi error if possible
@@ -132,7 +147,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 throw new Error(`Erro na transação: ${msg}`);
             }
 
-            // 2. Call backend to register bet
+            // 2. Call backend to register bet (ONLY AFTER CONFIRMATION)
             console.log('Registering bet in backend...');
             const response = await fetch('/api/predictions/bet', {
                 method: 'POST',
@@ -156,11 +171,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Aposta confirmada! Tx: ${hash ? hash.substring(0, 10) : ''}...`);
+                alert(`✅ Aposta confirmada!`);
                 setShowModal(false);
                 onBet(); // Refresh the list
             } else {
-                alert('⚠️ Pagamento enviado, mas erro ao registrar no backend. Entre em contato com suporte.');
+                alert('⚠️ Pagamento confirmado, mas erro ao registrar no backend. Entre em contato com suporte.');
             }
         } catch (error) {
             console.error('Error submitting bet:', error);
