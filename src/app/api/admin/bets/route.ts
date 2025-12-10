@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// In-memory storage for admin-created bets
-const adminBets = new Map();
+import { adminBets } from '@/lib/store';
 
 export async function GET() {
     try {

@@ -9,6 +9,10 @@ export const metadata: Metadata = {
     description: "Bet USDC on whether Farcaster casts will hit engagement targets. Win big if you're right!",
 };
 
+import OnchainProviders from "@/components/OnchainProviders";
+
+// ... previous code ...
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -17,7 +21,9 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={inter.className}>
-                {children}
+                <OnchainProviders>
+                    {children}
+                </OnchainProviders>
             </body>
         </html>
     );

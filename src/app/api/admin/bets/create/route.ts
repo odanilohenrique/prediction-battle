@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage for admin-created bets
-const adminBets = new Map();
+import { adminBets, Bet } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -30,7 +28,7 @@ export async function POST(request: NextRequest) {
             ? now + (24 * 60 * 60 * 1000)
             : now + (7 * 24 * 60 * 60 * 1000);
 
-        const bet = {
+        const bet: Bet = {
             id: betId,
             username,
             type: betType,

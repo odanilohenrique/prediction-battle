@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Import the admin bets storage
-// Note: In production, this should be in a shared database
-const adminBets = new Map();
+import { adminBets } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -71,5 +68,4 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Make adminBets accessible from admin routes by exporting
-export { adminBets };
+
