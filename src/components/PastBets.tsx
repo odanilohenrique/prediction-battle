@@ -21,7 +21,7 @@ export default function PastBets() {
             const data = await response.json();
             setBets(data.bets || []);
         } catch (error) {
-            console.error('Error fetching past bets:', error);
+            console.error('Error fetching past predictions:', error);
         } finally {
             setLoading(false);
         }
@@ -50,7 +50,7 @@ export default function PastBets() {
         return (
             <div className="text-center py-12">
                 <div className="text-6xl mb-4">📊</div>
-                <h3 className="text-xl font-bold text-textPrimary mb-2">No Past Bets</h3>
+                <h3 className="text-xl font-bold text-textPrimary mb-2">No Past Predictions</h3>
                 <p className="text-textSecondary">
                     Your completed predictions will appear here
                 </p>
@@ -74,7 +74,7 @@ export default function PastBets() {
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-surface border border-darkGray rounded-xl p-4">
-                        <div className="text-sm text-textSecondary mb-1">Total Bets</div>
+                        <div className="text-sm text-textSecondary mb-1">Total Predictions</div>
                         <div className="text-2xl font-bold text-textPrimary">
                             {bets.length}
                         </div>
@@ -108,8 +108,8 @@ export default function PastBets() {
                 {/* Net Profit/Loss */}
                 <div
                     className={`p-4 rounded-xl border ${netProfit >= 0
-                            ? 'bg-green-500/10 border-green-500/30'
-                            : 'bg-red-500/10 border-red-500/30'
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-red-500/10 border-red-500/30'
                         }`}
                 >
                     <div className="text-sm text-textSecondary mb-1">Net Profit/Loss</div>

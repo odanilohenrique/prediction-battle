@@ -59,7 +59,7 @@ export default function ActiveBets() {
         return (
             <div className="text-center py-12">
                 <div className="text-6xl mb-4">🎲</div>
-                <h3 className="text-xl font-bold text-textPrimary mb-2">No Active Bets</h3>
+                <h3 className="text-xl font-bold text-textPrimary mb-2">No Active Predictions</h3>
                 <p className="text-textSecondary">
                     Place your first prediction on a trending cast!
                 </p>
@@ -74,7 +74,7 @@ export default function ActiveBets() {
                     Your Active Predictions
                 </h2>
                 <p className="text-textSecondary">
-                    {bets.length} active bet{bets.length !== 1 ? 's' : ''}
+                    {bets.length} active prediction{bets.length !== 1 ? 's' : ''}
                 </p>
             </div>
 

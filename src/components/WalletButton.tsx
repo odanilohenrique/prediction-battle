@@ -24,21 +24,21 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
             connect({ connector: targetConnector });
             onConnect?.();
         } catch (error) {
-            console.error('Erro ao conectar carteira:', error);
-            alert('Erro ao conectar carteira. Tente novamente.');
+            console.error('Error connecting wallet:', error);
+            alert('Error connecting wallet. Please try again.');
         }
     };
 
     const handleFarcasterLogin = async () => {
         try {
             // TODO: Integrate with Farcaster Auth
-            alert('Login com Farcaster será implementado com MiniKit/OnchainKit');
+            alert('Farcaster login will be implemented with MiniKit/OnchainKit');
             setFarcasterUser({
                 username: 'demo_user',
                 fid: 12345
             });
         } catch (error) {
-            console.error('Erro no login Farcaster:', error);
+            console.error('Farcaster login error:', error);
         }
     };
 
@@ -66,7 +66,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                     className="flex items-center gap-2 bg-darkGray hover:bg-darkGray/70 text-textPrimary px-4 py-2 rounded-xl transition-colors"
                 >
                     <LogOut className="w-4 h-4" />
-                    <span className="text-sm font-medium">Sair</span>
+                    <span className="text-sm font-medium">Logout</span>
                 </button>
             </div>
         );
@@ -79,7 +79,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                 className="flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-4 py-2 rounded-xl transition-all"
             >
                 <Wallet className="w-5 h-5" />
-                <span>Conectar Wallet</span>
+                <span>Connect Wallet</span>
             </button>
 
             <button
@@ -87,7 +87,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                 className="flex items-center gap-2 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-4 py-2 rounded-xl transition-all"
             >
                 <LogIn className="w-5 h-5" />
-                <span className="font-medium">Login Farcaster</span>
+                <span className="font-medium">Farcaster Login</span>
             </button>
         </div>
     );

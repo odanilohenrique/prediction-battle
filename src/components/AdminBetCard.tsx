@@ -16,6 +16,10 @@ interface AdminBet {
     expiresAt: number;
     totalPot: number;
     participantCount: number;
+    participants: {
+        yes: any[];
+        no: any[];
+    };
 }
 
 interface AdminBetCardProps {
@@ -30,6 +34,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(0.1);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Calculate percentages
+    const totalYes = bet.participants.yes.length;
+    const totalNo = bet.participants.no.length;
+    const totalVotes = totalYes + totalNo;
+    const yesPercent = totalVotes > 0 ? (totalYes / totalVotes) * 100 : 50;
+    const noPercent = totalVotes > 0 ? (totalNo / totalVotes) * 100 : 50;
 
     // Wagmi hooks
     const { address, isConnected, chainId } = useAccount();
@@ -54,7 +65,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         const hours = Math.floor(remaining / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 
-        if (remaining <= 0) return 'Expirado';
+        if (remaining <= 0) return 'Expired';
         if (hours > 24) {
             const days = Math.floor(hours / 24);
             return `${days}d ${hours % 24}h`;
@@ -65,19 +76,19 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const getBetTypeLabel = () => {
         switch (bet.type) {
             case 'post_count':
-                return `postar ${bet.target}+ vezes`;
+                return `post ${bet.target}+ times`;
             case 'likes_total':
-                return `receber ${bet.target}+ likes`;
+                return `get ${bet.target}+ likes`;
             case 'followers_gain':
-                return `ganhar ${bet.target}+ seguidores`;
+                return `gain ${bet.target}+ followers`;
             default:
-                return `atingir ${bet.target}`;
+                return `hit ${bet.target}`;
         }
     };
 
     const handleSubmit = async () => {
         if (!isConnected || !address) {
-            alert('Por favor, conecte sua carteira primeiro!');
+            alert('Please connect your wallet first!');
             return;
         }
 
@@ -95,7 +106,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     }
                 } catch (switchError) {
                     console.error('Failed to switch chain:', switchError);
-                    alert(`⚠️ Erro: Você está na rede errada. Por favor, mude para ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`);
+                    alert(`⚠️ Error: Wrong network. Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`);
                     setIsSubmitting(false);
                     return;
                 }
@@ -143,12 +154,12 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             } catch (txError) {
                 console.error('Wallet transaction error:', txError);
                 // Extract detail from wagmi error if possible
-                const msg = (txError as any).shortMessage || (txError as any).message || 'Erro na carteira';
-                throw new Error(`Erro na transação: ${msg}`);
+                const msg = (txError as any).shortMessage || (txError as any).message || 'Wallet Error';
+                throw new Error(`Transaction Failed: ${msg}`);
             }
 
             // 2. Call backend to register bet (ONLY AFTER CONFIRMATION)
-            console.log('Registering bet in backend...');
+            console.log('Registering prediction in backend...');
             const response = await fetch('/api/predictions/bet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -165,17 +176,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('API Error Response:', errorText);
-                throw new Error(`Erro no servidor (${response.status}): Tente novamente.`);
+                throw new Error(`Server Error (${response.status}): Try again.`);
             }
 
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Aposta confirmada!`);
+                alert(`✅ Prediction confirmed!`);
                 setShowModal(false);
                 onBet(); // Refresh the list
             } else {
-                alert('⚠️ Pagamento confirmado, mas erro ao registrar no backend. Entre em contato com suporte.');
+                alert('⚠️ Payment confirmed, but backend registration failed. Contact support.');
             }
         } catch (error) {
             console.error('Error submitting bet:', error);
@@ -210,127 +221,138 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-4 text-sm">
-                    <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-primary" />
-                        <span className="text-textPrimary font-medium">${bet.totalPot.toFixed(2)}</span>
-                        <span className="text-textSecondary">no pote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-textSecondary" />
-                        <span className="text-textPrimary font-medium">{bet.participantCount}</span>
-                        <span className="text-textSecondary">apostadores</span>
-                    </div>
+                <div className="flex items-center gap-1">
+                    <DollarSign className="w-4 h-4 text-primary" />
+                    <span className="text-textPrimary font-medium">${bet.totalPot.toFixed(2)}</span>
+                    <span className="text-textSecondary">pool</span>
                 </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="text-xs text-textSecondary">
-                        ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)} USDC
-                    </div>
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
-                    >
-                        🎯 Apostar
-                    </button>
+                <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4 text-textSecondary" />
+                    <span className="text-textPrimary font-medium">{bet.participantCount}</span>
+                    <span className="text-textSecondary">predictors</span>
                 </div>
             </div>
 
-            {/* Bet Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
-                        <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
-                            <h2 className="text-xl font-bold text-textPrimary">
-                                Fazer Aposta
-                            </h2>
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
-                            >
-                                <X className="w-5 h-5 text-textSecondary" />
-                            </button>
+            {/* Progress Bar */}
+            <div className="w-full h-2 bg-darkGray rounded-full mb-4 overflow-hidden flex">
+                <div style={{ width: `${yesPercent}%` }} className="h-full bg-green-500/50" />
+                <div style={{ width: `${noPercent}%` }} className="h-full bg-red-500/50" />
+            </div>
+            <div className="flex justify-between text-xs text-textSecondary mb-4">
+                <span>YES: {Math.round(yesPercent)}% ({totalYes})</span>
+                <span>NO: {Math.round(noPercent)}% ({totalNo})</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+                <div className="text-xs text-textSecondary">
+                    ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)} USDC
+                </div>
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
+                >
+                    🎯 Predict
+                </button>
+            </div>
+        </div >
+
+            {/* Bet Modal */ }
+    {
+        showModal && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
+                    <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
+                        <h2 className="text-xl font-bold text-textPrimary">
+                            Make Prediction
+                        </h2>
+                        <button
+                            onClick={() => setShowModal(false)}
+                            className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
+                        >
+                            <X className="w-5 h-5 text-textSecondary" />
+                        </button>
+                    </div>
+
+                    <div className="px-6 py-6 space-y-6">
+                        {/* Question */}
+                        <div className="bg-darkGray/30 rounded-xl p-4">
+                            <p className="text-textPrimary">
+                                Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()} in {bet.timeframe === '24h' ? '24 hours' : '7 days'}?
+                            </p>
                         </div>
 
-                        <div className="px-6 py-6 space-y-6">
-                            {/* Question */}
-                            <div className="bg-darkGray/30 rounded-xl p-4">
-                                <p className="text-textPrimary">
-                                    <span className="font-bold">@{bet.username}</span> vai {getBetTypeLabel()} em {bet.timeframe === '24h' ? '24 horas' : '7 dias'}?
-                                </p>
+                        {/* Choice */}
+                        <div>
+                            <label className="block text-sm font-medium text-textPrimary mb-3">
+                                Your Prediction
+                            </label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setChoice('yes')}
+                                    className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
+                                        ? 'border-green-500 bg-green-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
+                                        }`}
+                                >
+                                    <div className="text-4xl mb-2">✅</div>
+                                    <div className="text-lg font-bold text-textPrimary">SIM</div>
+                                </button>
+                                <button
+                                    onClick={() => setChoice('no')}
+                                    className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
+                                        ? 'border-red-500 bg-red-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
+                                        }`}
+                                >
+                                    <div className="text-4xl mb-2">❌</div>
+                                    <div className="text-lg font-bold text-textPrimary">NO</div>
+                                </button>
                             </div>
+                        </div>
 
-                            {/* Choice */}
-                            <div>
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    Sua Previsão
-                                </label>
-                                <div className="grid grid-cols-2 gap-4">
+                        {/* Amount */}
+                        <div>
+                            <label className="block text-sm font-medium text-textPrimary mb-3">
+                                Prediction Amount (USDC)
+                            </label>
+                            <div className="grid grid-cols-4 gap-3">
+                                {BET_AMOUNTS.filter(a => a >= bet.minBet && a <= bet.maxBet).map((a) => (
                                     <button
-                                        onClick={() => setChoice('yes')}
-                                        className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
-                                            ? 'border-green-500 bg-green-500/10'
+                                        key={a}
+                                        onClick={() => setAmount(a)}
+                                        className={`p-4 rounded-xl border-2 transition-all ${amount === a
+                                            ? 'border-primary bg-primary/10'
                                             : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
-                                        <div className="text-4xl mb-2">✅</div>
-                                        <div className="text-lg font-bold text-textPrimary">SIM</div>
+                                        <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
+                                        <div className="text-lg font-bold text-textPrimary">{a}</div>
                                     </button>
-                                    <button
-                                        onClick={() => setChoice('no')}
-                                        className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
-                                            ? 'border-red-500 bg-red-500/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
-                                            }`}
-                                    >
-                                        <div className="text-4xl mb-2">❌</div>
-                                        <div className="text-lg font-bold text-textPrimary">NÃO</div>
-                                    </button>
-                                </div>
+                                ))}
                             </div>
-
-                            {/* Amount */}
-                            <div>
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    Valor da Aposta (USDC)
-                                </label>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {BET_AMOUNTS.filter(a => a >= bet.minBet && a <= bet.maxBet).map((a) => (
-                                        <button
-                                            key={a}
-                                            onClick={() => setAmount(a)}
-                                            className={`p-4 rounded-xl border-2 transition-all ${amount === a
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
-                                                }`}
-                                        >
-                                            <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
-                                            <div className="text-lg font-bold text-textPrimary">{a}</div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Summary */}
-                            <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
-                                <p className="text-sm text-textPrimary">
-                                    Apostando <span className="font-bold text-primary">{amount} USDC</span> em{' '}
-                                    <span className="font-bold">{choice === 'yes' ? 'SIM' : 'NÃO'}</span>
-                                </p>
-                            </div>
-
-                            {/* Submit */}
-                            <button
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-                            >
-                                {isSubmitting ? 'Confirmando na Carteira...' : '🎯 Confirmar Aposta'}
-                            </button>
                         </div>
+
+                        {/* Summary */}
+                        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
+                            <p className="text-sm text-textPrimary">
+                                Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
+                                <span className="font-bold">{choice === 'yes' ? 'YES' : 'NO'}</span>
+                            </p>
+                        </div>
+
+                        {/* Submit */}
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'Confirming in Wallet...' : '🎯 Confirm Prediction'}
+                        </button>
                     </div>
                 </div>
-            )}
+            </div>
+        )
+    }
         </>
     );
 }

@@ -48,7 +48,7 @@ export default function Home() {
                                     Prediction Battle
                                 </h1>
                                 <p className="text-sm text-textSecondary">
-                                    Aposte em casts. Ganhe USDC.
+                                    Predict on casts. Win USDC.
                                 </p>
                             </div>
                         </div>
@@ -68,7 +68,7 @@ export default function Home() {
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Apostas Disponíveis
+                            Available Predictions
                             {activeTab === 'trending' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -80,7 +80,7 @@ export default function Home() {
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Minhas Apostas Ativas
+                            My Active Predictions
                             {activeTab === 'active' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -92,7 +92,7 @@ export default function Home() {
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Histórico
+                            History
                             {activeTab === 'past' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
@@ -107,10 +107,10 @@ export default function Home() {
                     <div>
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-textPrimary mb-2">
-                                🔥 Apostas Disponíveis
+                                🔥 Available Predictions
                             </h2>
                             <p className="text-textSecondary">
-                                Escolha uma aposta e preveja o resultado!
+                                Choose a prediction and forecast the outcome!
                             </p>
                         </div>
 
@@ -145,13 +145,13 @@ export default function Home() {
                             <div className="text-center py-16 bg-surface border border-darkGray rounded-2xl">
                                 <div className="text-6xl mb-4">🎯</div>
                                 <h3 className="text-xl font-bold text-textPrimary mb-2">
-                                    Nenhuma Aposta Disponível
+                                    No Predictions Available
                                 </h3>
                                 <p className="text-textSecondary mb-4">
-                                    Aguarde o admin criar novas apostas!
+                                    Wait for admin to create new predictions!
                                 </p>
                                 <p className="text-xs text-textSecondary">
-                                    💡 Admin: acesse /admin para criar apostas
+                                    💡 Admin: go to /admin to create predictions
                                 </p>
                             </div>
                         )}
