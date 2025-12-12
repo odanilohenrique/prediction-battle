@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPrediction, findPredictionByCast, addBet } from '@/lib/predictions';
-import { MetricType, PredictionChoice } from '@/lib/types';
+import { store, Bet, BetParticipant } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,11 +12,12 @@ export async function POST(request: NextRequest) {
             targetValue,
             choice,
             betAmount,
+            userAddress, // Expecting user address for ID
             initialValue,
         } = body;
 
-        // TODO: Get user ID from MiniKit authentication
-        const userId = 'demo_user'; // Placeholder
+        // Use wallet address as user ID if provided, otherwise fallback
+        const userId = userAddress || 'demo_user';
 
         // Validate input
         if (!castHash || !metric || !targetValue || !choice || !betAmount) {
@@ -27,44 +27,59 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if prediction already exists for this cast/metric/target
-        let prediction = findPredictionByCast(
+        // For MVP, checking if prediction exists is complex without a secondary index in Redis.
+        // We'll skip the check for now or implement a basic scan if critical.
+        // For speed: Create new prediction each time (or client handles dedup).
+
+        const betId = `pred_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const now = Date.now();
+        const expiresAt = now + (24 * 60 * 60 * 1000); // 24h default
+
+        const bet: Bet = {
+            id: betId,
+            username: castAuthor || 'unknown', // Mapping castAuthor to username field
+            type: metric, // Mapping metric to type
+            target: targetValue, // Mapping targetValue to target
+            timeframe: '24h',
+            minBet: 0.05, // Defaults
+            maxBet: 100, // Defaults
+            createdAt: now,
+            expiresAt,
+            status: 'active',
+            totalPot: betAmount,
+            participantCount: 1,
+            participants: {
+                yes: [],
+                no: [],
+            },
+            // specific fields
             castHash,
-            metric as MetricType,
-            targetValue
-        );
+            castAuthor,
+            castText,
+            initialValue: initialValue || 0
+        };
 
-        // Create new prediction if it doesn't exist
-        if (!prediction) {
-            prediction = createPrediction(
-                castHash,
-                castAuthor,
-                castText,
-                metric as MetricType,
-                targetValue,
-                initialValue || 0
-            );
-        }
-
-        // Add bet to the prediction
-        const success = addBet(
-            prediction.id,
+        // Add the initial participant
+        const participant: BetParticipant = {
             userId,
-            choice as PredictionChoice,
-            betAmount
-        );
+            choice,
+            amount: betAmount,
+            timestamp: now
+        };
 
-        if (!success) {
-            return NextResponse.json(
-                { success: false, error: 'Failed to add bet to prediction' },
-                { status: 500 }
-            );
+        if (choice === 'yes') {
+            bet.participants.yes.push(participant);
+        } else {
+            bet.participants.no.push(participant);
         }
+
+        // Save to Redis
+        await store.saveBet(bet);
 
         return NextResponse.json({
             success: true,
-            predictionId: prediction.id,
-            prediction,
+            predictionId: bet.id,
+            prediction: bet,
         });
     } catch (error) {
         console.error('Error in /api/predictions/create:', error);

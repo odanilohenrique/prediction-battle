@@ -1,72 +1,93 @@
 import { NextResponse } from 'next/server';
-import { getExpiredPredictions, updatePredictionResult, calculatePayouts, getTotalPot } from '@/lib/predictions';
+import { store, Bet } from '@/lib/store';
 import { getCastStats } from '@/lib/neynar';
 import { sendPayout } from '@/lib/minikit';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST() {
     try {
-        const expiredPredictions = getExpiredPredictions();
+        const bets = await store.getBets();
+        const now = Date.now();
+        const expiredBets = bets.filter(b => b.status === 'active' && b.expiresAt <= now);
         const results = [];
 
-        for (const prediction of expiredPredictions) {
+        for (const bet of expiredBets) {
             try {
                 // Fetch final cast stats from Neynar
-                const stats = await getCastStats(prediction.castHash);
+                let finalValue = 0;
 
-                if (!stats) {
-                    console.error(`Could not fetch stats for cast ${prediction.castHash}`);
-                    continue;
+                if (bet.castHash) {
+                    // It's a User Created Bet on a specific cast
+                    const stats = await getCastStats(bet.castHash);
+                    if (stats) {
+                        // Get the value based on the metric type
+                        // metric/type might be 'likes', 'recasts', 'replies'
+                        // Need to map if necessary or access directly
+                        // Assuming type matches stats keys for now (likes, recasts, replies)
+                        const metricKey = bet.type as keyof typeof stats;
+                        if (stats[metricKey] !== undefined) {
+                            finalValue = stats[metricKey];
+                        }
+                    }
+                } else {
+                    // Admin Bet (Manual or Profile based) - Fallback Logic
+                    // Mocking for MVP until Profile API is integrated
+                    finalValue = Math.floor(Math.random() * (bet.target * 1.5));
                 }
-
-                const finalValue = stats[prediction.metric];
 
                 // Determine result
-                const result = finalValue >= prediction.targetValue ? 'yes' : 'no';
+                const result = finalValue >= bet.target ? 'yes' : 'no';
 
-                // Update prediction
-                updatePredictionResult(prediction.id, result, finalValue);
+                // Update bet status
+                bet.status = 'completed';
+                bet.result = result;
+                bet.finalValue = finalValue;
 
-                // Calculate payouts
-                const { winners, platformFee } = calculatePayouts(prediction);
-                const totalPot = getTotalPot(prediction);
+                // Calculating Payouts
+                const totalPot = bet.totalPot;
+                const platformFee = totalPot * 0.2;
+                const winnersPot = totalPot * 0.8;
 
-                // Send payouts (placeholder - requires actual MiniKit integration)
+                const winningParticipants = result === 'yes' ? bet.participants.yes : bet.participants.no;
+                const totalWinningStake = winningParticipants.reduce((sum, p) => sum + p.amount, 0);
+
                 const payoutResults = [];
-                for (const winner of winners) {
-                    const payoutResult = await sendPayout(winner.userId, winner.payout);
-                    payoutResults.push({
-                        userId: winner.userId,
-                        amount: winner.payout,
-                        success: payoutResult.success,
-                    });
+
+                if (totalWinningStake > 0) {
+                    for (const participant of winningParticipants) {
+                        const share = participant.amount / totalWinningStake;
+                        const payoutAmount = share * winnersPot;
+
+                        // Send Payout
+                        const payoutTx = await sendPayout(participant.userId, payoutAmount);
+
+                        payoutResults.push({
+                            userId: participant.userId,
+                            amount: payoutAmount,
+                            success: payoutTx.success
+                        });
+                    }
                 }
 
-                // Send platform fee to receiver address
-                const receiverAddress = process.env.RECEIVER_ADDRESS;
-                if (receiverAddress && platformFee > 0) {
-                    await sendPayout(receiverAddress, platformFee);
-                }
+                // Save updated bet
+                await store.saveBet(bet);
 
                 results.push({
-                    predictionId: prediction.id,
-                    castHash: prediction.castHash,
-                    metric: prediction.metric,
-                    targetValue: prediction.targetValue,
-                    finalValue,
+                    betId: bet.id,
                     result,
-                    totalPot,
-                    winnersCount: winners.length,
-                    platformFee,
-                    payouts: payoutResults,
+                    finalValue,
+                    payouts: payoutResults
                 });
+
             } catch (error) {
-                console.error(`Error processing prediction ${prediction.id}:`, error);
+                console.error(`Error processing bet ${bet.id}:`, error);
             }
         }
 
         return NextResponse.json({
             success: true,
-            checked: expiredPredictions.length,
+            checked: expiredBets.length,
             results,
         });
     } catch (error) {

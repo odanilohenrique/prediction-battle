@@ -24,6 +24,13 @@ export interface Bet {
         yes: BetParticipant[];
         no: BetParticipant[];
     };
+    // Optional fields for user-created viral bets (specific cast)
+    castHash?: string;
+    castAuthor?: string;
+    castText?: string;
+    initialValue?: number;
+    result?: 'yes' | 'no';
+    finalValue?: number;
 }
 
 const BETS_KEY = 'prediction_bets';
