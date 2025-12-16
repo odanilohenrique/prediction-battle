@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 import { TrendingUp, Wallet, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { Bet } from '@/lib/store';
@@ -9,11 +9,13 @@ import { Bet } from '@/lib/store';
 export default function PayoutsPage() {
     const [payouts, setPayouts] = useState<Bet[]>([]);
     const [loading, setLoading] = useState(true);
-    const { address } = useAccount();
+    const { address, chainId } = useAccount(); // Added chainId
     const { writeContractAsync } = useWriteContract();
+    const { switchChainAsync } = useSwitchChain(); // Added switchChain
 
     // USDC Address (Same as in AdminBetCard)
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532; // Added Expected Chain ID
     const USDC_ADDRESS = IS_MAINNET
         ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
@@ -58,6 +60,22 @@ export default function PayoutsPage() {
         }
 
         try {
+            // 0. Verify and Switch Chain
+            if (chainId !== EXPECTED_CHAIN_ID) {
+                try {
+                    console.log(`Switching chain from ${chainId} to ${EXPECTED_CHAIN_ID}...`);
+                    if (switchChainAsync) {
+                        await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                    } else {
+                        throw new Error("Troca de rede não suportada pela carteira.");
+                    }
+                } catch (switchError) {
+                    console.error('Failed to switch chain:', switchError);
+                    alert(`⚠️ Error: Wrong network. Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`);
+                    return;
+                }
+            }
+
             if (!confirm(`Send ${amount.toFixed(2)} USDC to ${userAddress}?`)) return;
 
             const amountInWei = parseUnits(amount.toString(), 6);
