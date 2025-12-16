@@ -240,10 +240,24 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                     <div className="flex justify-between items-end mb-1 px-1">
                         <span className="text-green-400 font-bold text-lg">
-                            {totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(3) : '2.000'}x
+                            {(() => {
+                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                if (yesPool === 0) return '2.00';
+                                // House takes 20% of WINNINGS (loser's pool), not total
+                                const multiplier = 1 + (noPool * 0.8) / yesPool;
+                                return multiplier.toFixed(2);
+                            })()}x
                         </span>
                         <span className="text-red-400 font-bold text-lg">
-                            {totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(3) : '2.000'}x
+                            {(() => {
+                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                if (noPool === 0) return '2.00';
+                                // House takes 20% of WINNINGS (loser's pool), not total
+                                const multiplier = 1 + (yesPool * 0.8) / noPool;
+                                return multiplier.toFixed(2);
+                            })()}x
                         </span>
                     </div>
 
@@ -364,16 +378,19 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <span className="text-sm text-textSecondary">Potential Payout (Est.):</span>
                                         <div className="text-right">
                                             <span className="block text-green-400 font-bold">
-                                                $ {(
-                                                    amount * (
-                                                        choice === 'yes'
-                                                            ? (totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)) : 2.0)
-                                                            : (totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)) : 2.0)
-                                                    )
-                                                ).toFixed(2)}
+                                                $ {(() => {
+                                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                    // Correct formula: 1 + (LoserPool * 0.8) / WinnerPool
+                                                    // House takes 20% of WINNINGS only
+                                                    const multiplier = choice === 'yes'
+                                                        ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
+                                                        : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
+                                                    return (amount * multiplier).toFixed(2);
+                                                })()}
                                             </span>
                                             <span className="text-xs text-textSecondary">
-                                                Includes 20% House Fee
+                                                20% House Fee on Winnings
                                             </span>
                                         </div>
                                     </div>
