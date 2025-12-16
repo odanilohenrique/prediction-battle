@@ -137,18 +137,36 @@ export default function AdminLayout({
             <header className="border-b border-darkGray bg-surface/50 backdrop-blur-sm sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                <Shield className="w-6 h-6 text-primary" />
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                    <Shield className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-bold text-textPrimary">
+                                        Admin Panel
+                                    </h1>
+                                    <p className="text-xs text-textSecondary">
+                                        {walletAddress?.substring(0, 6)}...{walletAddress?.substring(walletAddress.length - 4)}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-textPrimary">
-                                    Admin Panel
-                                </h1>
-                                <p className="text-xs text-textSecondary">
-                                    {walletAddress?.substring(0, 6)}...{walletAddress?.substring(walletAddress.length - 4)}
-                                </p>
-                            </div>
+
+                            {/* Navigation */}
+                            <nav className="flex items-center gap-1 bg-darkGray/30 p-1 rounded-lg">
+                                <a
+                                    href="/admin"
+                                    className="px-4 py-2 text-sm font-medium text-textPrimary hover:bg-white/5 rounded-md transition-colors"
+                                >
+                                    Dashboard
+                                </a>
+                                <a
+                                    href="/admin/payouts"
+                                    className="px-4 py-2 text-sm font-medium text-textPrimary hover:bg-white/5 rounded-md transition-colors"
+                                >
+                                    Payouts
+                                </a>
+                            </nav>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -161,7 +179,7 @@ export default function AdminLayout({
                                 className="flex items-center gap-2 bg-darkGray hover:bg-darkGray/70 text-textPrimary px-4 py-2 rounded-xl transition-colors"
                             >
                                 <LogOut className="w-4 h-4" />
-                                <span className="text-sm">Sair</span>
+                                <span className="text-sm">Logout</span>
                             </button>
                         </div>
                     </div>

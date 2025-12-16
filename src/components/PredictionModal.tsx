@@ -122,8 +122,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                             setTargetValue(currentValue + 100);
                                         }}
                                         className={`p-4 rounded-xl border-2 transition-all ${metric === 'likes'
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <Heart className="w-6 h-6 mx-auto mb-2 text-primary" />
@@ -138,8 +138,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                             setTargetValue(cast.reactions.recasts_count + 50);
                                         }}
                                         className={`p-4 rounded-xl border-2 transition-all ${metric === 'recasts'
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <Repeat2 className="w-6 h-6 mx-auto mb-2 text-primary" />
@@ -154,8 +154,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                             setTargetValue(cast.reactions.replies_count + 20);
                                         }}
                                         className={`p-4 rounded-xl border-2 transition-all ${metric === 'replies'
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <MessageCircle className="w-6 h-6 mx-auto mb-2 text-primary" />
@@ -202,8 +202,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 <button
                                     onClick={() => setChoice('yes')}
                                     className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
-                                            ? 'border-green-500 bg-green-500/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
+                                        ? 'border-green-500 bg-green-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
                                         }`}
                                 >
                                     <div className="text-4xl mb-2">✅</div>
@@ -215,8 +215,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 <button
                                     onClick={() => setChoice('no')}
                                     className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
-                                            ? 'border-red-500 bg-red-500/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
+                                        ? 'border-red-500 bg-red-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
                                         }`}
                                 >
                                     <div className="text-4xl mb-2">❌</div>
@@ -256,8 +256,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                         key={amount}
                                         onClick={() => setBetAmount(amount)}
                                         className={`p-4 rounded-xl border-2 transition-all ${betAmount === amount
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
@@ -266,53 +266,59 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 ))}
                             </div>
 
-                            {/* Summary */}
-                            <div className="bg-darkGray rounded-xl p-4 space-y-2">
-                                <div className="text-sm font-medium text-textSecondary">Summary</div>
-                                <div className="text-textPrimary">
-                                    Betting <span className="text-primary font-bold">{betAmount} USDC</span>
-                                    {' '}that this cast will{' '}
-                                    <span className="font-bold">
-                                        {choice === 'yes' ? 'HIT' : 'NOT HIT'}
-                                    </span>
-                                    {' '}{targetValue} {metric} in 24 hours
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setStep(2)}
-                                    className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {isSubmitting ? (
-                                        'Creating...'
-                                    ) : (
-                                        <>
-                                            <TrendingUp className="w-5 h-5" />
-                                            Place Bet
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-
-                            <button
-                                onClick={handleShare}
-                                className="w-full bg-surface border border-darkGray hover:border-primary/30 text-textPrimary font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-                            >
-                                <Share2 className="w-4 h-4" />
-                                Share Prediction
-                            </button>
+                            {' '}{targetValue} {metric} in 24 hours
                         </div>
-                    )}
+                                
+                                {/* Potential Return / Odds Display */}
+                    <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
+                        <div className="text-sm text-textSecondary">
+                            Potential Return (Est.)
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xl font-bold text-green-500">
+                                ${(betAmount * 2).toFixed(2)}
+                            </div>
+                            <div className="text-xs text-textSecondary">
+                                (~2.0x Multiplier) - <span className="text-primary italic">Early Bird Odds</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setStep(2)}
+                        className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors"
+                    >
+                        Back
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {isSubmitting ? (
+                            'Creating...'
+                        ) : (
+                            <>
+                                <TrendingUp className="w-5 h-5" />
+                                Place Bet
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                <button
+                    onClick={handleShare}
+                    className="w-full bg-surface border border-darkGray hover:border-primary/30 text-textPrimary font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                    <Share2 className="w-4 h-4" />
+                    Share Prediction
+                </button>
             </div>
+                    )}
         </div>
+            </div >
+        </div >
     );
 }

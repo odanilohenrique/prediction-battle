@@ -27,50 +27,85 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // For MVP, checking if prediction exists is complex without a secondary index in Redis.
-        // We'll skip the check for now or implement a basic scan if critical.
-        // For speed: Create new prediction each time (or client handles dedup).
+        // Check for existing active prediction for this cast + metric + target
+        // We need to scan/filter bets (not efficient but okay for MVP).
+        // Ideally we'd have a secondary index `pred:{castHash}:{metric}:{target}`
 
-        const betId = `pred_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        const now = Date.now();
-        const expiresAt = now + (24 * 60 * 60 * 1000); // 24h default
+        const allBets = await store.getBets();
+        const existingBet = allBets.find(b =>
+            b.castHash === castHash &&
+            b.type === metric &&
+            b.target === targetValue &&
+            b.status === 'active'
+        );
 
-        const bet: Bet = {
-            id: betId,
-            username: castAuthor || 'unknown', // Mapping castAuthor to username field
-            type: metric, // Mapping metric to type
-            target: targetValue, // Mapping targetValue to target
-            timeframe: '24h',
-            minBet: 0.05, // Defaults
-            maxBet: 100, // Defaults
-            createdAt: now,
-            expiresAt,
-            status: 'active',
-            totalPot: betAmount,
-            participantCount: 1,
-            participants: {
-                yes: [],
-                no: [],
-            },
-            // specific fields
-            castHash,
-            castAuthor,
-            castText,
-            initialValue: initialValue || 0
-        };
+        let bet: Bet;
+        let betId: string;
 
-        // Add the initial participant
-        const participant: BetParticipant = {
-            userId,
-            choice,
-            amount: betAmount,
-            timestamp: now
-        };
+        if (existingBet) {
+            // JOIN EXISTING
+            bet = existingBet;
+            betId = bet.id;
 
-        if (choice === 'yes') {
-            bet.participants.yes.push(participant);
+            // Add participant to existing bet
+            const participant: BetParticipant = {
+                userId,
+                choice,
+                amount: betAmount,
+                timestamp: Date.now()
+            };
+
+            if (choice === 'yes') {
+                bet.participants.yes.push(participant);
+            } else {
+                bet.participants.no.push(participant);
+            }
+
+            // Update totals
+            bet.totalPot += betAmount;
+            bet.participantCount += 1;
+
         } else {
-            bet.participants.no.push(participant);
+            // CREATE NEW
+            betId = `pred_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const now = Date.now();
+            const expiresAt = now + (24 * 60 * 60 * 1000); // 24h default
+
+            bet = {
+                id: betId,
+                username: castAuthor || 'unknown',
+                type: metric,
+                target: targetValue,
+                timeframe: '24h',
+                minBet: 0.05,
+                maxBet: 100,
+                createdAt: now,
+                expiresAt,
+                status: 'active',
+                totalPot: betAmount,
+                participantCount: 1,
+                participants: {
+                    yes: [],
+                    no: [],
+                },
+                castHash,
+                castAuthor,
+                castText,
+                initialValue: initialValue || 0
+            };
+
+            const participant: BetParticipant = {
+                userId,
+                choice,
+                amount: betAmount,
+                timestamp: now
+            };
+
+            if (choice === 'yes') {
+                bet.participants.yes.push(participant);
+            } else {
+                bet.participants.no.push(participant);
+            }
         }
 
         // Save to Redis
