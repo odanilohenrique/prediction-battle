@@ -14,12 +14,25 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { disconnect } = useDisconnect();
     const [farcasterUser, setFarcasterUser] = useState<{ username: string; fid: number } | null>(null);
 
-    // Find connectors (prioritize injected for Rabby/MetaMask)
+    // Improved connector finding logic
     const injectedConnector = connectors.find((c) => c.id === 'injected');
     const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
-    const targetConnector = injectedConnector || coinbaseConnector || connectors[0];
+    const metaMaskConnector = connectors.find((c) => c.id === 'metaMask'); // Add explicit MetaMask check
+
+    // Priority: Injected > MetaMask > Coinbase > Any
+    const targetConnector = injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
+
+    useEffect(() => {
+        if (!targetConnector && connectors.length > 0) {
+            // Force re-render if connectors load late
+        }
+    }, [connectors]);
 
     const handleConnectWallet = () => {
+        if (!targetConnector) {
+            alert('No wallet connectors found. Please install Rabby or MetaMask.');
+            return;
+        }
         try {
             connect({ connector: targetConnector });
             onConnect?.();

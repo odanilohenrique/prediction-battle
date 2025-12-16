@@ -240,10 +240,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                     <div className="flex justify-between items-end mb-1 px-1">
                         <span className="text-green-400 font-bold text-lg">
-                            {totalYes > 0 ? (bet.totalPot / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                            {totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(1) : '2.0'}x
                         </span>
                         <span className="text-red-400 font-bold text-lg">
-                            {totalNo > 0 ? (bet.totalPot / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                            {totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(1) : '2.0'}x
                         </span>
                     </div>
 
@@ -355,10 +355,28 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                 {/* Summary */}
                                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
-                                    <p className="text-sm text-textPrimary">
+                                    <p className="text-sm text-textPrimary mb-2">
                                         Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
                                         <span className="font-bold">{choice === 'yes' ? 'YES' : 'NO'}</span>
                                     </p>
+
+                                    <div className="flex justify-between items-center border-t border-primary/20 pt-2 mt-2">
+                                        <span className="text-sm text-textSecondary">Potential Payout (Est.):</span>
+                                        <div className="text-right">
+                                            <span className="block text-green-400 font-bold">
+                                                $ {(
+                                                    amount * (
+                                                        choice === 'yes'
+                                                            ? (totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)) : 2.0)
+                                                            : (totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)) : 2.0)
+                                                    )
+                                                ).toFixed(2)}
+                                            </span>
+                                            <span className="text-xs text-textSecondary">
+                                                Includes 20% House Fee
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Submit */}
