@@ -235,9 +235,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-lg border border-yellow-500/20">
                     <span className="text-yellow-500 font-bold text-xs uppercase">Est. Returns:</span>
                     <span className="text-yellow-500 font-bold text-sm">
-                        Yes: {totalYes > 0 ? (totalPot / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                        Yes: {totalYes > 0 ? (bet.totalPot / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
                         {' / '}
-                        No: {totalNo > 0 ? (totalPot / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                        No: {totalNo > 0 ? (bet.totalPot / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
                     </span>
                 </div>
 
