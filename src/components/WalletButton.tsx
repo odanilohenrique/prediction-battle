@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Wallet, LogIn, LogOut, User } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 
