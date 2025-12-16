@@ -277,7 +277,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                     </span>
                                     {' '}{targetValue} {metric} in 24 hours
                                 </div>
-                                
+
                                 {/* Potential Return / Odds Display */}
                                 <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
                                     <div className="text-sm text-textSecondary">
@@ -293,42 +293,41 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                     </div>
                                 </div>
                             </div>
-                </div>
 
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setStep(2)}
-                        className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors"
-                    >
-                        Back
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={isSubmitting}
-                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {isSubmitting ? (
-                            'Creating...'
-                        ) : (
-                            <>
-                                <TrendingUp className="w-5 h-5" />
-                                Place Bet
-                            </>
-                        )}
-                    </button>
-                </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setStep(2)}
+                                    className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? (
+                                        'Creating...'
+                                    ) : (
+                                        <>
+                                            <TrendingUp className="w-5 h-5" />
+                                            Place Bet
+                                        </>
+                                    )}
+                                </button>
+                            </div>
 
-                <button
-                    onClick={handleShare}
-                    className="w-full bg-surface border border-darkGray hover:border-primary/30 text-textPrimary font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                    <Share2 className="w-4 h-4" />
-                    Share Prediction
-                </button>
-            </div>
+                            <button
+                                onClick={handleShare}
+                                className="w-full bg-surface border border-darkGray hover:border-primary/30 text-textPrimary font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                            >
+                                <Share2 className="w-4 h-4" />
+                                Share Prediction
+                            </button>
+                        </div>
                     )}
-            </div>
-        </div >
+                </div>
+            </div >
         </div >
     );
 }
