@@ -26,7 +26,7 @@ export default function PayoutsPage() {
 
     async function fetchPayouts() {
         try {
-            const res = await fetch('/api/admin/payouts');
+            const res = await fetch('/api/admin/payouts', { cache: 'no-store' });
             const data = await res.json();
             if (data.success) {
                 setPayouts(data.payouts);
@@ -196,10 +196,10 @@ export default function PayoutsPage() {
 
                                 <h4 className="text-sm font-bold text-textSecondary uppercase mb-2">Winners to Pay</h4>
                                 <div className="space-y-2">
-                                    {winners.filter(w => !w.paid).length === 0 ? (
-                                        <p className="text-sm text-textSecondary italic">All winners paid.</p>
+                                    {winners.filter(w => !w.paid && w.userId !== 'demo_user').length === 0 ? (
+                                        <p className="text-sm text-textSecondary italic">All eligible winners paid.</p>
                                     ) : (
-                                        winners.filter(w => !w.paid).map((winner, idx) => {
+                                        winners.filter(w => !w.paid && w.userId !== 'demo_user').map((winner, idx) => {
                                             const share = winner.amount / totalWinningStake;
                                             const payoutAmount = share * winnersPot;
 

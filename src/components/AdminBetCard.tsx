@@ -232,24 +232,36 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     <span className="text-textSecondary">predictors</span>
                 </div>
 
-                <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 rounded-lg border border-yellow-500/20">
-                    <span className="text-yellow-500 font-bold text-xs uppercase">Est. Returns:</span>
-                    <span className="text-yellow-500 font-bold text-sm">
-                        Yes: {totalYes > 0 ? (bet.totalPot / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
-                        {' / '}
-                        No: {totalNo > 0 ? (bet.totalPot / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
-                    </span>
-                </div>
+                {/* Dynamic Odds & Progress Section */}
+                <div className="mb-4">
+                    <div className="text-center mb-2">
+                        <span className="text-textSecondary text-xs uppercase tracking-wider font-semibold">est. returns</span>
+                    </div>
 
+                    <div className="flex justify-between items-end mb-1 px-1">
+                        <span className="text-green-400 font-bold text-lg">
+                            {totalYes > 0 ? (bet.totalPot / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                        </span>
+                        <span className="text-red-400 font-bold text-lg">
+                            {totalNo > 0 ? (bet.totalPot / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 1)).toFixed(1) : '2.0'}x
+                        </span>
+                    </div>
 
-                {/* Progress Bar */}
-                <div className="w-full h-2 bg-darkGray rounded-full mb-4 overflow-hidden flex">
-                    <div style={{ width: `${yesPercent}%` }} className="h-full bg-green-500/50" />
-                    <div style={{ width: `${noPercent}%` }} className="h-full bg-red-500/50" />
-                </div>
-                <div className="flex justify-between text-xs text-textSecondary mb-4">
-                    <span>YES: {Math.round(yesPercent)}% ({totalYes})</span>
-                    <span>NO: {Math.round(noPercent)}% ({totalNo})</span>
+                    <div className="w-full h-4 bg-darkGray rounded-full overflow-hidden flex shadow-inner">
+                        <div
+                            style={{ width: `${yesPercent}%` }}
+                            className="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500 ease-out"
+                        />
+                        <div
+                            style={{ width: `${noPercent}%` }}
+                            className="h-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500 ease-out"
+                        />
+                    </div>
+
+                    <div className="flex justify-between text-xs text-textSecondary mt-1 font-medium">
+                        <span>YES: {Math.round(yesPercent)}% ({totalYes})</span>
+                        <span>NO: {Math.round(noPercent)}% ({totalNo})</span>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between">
