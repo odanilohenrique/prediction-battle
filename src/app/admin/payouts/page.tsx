@@ -76,6 +76,7 @@ export default function PayoutsPage() {
                 }],
                 functionName: 'transfer',
                 args: [userAddress as `0x${string}`, amountInWei],
+                gas: BigInt(200000), // Manual gas limit to prevent simulation 500 errors
             });
 
             alert(`✅ Transaction Sent! Hash: ${hash}`);
