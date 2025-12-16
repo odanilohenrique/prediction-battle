@@ -15,7 +15,8 @@ type BetType =
     | 'quotes'
     | 'reply_marathon'
     | 'thread_length'
-    | 'controversial';
+    | 'controversial'
+    | 'custom_text'; // Flexible custom prediction
 
 type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d';
 
@@ -29,6 +30,7 @@ const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabe
     reply_marathon: { label: 'Reply Marathon', icon: '💬', targetLabel: 'replies', description: 'Total replies posted' },
     thread_length: { label: 'Thread Master', icon: '🧵', targetLabel: 'posts in thread', description: 'Longest thread length' },
     controversial: { label: 'Drama Alert 🌶️', icon: '🌶️', targetLabel: 'controversy score', description: 'Most replies/likes ratio' },
+    custom_text: { label: '✍️ Custom Prediction', icon: '✍️', targetLabel: '', description: 'Write any question you want!' },
 };
 
 const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }> = {
@@ -55,6 +57,8 @@ export default function CreateBet() {
         minBet: 0.05,
         maxBet: 10,
         rules: '',
+        // Custom prediction text (for custom_text type)
+        customQuestion: '',
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
@@ -197,25 +201,48 @@ export default function CreateBet() {
                     </div>
                 </div>
 
-                {/* Target Value & Timeframe */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Target Value */}
+                {/* Custom Question (only for custom_text type) */}
+                {formData.betType === 'custom_text' && (
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            Target Value
+                            <div className="flex items-center gap-2">
+                                ✍️ Custom Prediction Question
+                            </div>
                         </label>
-                        <input
-                            type="number"
-                            value={formData.targetValue}
-                            onChange={(e) => setFormData({ ...formData, targetValue: parseInt(e.target.value) || 0 })}
-                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
-                            min={1}
-                            required
+                        <textarea
+                            value={formData.customQuestion}
+                            onChange={(e) => setFormData({ ...formData, customQuestion: e.target.value })}
+                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px] text-lg"
+                            placeholder="e.g., Jesse Pollak vs dwr - who gets more engagement this week?"
+                            required={formData.betType === 'custom_text'}
                         />
-                        <p className="text-sm text-primary mt-2 font-medium">
-                            {formData.targetValue}+ {currentBetType.targetLabel}
+                        <p className="text-xs text-textSecondary mt-2">
+                            Write your custom prediction question. Users will bet YES or NO.
                         </p>
                     </div>
+                )}
+
+                {/* Target Value & Timeframe */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Target Value - hide for custom_text */}
+                    {formData.betType !== 'custom_text' && (
+                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                            <label className="block text-sm font-medium text-textPrimary mb-3">
+                                Target Value
+                            </label>
+                            <input
+                                type="number"
+                                value={formData.targetValue}
+                                onChange={(e) => setFormData({ ...formData, targetValue: parseInt(e.target.value) || 0 })}
+                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
+                                min={1}
+                                required={formData.betType !== 'custom_text'}
+                            />
+                            <p className="text-sm text-primary mt-2 font-medium">
+                                {formData.targetValue}+ {currentBetType.targetLabel}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Timeframe */}
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
