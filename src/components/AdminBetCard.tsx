@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Target, DollarSign, Users, Clock } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 
 interface AdminBet {
     id: string;
     username: string;
+    displayName?: string;
+    pfpUrl?: string;
+    fid?: number;
     type: string;
     target: number;
     timeframe: string;
@@ -20,6 +23,7 @@ interface AdminBet {
         yes: any[];
         no: any[];
     };
+    rules?: string;
 }
 
 interface AdminBetCardProps {
@@ -31,6 +35,7 @@ const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [showModal, setShowModal] = useState(false);
+    const [showRulesModal, setShowRulesModal] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(0.1);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -201,35 +206,54 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6 hover:border-primary/50 transition-all">
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Target className="w-6 h-6 text-primary" />
-                        </div>
+                        {/* Farcaster Avatar */}
+                        {bet.pfpUrl ? (
+                            <img
+                                src={bet.pfpUrl}
+                                alt={bet.username}
+                                className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
+                            />
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                                <Target className="w-6 h-6 text-primary" />
+                            </div>
+                        )}
                         <div>
                             <h3 className="font-bold text-textPrimary text-lg">
-                                @{bet.username}
+                                {bet.displayName || `@${bet.username}`}
                             </h3>
                             <p className="text-sm text-textSecondary">
-                                {getBetTypeLabel()}
+                                @{bet.username} • {getBetTypeLabel()}
                             </p>
                         </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col gap-2 items-end">
                         <div className="flex items-center gap-1 text-textSecondary text-sm">
                             <Clock className="w-4 h-4" />
                             <span>{formatTimeRemaining()}</span>
                         </div>
+                        {/* Rules Button */}
+                        <button
+                            onClick={() => setShowRulesModal(true)}
+                            className="flex items-center gap-1 text-xs text-primary hover:text-secondary transition-colors"
+                        >
+                            <ScrollText className="w-3 h-3" />
+                            Rules
+                        </button>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    <DollarSign className="w-4 h-4 text-primary" />
-                    <span className="text-textPrimary font-medium">${bet.totalPot.toFixed(2)}</span>
-                    <span className="text-textSecondary">pool</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4 text-textSecondary" />
-                    <span className="text-textPrimary font-medium">{bet.participantCount}</span>
-                    <span className="text-textSecondary">predictors</span>
+                <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                        <span className="text-textPrimary font-medium">${bet.totalPot.toFixed(2)}</span>
+                        <span className="text-textSecondary">pool</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-textSecondary" />
+                        <span className="text-textPrimary font-medium">{bet.participantCount}</span>
+                        <span className="text-textSecondary">predictors</span>
+                    </div>
                 </div>
 
                 {/* Dynamic Odds & Progress Section */}
@@ -409,6 +433,46 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
                 )
             }
+
+            {/* Rules Modal */}
+            {showRulesModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
+                        <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
+                            <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">
+                                <ScrollText className="w-5 h-5 text-primary" />
+                                Verification Rules
+                            </h2>
+                            <button
+                                onClick={() => setShowRulesModal(false)}
+                                className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
+                            >
+                                <X className="w-5 h-5 text-textSecondary" />
+                            </button>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="bg-darkGray/30 rounded-xl p-4 mb-4">
+                                <h3 className="font-bold text-textPrimary mb-2">Bet: @{bet.username}</h3>
+                                <p className="text-sm text-textSecondary">
+                                    Target: {bet.target} ({bet.type}) in {bet.timeframe}
+                                </p>
+                            </div>
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-bold text-textSecondary uppercase">How This Bet Is Verified:</h4>
+                                <p className="text-textPrimary whitespace-pre-wrap">
+                                    {bet.rules || 'This bet is verified via Neynar API at the deadline. Engagement metrics are checked automatically.'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowRulesModal(false)}
+                                className="w-full mt-6 bg-primary hover:bg-secondary text-background font-bold py-3 rounded-xl transition-all"
+                            >
+                                Got it!
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

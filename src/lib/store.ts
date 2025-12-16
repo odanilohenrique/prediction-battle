@@ -12,6 +12,9 @@ export interface BetParticipant {
 export interface Bet {
     id: string;
     username: string;
+    displayName?: string;  // Farcaster display name (e.g., "Dan Romero")
+    pfpUrl?: string;       // Profile picture URL from Neynar
+    fid?: number;          // Farcaster ID for verification
     type: string;
     target: number;
     timeframe: string;
@@ -26,6 +29,7 @@ export interface Bet {
         yes: BetParticipant[];
         no: BetParticipant[];
     };
+    rules?: string;        // Verification rules text
     // Optional fields for user-created viral bets (specific cast)
     castHash?: string;
     castAuthor?: string;

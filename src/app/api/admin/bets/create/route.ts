@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store, Bet } from '@/lib/store';
+import { getUserByUsername } from '@/lib/neynar';
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
             timeframe,
             minBet,
             maxBet,
+            rules,
         } = body;
 
         // Validate input
@@ -21,6 +23,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Fetch Farcaster profile data
+        const userData = await getUserByUsername(username);
+
         // Create bet ID
         const betId = `admin_bet_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         const now = Date.now();
@@ -30,7 +35,10 @@ export async function POST(request: NextRequest) {
 
         const bet: Bet = {
             id: betId,
-            username,
+            username: userData?.username || username,
+            displayName: userData?.displayName,
+            pfpUrl: userData?.pfpUrl,
+            fid: userData?.fid,
             type: betType,
             target: targetValue,
             timeframe,
@@ -45,6 +53,7 @@ export async function POST(request: NextRequest) {
                 yes: [],
                 no: [],
             },
+            rules: rules || 'Verified via Neynar API at deadline.',
         };
 
         // Save to Redis
@@ -63,3 +72,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

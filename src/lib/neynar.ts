@@ -113,3 +113,45 @@ export async function getCastStats(hash: string): Promise<{
         replies: cast.reactions.replies_count,
     };
 }
+
+/**
+ * Get user profile by Farcaster username
+ */
+export async function getUserByUsername(username: string): Promise<{
+    username: string;
+    displayName: string;
+    pfpUrl: string;
+    fid: number;
+} | null> {
+    try {
+        // Remove @ if present
+        const cleanUsername = username.replace(/^@/, '');
+
+        const response = await fetch(
+            `${NEYNAR_API_BASE}/farcaster/user/by_username?username=${cleanUsername}`,
+            {
+                headers: {
+                    'api_key': NEYNAR_API_KEY,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            console.error(`Neynar API error for username ${cleanUsername}: ${response.statusText}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const user = data.user;
+
+        return {
+            username: user.username,
+            displayName: user.display_name || user.username,
+            pfpUrl: user.pfp_url || '',
+            fid: user.fid,
+        };
+    } catch (error) {
+        console.error('Error fetching user by username:', error);
+        return null;
+    }
+}

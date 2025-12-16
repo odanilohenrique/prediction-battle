@@ -19,6 +19,7 @@ export default function CreateBet() {
         timeframe: '24h' as Timeframe,
         minBet: 0.05,
         maxBet: 10,
+        rules: '',
     });
 
     const betTypeLabels = {
@@ -113,8 +114,8 @@ export default function CreateBet() {
                                 type="button"
                                 onClick={() => setFormData({ ...formData, betType: type })}
                                 className={`p-4 rounded-xl border-2 transition-all ${formData.betType === type
-                                        ? 'border-primary bg-primary/10'
-                                        : 'border-darkGray hover:border-darkGray/50'
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-darkGray hover:border-darkGray/50'
                                     }`}
                             >
                                 <div className="text-3xl mb-2">{betTypeLabels[type].icon}</div>
@@ -161,8 +162,8 @@ export default function CreateBet() {
                                 type="button"
                                 onClick={() => setFormData({ ...formData, timeframe: '24h' })}
                                 className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === '24h'
-                                        ? 'border-primary bg-primary/10'
-                                        : 'border-darkGray hover:border-darkGray/50'
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-darkGray hover:border-darkGray/50'
                                     }`}
                             >
                                 <div className="text-sm font-medium text-textPrimary">24 Horas</div>
@@ -171,8 +172,8 @@ export default function CreateBet() {
                                 type="button"
                                 onClick={() => setFormData({ ...formData, timeframe: '7d' })}
                                 className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === '7d'
-                                        ? 'border-primary bg-primary/10'
-                                        : 'border-darkGray hover:border-darkGray/50'
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-darkGray hover:border-darkGray/50'
                                     }`}
                             >
                                 <div className="text-sm font-medium text-textPrimary">7 Dias</div>
@@ -218,6 +219,24 @@ export default function CreateBet() {
                             required
                         />
                     </div>
+                </div>
+
+                {/* Rules */}
+                <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                            📜 Regras de Verificação
+                        </div>
+                    </label>
+                    <textarea
+                        value={formData.rules}
+                        onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
+                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px]"
+                        placeholder="Ex: Verificado via Neynar API às 23:59 UTC. Contagem de posts desde a criação da aposta."
+                    />
+                    <p className="text-xs text-textSecondary mt-2">
+                        Descreva como a aposta será verificada. Deixe em branco para regras padrão.
+                    </p>
                 </div>
 
                 {/* Preview */}
