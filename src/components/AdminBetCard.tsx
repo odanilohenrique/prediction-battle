@@ -240,10 +240,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                     <div className="flex justify-between items-end mb-1 px-1">
                         <span className="text-green-400 font-bold text-lg">
-                            {totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(1) : '2.0'}x
+                            {totalYes > 0 ? ((bet.totalPot * 0.8) / (bet.participants.yes.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(3) : '2.000'}x
                         </span>
                         <span className="text-red-400 font-bold text-lg">
-                            {totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(1) : '2.0'}x
+                            {totalNo > 0 ? ((bet.totalPot * 0.8) / (bet.participants.no.reduce((a, b) => a + b.amount, 0) || 0.0001)).toFixed(3) : '2.000'}x
                         </span>
                     </div>
 

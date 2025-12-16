@@ -9,13 +9,16 @@ import { Bet } from '@/lib/store';
 export default function PayoutsPage() {
     const [payouts, setPayouts] = useState<Bet[]>([]);
     const [loading, setLoading] = useState(true);
-    const { address, chainId } = useAccount(); // Added chainId
+    const [processing, setProcessing] = useState<Record<string, boolean>>({}); // Key: `${betId}-${userId}`
+    const [justPaid, setJustPaid] = useState<Record<string, boolean>>({}); // Locally hide paid users
+
+    const { address, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
-    const { switchChainAsync } = useSwitchChain(); // Added switchChain
+    const { switchChainAsync } = useSwitchChain();
 
     // USDC Address (Same as in AdminBetCard)
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
-    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532; // Added Expected Chain ID
+    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532;
     const USDC_ADDRESS = IS_MAINNET
         ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
@@ -45,7 +48,7 @@ export default function PayoutsPage() {
             const res = await fetch('/api/check', { method: 'POST' });
             const data = await res.json();
             alert(`Sync Complete! Checked ${data.checked} bets.`);
-            fetchPayouts(); // Refresh list
+            fetchPayouts();
         } catch (error) {
             console.error('Sync failed:', error);
             alert('Failed to sync payouts');
@@ -54,6 +57,9 @@ export default function PayoutsPage() {
     }
 
     const handlePayWinner = async (betId: string, userAddress: string, amount: number) => {
+        const key = `${betId}-${userAddress}`;
+        if (processing[key]) return;
+
         if (!userAddress || userAddress === 'demo_user') {
             alert('Cannot pay demo user or invalid address.');
             return;
@@ -78,6 +84,8 @@ export default function PayoutsPage() {
 
             if (!confirm(`Send ${amount.toFixed(2)} USDC to ${userAddress}?`)) return;
 
+            setProcessing(prev => ({ ...prev, [key]: true }));
+
             const amountInWei = parseUnits(amount.toString(), 6);
 
             const hash = await writeContractAsync({
@@ -94,10 +102,10 @@ export default function PayoutsPage() {
                 }],
                 functionName: 'transfer',
                 args: [userAddress as `0x${string}`, amountInWei],
-                gas: BigInt(200000), // Manual gas limit to prevent simulation 500 errors
+                gas: BigInt(200000),
             });
 
-            alert(`✅ Transaction Sent! Hash: ${hash}`);
+            console.log(`Transaction Sent! Hash: ${hash}`);
 
             // Mark as paid in backend
             try {
@@ -111,9 +119,9 @@ export default function PayoutsPage() {
                     })
                 });
 
-                // Refresh list locally is complex because we need to update nested participants.
-                // Easiest is to just re-fetch.
-                fetchPayouts();
+                // Optimistically hide the user
+                setJustPaid(prev => ({ ...prev, [key]: true }));
+                fetchPayouts(); // Background refresh
 
             } catch (err) {
                 console.error("Failed to mark as paid in DB", err);
@@ -123,6 +131,8 @@ export default function PayoutsPage() {
         } catch (error) {
             console.error('Payment failed:', error);
             alert('❌ Payment Failed: ' + (error as Error).message);
+        } finally {
+            setProcessing(prev => ({ ...prev, [key]: false }));
         }
     };
 
@@ -160,7 +170,7 @@ export default function PayoutsPage() {
             ) : (
                 <div className="grid gap-6">
                     {payouts.map((bet) => {
-                        const result = bet.result || 'no'; // Default to no if undefined (shouldn't happen here)
+                        const result = bet.result || 'no';
                         const winners = result === 'yes' ? bet.participants.yes : bet.participants.no;
                         const totalPot = bet.totalPot;
                         const winnersPot = totalPot * 0.8;
@@ -196,12 +206,13 @@ export default function PayoutsPage() {
 
                                 <h4 className="text-sm font-bold text-textSecondary uppercase mb-2">Winners to Pay</h4>
                                 <div className="space-y-2">
-                                    {winners.filter(w => !w.paid && w.userId !== 'demo_user').length === 0 ? (
+                                    {winners.filter(w => !w.paid && w.userId !== 'demo_user' && !justPaid[`${bet.id}-${w.userId}`]).length === 0 ? (
                                         <p className="text-sm text-textSecondary italic">All eligible winners paid.</p>
                                     ) : (
-                                        winners.filter(w => !w.paid && w.userId !== 'demo_user').map((winner, idx) => {
+                                        winners.filter(w => !w.paid && w.userId !== 'demo_user' && !justPaid[`${bet.id}-${w.userId}`]).map((winner, idx) => {
                                             const share = winner.amount / totalWinningStake;
                                             const payoutAmount = share * winnersPot;
+                                            const isProcessing = processing[`${bet.id}-${winner.userId}`];
 
                                             return (
                                                 <div key={idx} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-darkGray/50">
@@ -224,9 +235,24 @@ export default function PayoutsPage() {
                                                         </div>
                                                         <button
                                                             onClick={() => handlePayWinner(bet.id, winner.userId, payoutAmount)}
-                                                            className="bg-primary hover:bg-secondary text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1"
+                                                            disabled={isProcessing}
+                                                            className={`
+                                                                font-bold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1
+                                                                ${isProcessing
+                                                                    ? 'bg-darkGray text-textSecondary cursor-not-allowed'
+                                                                    : 'bg-primary hover:bg-secondary text-black'}
+                                                            `}
                                                         >
-                                                            Pay <ExternalLink className="w-3 h-3" />
+                                                            {isProcessing ? (
+                                                                <>
+                                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                                    Processing...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    Pay <ExternalLink className="w-3 h-3" />
+                                                                </>
+                                                            )}
                                                         </button>
                                                     </div>
                                                 </div>
