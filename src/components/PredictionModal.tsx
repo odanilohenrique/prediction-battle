@@ -266,23 +266,33 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 ))}
                             </div>
 
-                            {' '}{targetValue} {metric} in 24 hours
-                        </div>
+                            {/* Summary */}
+                            <div className="bg-darkGray rounded-xl p-4 space-y-2">
+                                <div className="text-sm font-medium text-textSecondary">Summary</div>
+                                <div className="text-textPrimary">
+                                    Betting <span className="text-primary font-bold">{betAmount} USDC</span>
+                                    {' '}that this cast will{' '}
+                                    <span className="font-bold">
+                                        {choice === 'yes' ? 'HIT' : 'NOT HIT'}
+                                    </span>
+                                    {' '}{targetValue} {metric} in 24 hours
+                                </div>
                                 
                                 {/* Potential Return / Odds Display */}
-                    <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
-                        <div className="text-sm text-textSecondary">
-                            Potential Return (Est.)
-                        </div>
-                        <div className="text-right">
-                            <div className="text-xl font-bold text-green-500">
-                                ${(betAmount * 2).toFixed(2)}
+                                <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
+                                    <div className="text-sm text-textSecondary">
+                                        Potential Return (Est.)
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xl font-bold text-green-500">
+                                            ${(betAmount * 2).toFixed(2)}
+                                        </div>
+                                        <div className="text-xs text-textSecondary">
+                                            (~2.0x Multiplier) - <span className="text-primary italic">Early Bird Odds</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-xs text-textSecondary">
-                                (~2.0x Multiplier) - <span className="text-primary italic">Early Bird Odds</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="flex gap-3">
@@ -317,8 +327,8 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                 </button>
             </div>
                     )}
-        </div>
-            </div >
+            </div>
+        </div >
         </div >
     );
 }
