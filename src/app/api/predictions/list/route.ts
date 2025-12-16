@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
                 timestamp: userBet.timestamp,
                 status: betStatus,
                 payout,
+                paid: userBet.paid,
+                txHash: userBet.txHash
             });
         }
 

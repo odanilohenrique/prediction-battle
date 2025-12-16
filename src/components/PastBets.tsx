@@ -8,6 +8,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 export default function PastBets() {
     const [bets, setBets] = useState<UserBet[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'completed' | 'payouts'>('completed');
 
     useEffect(() => {
         fetchPastBets();
@@ -58,20 +59,26 @@ export default function PastBets() {
         );
     }
 
+    // Filter logic
     const wonBets = bets.filter((b) => b.status === 'won');
     const lostBets = bets.filter((b) => b.status === 'lost');
     const totalWinnings = wonBets.reduce((sum, b) => sum + (b.payout || 0), 0);
     const totalLost = lostBets.reduce((sum, b) => sum + b.amount, 0);
     const netProfit = totalWinnings - totalLost;
 
+    // Tab content
+    const displayedBets = activeTab === 'completed'
+        ? bets
+        : bets.filter(b => b.paid === true); // Payouts tab
+
     return (
         <div>
+            {/* Header / Stats */}
             <div className="mb-6">
                 <h2 className="text-xl font-bold text-textPrimary mb-4">
                     Your Prediction History
                 </h2>
 
-                {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-surface border border-darkGray rounded-xl p-4">
                         <div className="text-sm text-textSecondary mb-1">Total Predictions</div>
@@ -104,36 +111,79 @@ export default function PastBets() {
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Net Profit/Loss */}
-                <div
-                    className={`p-4 rounded-xl border ${netProfit >= 0
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-red-500/10 border-red-500/30'
+            {/* Sub-Tabs */}
+            <div className="flex gap-4 border-b border-white/10 mb-6">
+                <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'completed'
+                        ? 'text-primary'
+                        : 'text-textSecondary hover:text-textPrimary'
                         }`}
                 >
-                    <div className="text-sm text-textSecondary mb-1">Net Profit/Loss</div>
-                    <div
-                        className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'
-                            }`}
-                    >
-                        {netProfit >= 0 ? '+' : ''}${netProfit.toFixed(2)}
-                    </div>
-                </div>
+                    Completed Predictions
+                    {activeTab === 'completed' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                </button>
+                <button
+                    onClick={() => setActiveTab('payouts')}
+                    className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'payouts'
+                        ? 'text-primary'
+                        : 'text-textSecondary hover:text-textPrimary'
+                        }`}
+                >
+                    Received Payouts
+                    {activeTab === 'payouts' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                    )}
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bets.map((bet) => (
-                    <BetCard
-                        key={bet.predictionId}
-                        prediction={bet.prediction}
-                        userChoice={bet.choice}
-                        userAmount={bet.amount}
-                        status={bet.status}
-                        payout={bet.payout}
-                    />
-                ))}
-            </div>
+            {/* List */}
+            {displayedBets.length === 0 ? (
+                <div className="text-center py-12 bg-surface/30 rounded-xl border border-dashed border-darkGray">
+                    <p className="text-textSecondary">
+                        {activeTab === 'payouts'
+                            ? "No payouts received yet. Win some bets!"
+                            : "No predictions found."}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {displayedBets.map((bet) => (
+                        <div key={bet.predictionId} className="relative">
+                            <BetCard
+                                prediction={bet.prediction}
+                                userChoice={bet.choice}
+                                userAmount={bet.amount}
+                                status={bet.status}
+                                payout={bet.payout}
+                            />
+                            {/* Payout Badge Overlay for Payouts Tab */}
+                            {activeTab === 'payouts' && (
+                                <div className="absolute top-2 right-2 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded shadow-lg flex items-center gap-1">
+                                    <TrendingUp className="w-3 h-3" />
+                                    PAID
+                                </div>
+                            )}
+                            {activeTab === 'payouts' && bet.txHash && (
+                                <div className="mt-2 text-right">
+                                    <a
+                                        href={`https://sepolia.basescan.org/tx/${bet.txHash}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-primary underline hover:text-secondary"
+                                    >
+                                        View Transaction
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

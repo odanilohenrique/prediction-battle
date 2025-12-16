@@ -5,6 +5,8 @@ export interface BetParticipant {
     choice: 'yes' | 'no';
     amount: number;
     timestamp: number;
+    paid?: boolean; // Track if user has been paid
+    txHash?: string; // Track payout transaction hash
 }
 
 export interface Bet {

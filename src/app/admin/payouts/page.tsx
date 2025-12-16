@@ -53,7 +53,7 @@ export default function PayoutsPage() {
         }
     }
 
-    const handlePayWinner = async (userAddress: string, amount: number) => {
+    const handlePayWinner = async (betId: string, userAddress: string, amount: number) => {
         if (!userAddress || userAddress === 'demo_user') {
             alert('Cannot pay demo user or invalid address.');
             return;
@@ -98,8 +98,28 @@ export default function PayoutsPage() {
             });
 
             alert(`✅ Transaction Sent! Hash: ${hash}`);
-            // In a real app, we would now update the backend to mark this specific payout as 'paid'
-            // For MVP, we just show the hash.
+
+            // Mark as paid in backend
+            try {
+                await fetch('/api/admin/payouts/mark-paid', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        betId: betId,
+                        userId: userAddress,
+                        txHash: hash
+                    })
+                });
+
+                // Refresh list locally is complex because we need to update nested participants.
+                // Easiest is to just re-fetch.
+                fetchPayouts();
+
+            } catch (err) {
+                console.error("Failed to mark as paid in DB", err);
+                alert("Transaction sent but failed to update database. Please check manually.");
+            }
+
         } catch (error) {
             console.error('Payment failed:', error);
             alert('❌ Payment Failed: ' + (error as Error).message);
@@ -176,10 +196,10 @@ export default function PayoutsPage() {
 
                                 <h4 className="text-sm font-bold text-textSecondary uppercase mb-2">Winners to Pay</h4>
                                 <div className="space-y-2">
-                                    {winners.length === 0 ? (
-                                        <p className="text-sm text-textSecondary italic">No winners for this result.</p>
+                                    {winners.filter(w => !w.paid).length === 0 ? (
+                                        <p className="text-sm text-textSecondary italic">All winners paid.</p>
                                     ) : (
-                                        winners.map((winner, idx) => {
+                                        winners.filter(w => !w.paid).map((winner, idx) => {
                                             const share = winner.amount / totalWinningStake;
                                             const payoutAmount = share * winnersPot;
 
@@ -203,7 +223,7 @@ export default function PayoutsPage() {
                                                             </div>
                                                         </div>
                                                         <button
-                                                            onClick={() => handlePayWinner(winner.userId, payoutAmount)}
+                                                            onClick={() => handlePayWinner(bet.id, winner.userId, payoutAmount)}
                                                             className="bg-primary hover:bg-secondary text-black font-bold px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-1"
                                                         >
                                                             Pay <ExternalLink className="w-3 h-3" />

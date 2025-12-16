@@ -58,4 +58,6 @@ export interface UserBet {
     timestamp: number;
     status: 'pending' | 'won' | 'lost';
     payout?: number;
+    paid?: boolean;
+    txHash?: string;
 }
