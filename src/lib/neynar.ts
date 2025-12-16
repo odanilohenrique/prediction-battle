@@ -21,6 +21,10 @@ export async function getTrendingCasts(limit: number = 20): Promise<Cast[]> {
         );
 
         if (!response.ok) {
+            if (response.status === 402) {
+                console.warn('Neynar API Payment Required (Trending): Returning empty list.');
+                return [];
+            }
             throw new Error(`Neynar API error: ${response.statusText}`);
         }
 
@@ -137,6 +141,11 @@ export async function getUserByUsername(username: string): Promise<{
         );
 
         if (!response.ok) {
+            // Handle Payment Required (402) specifically
+            if (response.status === 402) {
+                console.warn('Neynar API Payment Required: Returning fallback/null data.');
+                return null;
+            }
             console.error(`Neynar API error for username ${cleanUsername}: ${response.statusText}`);
             return null;
         }

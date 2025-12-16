@@ -2,18 +2,53 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Target, Calendar, DollarSign, Users } from 'lucide-react';
+import { ArrowLeft, Target, Calendar, DollarSign, Users, Image, User } from 'lucide-react';
 import Link from 'next/link';
 
-type BetType = 'post_count' | 'likes_total' | 'followers_gain';
-type Timeframe = '24h' | '7d';
+// Extended bet types with viral options
+type BetType =
+    | 'post_count'
+    | 'likes_total'
+    | 'followers_gain'
+    | 'emoji_count'
+    | 'mentions'
+    | 'quotes'
+    | 'reply_marathon'
+    | 'thread_length'
+    | 'controversial';
+
+type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d';
+
+const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabel: string; description: string }> = {
+    post_count: { label: 'Number of Posts', icon: '📝', targetLabel: 'posts', description: 'Total new casts posted' },
+    likes_total: { label: 'Total Likes', icon: '❤️', targetLabel: 'likes', description: 'Combined likes on all casts' },
+    followers_gain: { label: 'Follower Gain', icon: '👥', targetLabel: 'new followers', description: 'New followers gained' },
+    emoji_count: { label: 'Emoji Mania 🔥', icon: '🔥', targetLabel: 'emojis', description: 'Total emojis used in casts' },
+    mentions: { label: '@ Mentions', icon: '@️', targetLabel: 'mentions', description: 'Times mentioned by others' },
+    quotes: { label: 'Quote King', icon: '💬', targetLabel: 'quotes', description: 'Times post was quoted' },
+    reply_marathon: { label: 'Reply Marathon', icon: '💬', targetLabel: 'replies', description: 'Total replies posted' },
+    thread_length: { label: 'Thread Master', icon: '🧵', targetLabel: 'posts in thread', description: 'Longest thread length' },
+    controversial: { label: 'Drama Alert 🌶️', icon: '🌶️', targetLabel: 'controversy score', description: 'Most replies/likes ratio' },
+};
+
+const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }> = {
+    '30m': { label: '30 Minutes', shortLabel: '30m' },
+    '6h': { label: '6 Hours', shortLabel: '6h' },
+    '12h': { label: '12 Hours', shortLabel: '12h' },
+    '24h': { label: '24 Hours', shortLabel: '24h' },
+    '7d': { label: '7 Days', shortLabel: '7d' },
+};
 
 export default function CreateBet() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
-        username: 'dwr',
+        // User info (manual input)
+        username: '',
+        displayName: '',
+        pfpUrl: '',
+        // Bet config
         betType: 'post_count' as BetType,
         targetValue: 3,
         timeframe: '24h' as Timeframe,
@@ -22,11 +57,7 @@ export default function CreateBet() {
         rules: '',
     });
 
-    const betTypeLabels = {
-        post_count: { label: 'Número de Posts', icon: '📝' },
-        likes_total: { label: 'Total de Likes', icon: '❤️' },
-        followers_gain: { label: 'Ganho de Seguidores', icon: '👥' },
-    };
+    const currentBetType = BET_TYPE_CONFIG[formData.betType];
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -42,14 +73,14 @@ export default function CreateBet() {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Aposta criada com sucesso!');
+                alert('✅ Bet created successfully!');
                 router.push('/admin');
             } else {
-                alert('❌ Erro ao criar aposta: ' + (data.error || 'Erro desconhecido'));
+                alert('❌ Error creating bet: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error creating bet:', error);
-            alert('❌ Falha ao criar aposta');
+            alert('❌ Failed to create bet');
         } finally {
             setIsSubmitting(false);
         }
@@ -64,131 +95,163 @@ export default function CreateBet() {
                     className="inline-flex items-center gap-2 text-textSecondary hover:text-textPrimary transition-colors mb-4"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Voltar ao Dashboard
+                    Back to Dashboard
                 </Link>
 
                 <h1 className="text-3xl font-bold text-textPrimary mb-2">
-                    Criar Nova Aposta
+                    Create New Prediction
                 </h1>
                 <p className="text-textSecondary">
-                    Configure a aposta que os usuários poderão participar
+                    Configure the prediction that users can bet on
                 </p>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Usuario */}
+                {/* User Profile Section */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                    <label className="block text-sm font-medium text-textPrimary mb-3">
-                        <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-textPrimary mb-4">
+                        <div className="flex items-center gap-2">
                             <Users className="w-5 h-5 text-primary" />
-                            Usuário Farcaster
+                            Farcaster User (Manual Input)
                         </div>
                     </label>
-                    <input
-                        type="text"
-                        value={formData.username}
-                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                        placeholder="dwr"
-                        required
-                    />
-                    <p className="text-xs text-textSecondary mt-2">
-                        Username do Farcaster (sem @)
-                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="text-xs text-textSecondary mb-1 block">Username *</label>
+                            <input
+                                type="text"
+                                value={formData.username}
+                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                placeholder="jessepollak"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-textSecondary mb-1 block">Display Name</label>
+                            <input
+                                type="text"
+                                value={formData.displayName}
+                                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                placeholder="Jesse Pollak"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-textSecondary mb-1 block">Profile Picture URL</label>
+                            <input
+                                type="url"
+                                value={formData.pfpUrl}
+                                onChange={(e) => setFormData({ ...formData, pfpUrl: e.target.value })}
+                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                placeholder="https://i.imgur.com/..."
+                            />
+                        </div>
+                    </div>
+
+                    {/* Avatar Preview */}
+                    {formData.pfpUrl && (
+                        <div className="mt-4 flex items-center gap-3">
+                            <img
+                                src={formData.pfpUrl}
+                                alt="Preview"
+                                className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
+                            <span className="text-sm text-textSecondary">Avatar preview</span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Tipo de Aposta */}
+                {/* Bet Type */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                    <label className="block text-sm font-medium text-textPrimary mb-3">
-                        <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-textPrimary mb-4">
+                        <div className="flex items-center gap-2">
                             <Target className="w-5 h-5 text-primary" />
-                            Tipo de Métrica
+                            Prediction Type
                         </div>
                     </label>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {(Object.keys(betTypeLabels) as BetType[]).map((type) => (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {(Object.keys(BET_TYPE_CONFIG) as BetType[]).map((type) => (
                             <button
                                 key={type}
                                 type="button"
                                 onClick={() => setFormData({ ...formData, betType: type })}
-                                className={`p-4 rounded-xl border-2 transition-all ${formData.betType === type
+                                className={`p-4 rounded-xl border-2 transition-all text-left ${formData.betType === type
                                     ? 'border-primary bg-primary/10'
                                     : 'border-darkGray hover:border-darkGray/50'
                                     }`}
                             >
-                                <div className="text-3xl mb-2">{betTypeLabels[type].icon}</div>
+                                <div className="text-2xl mb-1">{BET_TYPE_CONFIG[type].icon}</div>
                                 <div className="text-sm font-medium text-textPrimary">
-                                    {betTypeLabels[type].label}
+                                    {BET_TYPE_CONFIG[type].label}
+                                </div>
+                                <div className="text-xs text-textSecondary mt-1">
+                                    {BET_TYPE_CONFIG[type].description}
                                 </div>
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Valor Alvo e Período */}
+                {/* Target Value & Timeframe */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Valor Alvo */}
+                    {/* Target Value */}
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            Valor Alvo
+                            Target Value
                         </label>
                         <input
                             type="number"
                             value={formData.targetValue}
                             onChange={(e) => setFormData({ ...formData, targetValue: parseInt(e.target.value) || 0 })}
-                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
                             min={1}
                             required
                         />
-                        <p className="text-xs text-textSecondary mt-2">
-                            {formData.betType === 'post_count' && `${formData.targetValue} posts ou mais`}
-                            {formData.betType === 'likes_total' && `${formData.targetValue} likes totais ou mais`}
-                            {formData.betType === 'followers_gain' && `${formData.targetValue} novos seguidores ou mais`}
+                        <p className="text-sm text-primary mt-2 font-medium">
+                            {formData.targetValue}+ {currentBetType.targetLabel}
                         </p>
                     </div>
 
-                    {/* Período */}
+                    {/* Timeframe */}
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2">
                                 <Calendar className="w-5 h-5 text-primary" />
-                                Período
+                                Duration
                             </div>
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, timeframe: '24h' })}
-                                className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === '24h'
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-darkGray hover:border-darkGray/50'
-                                    }`}
-                            >
-                                <div className="text-sm font-medium text-textPrimary">24 Horas</div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, timeframe: '7d' })}
-                                className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === '7d'
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-darkGray hover:border-darkGray/50'
-                                    }`}
-                            >
-                                <div className="text-sm font-medium text-textPrimary">7 Dias</div>
-                            </button>
+                        <div className="grid grid-cols-5 gap-2">
+                            {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
+                                <button
+                                    key={tf}
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, timeframe: tf })}
+                                    className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === tf
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
+                                        }`}
+                                >
+                                    <div className="text-sm font-bold text-textPrimary">
+                                        {TIMEFRAME_CONFIG[tf].shortLabel}
+                                    </div>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                {/* Limites de Aposta */}
+                {/* Bet Limits */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2">
                                 <DollarSign className="w-5 h-5 text-primary" />
-                                Aposta Mínima (USDC)
+                                Min Bet (USDC)
                             </div>
                         </label>
                         <input
@@ -204,9 +267,9 @@ export default function CreateBet() {
 
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2">
                                 <DollarSign className="w-5 h-5 text-primary" />
-                                Aposta Máxima (USDC)
+                                Max Bet (USDC)
                             </div>
                         </label>
                         <input
@@ -224,36 +287,55 @@ export default function CreateBet() {
                 {/* Rules */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
                     <label className="block text-sm font-medium text-textPrimary mb-3">
-                        <div className="flex items-center gap-2 mb-2">
-                            📜 Regras de Verificação
+                        <div className="flex items-center gap-2">
+                            📜 Verification Rules
                         </div>
                     </label>
                     <textarea
                         value={formData.rules}
                         onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
                         className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px]"
-                        placeholder="Ex: Verificado via Neynar API às 23:59 UTC. Contagem de posts desde a criação da aposta."
+                        placeholder="e.g., Verified manually by admin at deadline. Counting starts from bet creation."
                     />
                     <p className="text-xs text-textSecondary mt-2">
-                        Descreva como a aposta será verificada. Deixe em branco para regras padrão.
+                        Describe how the bet will be verified. Leave blank for default rules.
                     </p>
                 </div>
 
                 {/* Preview */}
                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6">
-                    <h3 className="font-bold text-textPrimary mb-3 flex items-center gap-2">
+                    <h3 className="font-bold text-textPrimary mb-4 flex items-center gap-2">
                         <Target className="w-5 h-5 text-primary" />
-                        Preview da Aposta
+                        Bet Preview
                     </h3>
-                    <p className="text-textPrimary">
-                        <span className="font-bold">@{formData.username}</span> vai{' '}
-                        {formData.betType === 'post_count' && `postar ${formData.targetValue}+ vezes`}
-                        {formData.betType === 'likes_total' && `receber ${formData.targetValue}+ likes`}
-                        {formData.betType === 'followers_gain' && `ganhar ${formData.targetValue}+ seguidores`}
-                        {' '}em {formData.timeframe === '24h' ? '24 horas' : '7 dias'}?
+
+                    <div className="flex items-center gap-4 mb-4">
+                        {formData.pfpUrl ? (
+                            <img
+                                src={formData.pfpUrl}
+                                alt={formData.username}
+                                className="w-16 h-16 rounded-full object-cover border-2 border-primary/30"
+                            />
+                        ) : (
+                            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                                <User className="w-8 h-8 text-primary" />
+                            </div>
+                        )}
+                        <div>
+                            <p className="font-bold text-textPrimary text-lg">
+                                {formData.displayName || `@${formData.username || 'username'}`}
+                            </p>
+                            <p className="text-textSecondary">@{formData.username || 'username'}</p>
+                        </div>
+                    </div>
+
+                    <p className="text-textPrimary text-lg mb-2">
+                        Will reach <span className="font-bold text-primary">{formData.targetValue}+ {currentBetType.targetLabel}</span> in{' '}
+                        <span className="font-bold">{TIMEFRAME_CONFIG[formData.timeframe].label}</span>?
                     </p>
-                    <p className="text-sm text-textSecondary mt-2">
-                        Apostas entre ${formData.minBet.toFixed(2)} e ${formData.maxBet.toFixed(2)} USDC
+
+                    <p className="text-sm text-textSecondary">
+                        Bets: ${formData.minBet.toFixed(2)} - ${formData.maxBet.toFixed(2)} USDC
                     </p>
                 </div>
 
@@ -263,14 +345,14 @@ export default function CreateBet() {
                         href="/admin"
                         className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors text-center"
                     >
-                        Cancelar
+                        Cancel
                     </Link>
                     <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !formData.username}
                         className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                        {isSubmitting ? 'Criando...' : '🎯 Criar Aposta'}
+                        {isSubmitting ? 'Creating...' : '🎯 Create Prediction'}
                     </button>
                 </div>
             </form>

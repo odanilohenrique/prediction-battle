@@ -79,16 +79,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
     const getBetTypeLabel = () => {
-        switch (bet.type) {
-            case 'post_count':
-                return `post ${bet.target}+ times`;
-            case 'likes_total':
-                return `get ${bet.target}+ likes`;
-            case 'followers_gain':
-                return `gain ${bet.target}+ followers`;
-            default:
-                return `hit ${bet.target}`;
-        }
+        const labels: Record<string, string> = {
+            post_count: `post ${bet.target}+ times`,
+            likes_total: `get ${bet.target}+ likes`,
+            followers_gain: `gain ${bet.target}+ followers`,
+            emoji_count: `use ${bet.target}+ emojis`,
+            mentions: `get ${bet.target}+ mentions`,
+            quotes: `get ${bet.target}+ quotes`,
+            reply_marathon: `post ${bet.target}+ replies`,
+            thread_length: `make a ${bet.target}+ post thread`,
+            controversial: `hit ${bet.target}+ controversy score`,
+        };
+        return labels[bet.type] || `hit ${bet.target}`;
     };
 
     const handleSubmit = async () => {
