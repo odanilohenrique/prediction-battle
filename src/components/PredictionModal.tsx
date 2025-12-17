@@ -281,14 +281,14 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 {/* Potential Return / Odds Display */}
                                 <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
                                     <div className="text-sm text-textSecondary">
-                                        Potential Return (Est.)
+                                        Est. Return
                                     </div>
                                     <div className="text-right">
                                         <div className="text-xl font-bold text-green-500">
-                                            ${(betAmount * 2).toFixed(2)}
+                                            ${betAmount.toFixed(2)} - ${(betAmount * 2).toFixed(2)}
                                         </div>
                                         <div className="text-xs text-textSecondary">
-                                            (~2.0x Multiplier) - <span className="text-primary italic">Early Bird Odds</span>
+                                            1.0x (Refund) to ~2.0x (if matched)
                                         </div>
                                     </div>
                                 </div>

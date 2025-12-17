@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Target, Calendar, DollarSign, Users, Image, User } from 'lucide-react';
+import { ArrowLeft, Target, Calendar, DollarSign, Users, Sparkles, User, Sword } from 'lucide-react';
 import Link from 'next/link';
+import { USER_PRESETS } from '@/lib/presets';
 
-// Extended bet types with viral options
+// Extended bet types
 type BetType =
     | 'post_count'
     | 'likes_total'
@@ -16,7 +17,7 @@ type BetType =
     | 'reply_marathon'
     | 'thread_length'
     | 'controversial'
-    | 'custom_text'; // Flexible custom prediction
+    | 'custom_text';
 
 type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d';
 
@@ -46,7 +47,7 @@ export default function CreateBet() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
-        // User info (manual input)
+        // User info
         username: '',
         displayName: '',
         pfpUrl: '',
@@ -57,11 +58,30 @@ export default function CreateBet() {
         minBet: 0.05,
         maxBet: 10,
         rules: '',
-        // Custom prediction text (for custom_text type)
+        // Custom prediction text
         customQuestion: '',
+        // Versus Mode
+        isVersus: false,
+        optionA: { label: '', imageUrl: '' },
+        optionB: { label: '', imageUrl: '' },
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
+
+    const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedId = e.target.value;
+        if (!selectedId) return;
+
+        const preset = USER_PRESETS.find(p => p.id === selectedId);
+        if (preset) {
+            setFormData(prev => ({
+                ...prev,
+                username: preset.username,
+                displayName: preset.displayName,
+                pfpUrl: preset.pfpUrl
+            }));
+        }
+    };
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -112,12 +132,29 @@ export default function CreateBet() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* User Profile Section */}
+
+                {/* 1. User Profile Section */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
                     <label className="block text-sm font-medium text-textPrimary mb-4">
-                        <div className="flex items-center gap-2">
-                            <Users className="w-5 h-5 text-primary" />
-                            Farcaster User (Manual Input)
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-5 h-5 text-primary" />
+                                Farcaster User
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-secondary" />
+                                <span className="text-xs text-textSecondary">Load Preset:</span>
+                                <select
+                                    className="bg-darkGray border border-darkGray rounded-lg text-xs px-2 py-1 text-textSecondary hover:text-textPrimary cursor-pointer focus:outline-none focus:border-primary"
+                                    onChange={handlePresetChange}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Select User...</option>
+                                    {USER_PRESETS.map(user => (
+                                        <option key={user.id} value={user.id}>{user.displayName}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </label>
 
@@ -154,8 +191,6 @@ export default function CreateBet() {
                             />
                         </div>
                     </div>
-
-                    {/* Avatar Preview */}
                     {formData.pfpUrl && (
                         <div className="mt-4 flex items-center gap-3">
                             <img
@@ -169,7 +204,7 @@ export default function CreateBet() {
                     )}
                 </div>
 
-                {/* Bet Type */}
+                {/* 2. Bet Type */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
                     <label className="block text-sm font-medium text-textPrimary mb-4">
                         <div className="flex items-center gap-2">
@@ -201,30 +236,94 @@ export default function CreateBet() {
                     </div>
                 </div>
 
-                {/* Custom Question (only for custom_text type) */}
+                {/* 3. Custom Question & Versus Options (only for custom_text) */}
                 {formData.betType === 'custom_text' && (
-                    <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                    <div className="bg-surface border border-darkGray rounded-2xl p-6 animate-fade-in">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
-                            <div className="flex items-center gap-2">
-                                ✍️ Custom Prediction Question
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    ✍️ Custom Prediction Question
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.isVersus}
+                                        onChange={(e) => setFormData({ ...formData, isVersus: e.target.checked })}
+                                        className="w-4 h-4 rounded border-darkGray bg-darkGray text-primary focus:ring-primary"
+                                    />
+                                    <span className="text-sm text-textSecondary font-medium flex items-center gap-1">
+                                        <Sword className="w-4 h-4" /> Enable Versus Mode (Buttons)
+                                    </span>
+                                </div>
                             </div>
                         </label>
                         <textarea
                             value={formData.customQuestion}
                             onChange={(e) => setFormData({ ...formData, customQuestion: e.target.value })}
-                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px] text-lg"
+                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px] text-lg mb-4"
                             placeholder="e.g., Jesse Pollak vs dwr - who gets more engagement this week?"
-                            required={formData.betType === 'custom_text'}
+                            required={(formData.betType as string) === 'custom_text'}
                         />
-                        <p className="text-xs text-textSecondary mt-2">
-                            Write your custom prediction question. Users will bet YES or NO.
-                        </p>
+
+                        {formData.isVersus && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 p-4 bg-black/20 rounded-xl border border-darkGray/50">
+                                <div>
+                                    <h4 className="font-bold text-green-500 mb-2">Option A (YES Pool)</h4>
+                                    <div className="space-y-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Label (e.g. Jesse)"
+                                            value={formData.optionA.label}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                optionA: { ...formData.optionA, label: e.target.value }
+                                            })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                        />
+                                        <input
+                                            type="url"
+                                            placeholder="Image URL (Optional)"
+                                            value={formData.optionA.imageUrl}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                optionA: { ...formData.optionA, imageUrl: e.target.value }
+                                            })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-red-500 mb-2">Option B (NO Pool)</h4>
+                                    <div className="space-y-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Label (e.g. DWR)"
+                                            value={formData.optionB.label}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                optionB: { ...formData.optionB, label: e.target.value }
+                                            })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                        />
+                                        <input
+                                            type="url"
+                                            placeholder="Image URL (Optional)"
+                                            value={formData.optionB.imageUrl}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                optionB: { ...formData.optionB, imageUrl: e.target.value }
+                                            })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Target Value & Timeframe */}
+                {/* 4. Target Value & Timeframe */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Target Value - hide for custom_text */}
                     {formData.betType !== 'custom_text' && (
                         <div className="bg-surface border border-darkGray rounded-2xl p-6">
                             <label className="block text-sm font-medium text-textPrimary mb-3">
@@ -244,7 +343,6 @@ export default function CreateBet() {
                         </div>
                     )}
 
-                    {/* Timeframe */}
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
                             <div className="flex items-center gap-2">
@@ -272,7 +370,7 @@ export default function CreateBet() {
                     </div>
                 </div>
 
-                {/* Bet Limits */}
+                {/* 5. Limits */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
@@ -291,7 +389,6 @@ export default function CreateBet() {
                             required
                         />
                     </div>
-
                     <div className="bg-surface border border-darkGray rounded-2xl p-6">
                         <label className="block text-sm font-medium text-textPrimary mb-3">
                             <div className="flex items-center gap-2">
@@ -311,7 +408,7 @@ export default function CreateBet() {
                     </div>
                 </div>
 
-                {/* Rules */}
+                {/* 6. Rules */}
                 <div className="bg-surface border border-darkGray rounded-2xl p-6">
                     <label className="block text-sm font-medium text-textPrimary mb-3">
                         <div className="flex items-center gap-2">
@@ -322,14 +419,11 @@ export default function CreateBet() {
                         value={formData.rules}
                         onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
                         className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px]"
-                        placeholder="e.g., Verified manually by admin at deadline. Counting starts from bet creation."
+                        placeholder="e.g., Verified manually by admin at deadline."
                     />
-                    <p className="text-xs text-textSecondary mt-2">
-                        Describe how the bet will be verified. Leave blank for default rules.
-                    </p>
                 </div>
 
-                {/* Preview */}
+                {/* 7. Preview & Submit */}
                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6">
                     <h3 className="font-bold text-textPrimary mb-4 flex items-center gap-2">
                         <Target className="w-5 h-5 text-primary" />
@@ -337,16 +431,8 @@ export default function CreateBet() {
                     </h3>
 
                     <div className="flex items-center gap-4 mb-4">
-                        {formData.pfpUrl ? (
-                            <img
-                                src={formData.pfpUrl}
-                                alt={formData.username}
-                                className="w-16 h-16 rounded-full object-cover border-2 border-primary/30"
-                            />
-                        ) : (
-                            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                                <User className="w-8 h-8 text-primary" />
-                            </div>
+                        {formData.pfpUrl && (
+                            <img src={formData.pfpUrl} className="w-16 h-16 rounded-full border-2 border-primary/30" />
                         )}
                         <div>
                             <p className="font-bold text-textPrimary text-lg">
@@ -357,30 +443,35 @@ export default function CreateBet() {
                     </div>
 
                     <p className="text-textPrimary text-lg mb-2">
-                        Will reach <span className="font-bold text-primary">{formData.targetValue}+ {currentBetType.targetLabel}</span> in{' '}
-                        <span className="font-bold">{TIMEFRAME_CONFIG[formData.timeframe].label}</span>?
+                        {formData.betType === 'custom_text' ? (
+                            <span className="font-bold">{formData.customQuestion || 'Custom Question...'}</span>
+                        ) : (
+                            <>
+                                Will reach <span className="font-bold text-primary">{formData.targetValue}+ {currentBetType.targetLabel}</span>
+                            </>
+                        )}
+                        {' '}in <span className="font-bold">{TIMEFRAME_CONFIG[formData.timeframe].label}</span>?
                     </p>
 
-                    <p className="text-sm text-textSecondary">
-                        Bets: ${formData.minBet.toFixed(2)} - ${formData.maxBet.toFixed(2)} USDC
-                    </p>
-                </div>
+                    {formData.isVersus && (
+                        <div className="flex gap-4 mt-4 mb-4">
+                            <button className="flex-1 bg-green-500/20 border border-green-500 text-green-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                                {formData.optionA.imageUrl && <img src={formData.optionA.imageUrl} className="w-6 h-6 rounded-full" />}
+                                {formData.optionA.label || 'Option A'}
+                            </button>
+                            <button className="flex-1 bg-red-500/20 border border-red-500 text-red-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                                {formData.optionB.imageUrl && <img src={formData.optionB.imageUrl} className="w-6 h-6 rounded-full" />}
+                                {formData.optionB.label || 'Option B'}
+                            </button>
+                        </div>
+                    )}
 
-                {/* Submit */}
-                <div className="flex gap-4">
-                    <Link
-                        href="/admin"
-                        className="flex-1 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium py-3 rounded-xl transition-colors text-center"
-                    >
-                        Cancel
-                    </Link>
-                    <button
-                        type="submit"
-                        disabled={isSubmitting || !formData.username}
-                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {isSubmitting ? 'Creating...' : '🎯 Create Prediction'}
-                    </button>
+                    <div className="flex gap-4 mt-6">
+                        <Link href="/admin" className="flex-1 bg-darkGray py-3 rounded-xl text-center text-textPrimary">Cancel</Link>
+                        <button type="submit" disabled={isSubmitting || !formData.username} className="flex-1 bg-gradient-to-r from-primary to-secondary text-background font-bold py-3 rounded-xl">
+                            {isSubmitting ? 'Creating...' : '🎯 Create Prediction'}
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

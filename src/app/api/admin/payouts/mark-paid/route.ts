@@ -17,12 +17,13 @@ export async function POST(req: Request) {
 
         // Find participant in both lists (though they should be in the winning side)
         let found = false;
-        
+
         // Helper to update list
         const updateList = (list: any[]) => {
             return list.map(p => {
-                if (p.userId === userId) {
+                if (p.userId.toLowerCase() === userId.toLowerCase()) {
                     found = true;
+                    // Preserve existing data, only update paid status
                     return { ...p, paid: true, txHash };
                 }
                 return p;

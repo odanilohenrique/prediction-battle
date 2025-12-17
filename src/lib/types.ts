@@ -29,6 +29,9 @@ export interface Prediction {
     result?: PredictionChoice;
     finalValue?: number;
     initialValue: number;
+    // Versus Mode Options
+    optionA?: { label: string; imageUrl?: string };
+    optionB?: { label: string; imageUrl?: string };
 }
 
 export interface Cast {

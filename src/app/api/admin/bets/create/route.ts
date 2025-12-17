@@ -25,10 +25,14 @@ export async function POST(request: NextRequest) {
             // Manual user profile input (optional - overrides Neynar)
             displayName: manualDisplayName,
             pfpUrl: manualPfpUrl,
+            // Custom & Versus options
+            customQuestion,
+            optionA,
+            optionB,
         } = body;
 
-        // Validate input
-        if (!username || !betType || !targetValue || !timeframe) {
+        // Validate input (custom_text doesn't need targetValue)
+        if (!username || !betType || !timeframe) {
             return NextResponse.json(
                 { success: false, error: 'Missing required fields' },
                 { status: 400 }
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
             pfpUrl: manualPfpUrl || userData?.pfpUrl,
             fid: userData?.fid,
             type: betType,
-            target: targetValue,
+            target: targetValue || 0, // Default to 0 if not provided (custom_text)
             timeframe,
             minBet,
             maxBet,
@@ -67,6 +71,10 @@ export async function POST(request: NextRequest) {
                 no: [],
             },
             rules: rules || 'Verified manually by admin at deadline.',
+            // Map custom question to castText for display
+            castText: customQuestion,
+            optionA,
+            optionB,
         };
 
         // Save to Redis
@@ -85,5 +93,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
-

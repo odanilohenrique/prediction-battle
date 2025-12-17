@@ -67,11 +67,14 @@ export default function BetCard({
                 {/* Status Badge */}
                 <div className="flex items-center justify-between mb-4">
                     <div
-                        className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[status]}`}
+                        className={`px-3 py-1 rounded-full text-sm font-medium border ${Date.now() > prediction.expiresAt
+                            ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                            : statusColors[status]
+                            }`}
                     >
-                        {statusIcons[status]} {status.toUpperCase()}
+                        {Date.now() > prediction.expiresAt ? '🚫 EXPIRED' : (statusIcons[status] + ' ' + status.toUpperCase())}
                     </div>
-                    {prediction.status === 'active' && (
+                    {prediction.status === 'active' && Date.now() <= prediction.expiresAt && (
                         <div className="flex items-center gap-1.5 text-textSecondary text-sm">
                             <Clock className="w-4 h-4" />
                             {hours}h {minutes}m left
@@ -94,10 +97,30 @@ export default function BetCard({
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-textSecondary">Your Prediction</span>
                         <span
-                            className={`font-bold ${userChoice === 'yes' ? 'text-green-500' : 'text-red-500'
+                            className={`font-bold flex items-center gap-2 ${userChoice === 'yes' ? 'text-green-500' : 'text-red-500'
                                 }`}
                         >
-                            {userChoice === 'yes' ? '✅ YES' : '❌ NO'}
+                            {prediction.optionA && prediction.optionB ? (
+                                <>
+                                    {userChoice === 'yes' ? (
+                                        <>
+                                            {prediction.optionA.imageUrl && (
+                                                <img src={prediction.optionA.imageUrl} className="w-5 h-5 rounded-full" />
+                                            )}
+                                            {prediction.optionA.label || 'Option A'}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {prediction.optionB.imageUrl && (
+                                                <img src={prediction.optionB.imageUrl} className="w-5 h-5 rounded-full" />
+                                            )}
+                                            {prediction.optionB.label || 'Option B'}
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                userChoice === 'yes' ? '✅ YES' : '❌ NO'
+                            )}
                         </span>
                     </div>
 

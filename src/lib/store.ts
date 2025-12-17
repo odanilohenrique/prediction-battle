@@ -37,6 +37,9 @@ export interface Bet {
     initialValue?: number;
     result?: 'yes' | 'no';
     finalValue?: number;
+    // Versus Mode Options (maps to yes/no)
+    optionA?: { label: string; imageUrl?: string }; // Maps to 'yes'
+    optionB?: { label: string; imageUrl?: string }; // Maps to 'no'
 }
 
 const BETS_KEY = 'prediction_bets';

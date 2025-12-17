@@ -24,6 +24,8 @@ interface AdminBet {
         no: any[];
     };
     rules?: string;
+    optionA?: { label: string; imageUrl?: string };
+    optionB?: { label: string; imageUrl?: string };
 }
 
 interface AdminBetCardProps {
@@ -308,12 +310,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     <div className="text-xs text-textSecondary">
                         ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)} USDC
                     </div>
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
-                    >
-                        🎯 Predict
-                    </button>
+                    {Date.now() > bet.expiresAt ? (
+                        <button
+                            disabled
+                            className="bg-darkGray text-textSecondary font-bold px-6 py-2 rounded-xl cursor-not-allowed border border-red-500/30"
+                        >
+                            🚫 Expired / Closed
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
+                        >
+                            🎯 Predict
+                        </button>
+                    )}
                 </div>
             </div >
 
@@ -350,23 +361,49 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <div className="grid grid-cols-2 gap-4">
                                         <button
                                             onClick={() => setChoice('yes')}
-                                            className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
+                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'yes'
                                                 ? 'border-green-500 bg-green-500/10'
                                                 : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
-                                            <div className="text-4xl mb-2">✅</div>
-                                            <div className="text-lg font-bold text-textPrimary">SIM</div>
+                                            {bet.optionA ? (
+                                                <>
+                                                    {bet.optionA.imageUrl && (
+                                                        <img src={bet.optionA.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
+                                                    )}
+                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
+                                                        {bet.optionA.label}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-4xl mb-2">✅</div>
+                                                    <div className="text-lg font-bold text-textPrimary">YES</div>
+                                                </>
+                                            )}
                                         </button>
                                         <button
                                             onClick={() => setChoice('no')}
-                                            className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
+                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'no'
                                                 ? 'border-red-500 bg-red-500/10'
                                                 : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
-                                            <div className="text-4xl mb-2">❌</div>
-                                            <div className="text-lg font-bold text-textPrimary">NO</div>
+                                            {bet.optionB ? (
+                                                <>
+                                                    {bet.optionB.imageUrl && (
+                                                        <img src={bet.optionB.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
+                                                    )}
+                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
+                                                        {bet.optionB.label}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-4xl mb-2">❌</div>
+                                                    <div className="text-lg font-bold text-textPrimary">NO</div>
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -397,7 +434,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
                                     <p className="text-sm text-textPrimary mb-2">
                                         Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
-                                        <span className="font-bold">{choice === 'yes' ? 'YES' : 'NO'}</span>
+                                        <span className="font-bold">
+                                            {choice === 'yes'
+                                                ? (bet.optionA?.label || 'YES')
+                                                : (bet.optionB?.label || 'NO')}
+                                        </span>
                                     </p>
 
                                     <div className="flex justify-between items-center border-t border-primary/20 pt-2 mt-2">

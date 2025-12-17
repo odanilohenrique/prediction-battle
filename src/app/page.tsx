@@ -9,7 +9,7 @@ import WalletButton from '@/components/WalletButton';
 
 export default function Home() {
     const [adminBets, setAdminBets] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'trending' | 'active' | 'past'>('trending');
+    const [activeTab, setActiveTab] = useState<'trending' | 'live' | 'active' | 'past'>('trending');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -60,34 +60,46 @@ export default function Home() {
             {/* Navigation Tabs */}
             <div className="border-b border-darkGray bg-surface/30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <nav className="flex gap-1">
+                    <nav className="flex gap-1 overflow-x-auto">
                         <button
                             onClick={() => setActiveTab('trending')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'trending'
+                            className={`px-6 py-3 font-medium transition-colors relative whitespace-nowrap ${activeTab === 'trending'
                                 ? 'text-primary'
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            Available Predictions
+                            All Predictions
                             {activeTab === 'trending' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
                         </button>
                         <button
-                            onClick={() => setActiveTab('active')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'active'
+                            onClick={() => setActiveTab('live')}
+                            className={`px-6 py-3 font-medium transition-colors relative whitespace-nowrap ${activeTab === 'live'
                                 ? 'text-primary'
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
                         >
-                            My Active Predictions
+                            ⚡ Live Only
+                            {activeTab === 'live' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('active')}
+                            className={`px-6 py-3 font-medium transition-colors relative whitespace-nowrap ${activeTab === 'active'
+                                ? 'text-primary'
+                                : 'text-textSecondary hover:text-textPrimary'
+                                }`}
+                        >
+                            My Bets
                             {activeTab === 'active' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                             )}
                         </button>
                         <button
                             onClick={() => setActiveTab('past')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'past'
+                            className={`px-6 py-3 font-medium transition-colors relative whitespace-nowrap ${activeTab === 'past'
                                 ? 'text-primary'
                                 : 'text-textSecondary hover:text-textPrimary'
                                 }`}
@@ -103,14 +115,16 @@ export default function Home() {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeTab === 'trending' && (
+                {(activeTab === 'trending' || activeTab === 'live') && (
                     <div>
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-textPrimary mb-2">
-                                🔥 Available Predictions
+                                {activeTab === 'live' ? '⚡ Live Predictions' : '🔥 All Available Predictions'}
                             </h2>
                             <p className="text-textSecondary">
-                                Choose a prediction and forecast the outcome!
+                                {activeTab === 'live'
+                                    ? 'Bet on active events before they expire!'
+                                    : 'View results or place bets on active events.'}
                             </p>
                         </div>
 
@@ -131,28 +145,26 @@ export default function Home() {
                                     </div>
                                 ))}
                             </div>
-                        ) : adminBets.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {adminBets.map((bet) => (
-                                    <AdminBetCard
-                                        key={bet.id}
-                                        bet={bet}
-                                        onBet={fetchAdminBets}
-                                    />
-                                ))}
-                            </div>
                         ) : (
-                            <div className="text-center py-16 bg-surface border border-darkGray rounded-2xl">
-                                <div className="text-6xl mb-4">🎯</div>
-                                <h3 className="text-xl font-bold text-textPrimary mb-2">
-                                    No Predictions Available
-                                </h3>
-                                <p className="text-textSecondary mb-4">
-                                    Wait for admin to create new predictions!
-                                </p>
-                                <p className="text-xs text-textSecondary">
-                                    💡 Admin: go to /admin to create predictions
-                                </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {adminBets
+                                    .filter(bet => activeTab === 'live' ? Date.now() < bet.expiresAt : true)
+                                    .map((bet) => (
+                                        <AdminBetCard
+                                            key={bet.id}
+                                            bet={bet}
+                                            onBet={fetchAdminBets}
+                                        />
+                                    ))}
+                                {adminBets.filter(bet => activeTab === 'live' ? Date.now() < bet.expiresAt : true).length === 0 && (
+                                    <div className="col-span-1 md:col-span-2 text-center py-16 bg-surface border border-darkGray rounded-2xl">
+                                        <div className="text-6xl mb-4">🎯</div>
+                                        <h3 className="text-xl font-bold text-textPrimary mb-2">
+                                            No {activeTab === 'live' ? 'Live' : ''} Predictions Found
+                                        </h3>
+                                        <p className="text-textSecondary">Check back later for new bets!</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

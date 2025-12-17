@@ -14,28 +14,21 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { disconnect } = useDisconnect();
     const [farcasterUser, setFarcasterUser] = useState<{ username: string; fid: number } | null>(null);
 
-    // Improved connector finding logic
-    const injectedConnector = connectors.find((c) => c.id === 'injected');
-    const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
-    const metaMaskConnector = connectors.find((c) => c.id === 'metaMask'); // Add explicit MetaMask check
+    const [showWalletModal, setShowWalletModal] = useState(false);
 
-    // Priority: Injected > MetaMask > Coinbase > Any
-    const targetConnector = injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
-
-    useEffect(() => {
-        if (!targetConnector && connectors.length > 0) {
-            // Force re-render if connectors load late
-        }
-    }, [connectors]);
-
-    const handleConnectWallet = () => {
-        if (!targetConnector) {
-            alert('No wallet connectors found. Please install Rabby or MetaMask.');
+    const handleConnectClick = () => {
+        if (connectors.length === 0) {
+            alert('No wallet connectors found. Please install a wallet.');
             return;
         }
+        setShowWalletModal(true);
+    };
+
+    const handleConnect = (connector: any) => {
         try {
-            connect({ connector: targetConnector });
+            connect({ connector });
             onConnect?.();
+            setShowWalletModal(false);
         } catch (error) {
             console.error('Error connecting wallet:', error);
             alert('Error connecting wallet. Please try again.');
@@ -86,22 +79,58 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     }
 
     return (
-        <div className="flex items-center gap-3">
-            <button
-                onClick={handleConnectWallet}
-                className="flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-4 py-2 rounded-xl transition-all"
-            >
-                <Wallet className="w-5 h-5" />
-                <span>Connect Wallet</span>
-            </button>
+        <>
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={handleConnectClick}
+                    className="flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-4 py-2 rounded-xl transition-all"
+                >
+                    <Wallet className="w-5 h-5" />
+                    <span>Connect Wallet</span>
+                </button>
 
-            <button
-                onClick={handleFarcasterLogin}
-                className="flex items-center gap-2 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-4 py-2 rounded-xl transition-all"
-            >
-                <LogIn className="w-5 h-5" />
-                <span className="font-medium">Farcaster Login</span>
-            </button>
-        </div>
+                <button
+                    onClick={handleFarcasterLogin}
+                    className="flex items-center gap-2 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-4 py-2 rounded-xl transition-all"
+                >
+                    <LogIn className="w-5 h-5" />
+                    <span className="font-medium">Farcaster Login</span>
+                </button>
+            </div>
+
+            {/* Wallet Selection Modal */}
+            {showWalletModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-darkGray rounded-3xl max-w-sm w-full p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-textPrimary">Connect Wallet</h3>
+                            <button
+                                onClick={() => setShowWalletModal(false)}
+                                className="w-8 h-8 rounded-full bg-darkGray flex items-center justify-center hover:bg-darkGray/70"
+                            >
+                                <span className="text-textSecondary">✕</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            {connectors.map((connector) => (
+                                <button
+                                    key={connector.id}
+                                    onClick={() => handleConnect(connector)}
+                                    className="w-full flex items-center justify-between p-4 rounded-xl border border-darkGray hover:border-primary/50 hover:bg-darkGray/20 transition-all group"
+                                >
+                                    <span className="font-medium text-textPrimary group-hover:text-primary">
+                                        {connector.name}
+                                    </span>
+                                    {connector.icon && (
+                                        <img src={connector.icon} alt={connector.name} className="w-6 h-6" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

@@ -45,6 +45,41 @@ export default function AdminDashboard() {
         }
     }
 
+    // Modal State
+    const [resolveModalOpen, setResolveModalOpen] = useState(false);
+    const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
+    const [isResolving, setIsResolving] = useState(false);
+
+    const handleOpenResolveModal = (bet: Bet) => {
+        setSelectedBet(bet);
+        setResolveModalOpen(true);
+    };
+
+    const resolveBet = async (betId: string, result: 'yes' | 'no') => {
+        if (!confirm(`Are you sure you want to declare ${result.toUpperCase()} as the winner? Payouts provided cannot be reversed.`)) return;
+
+        setIsResolving(true);
+        try {
+            const response = await fetch('/api/admin/bets/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ betId, result })
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('✅ Bet resolved successfully!');
+                setResolveModalOpen(false);
+                fetchAdminData();
+            } else {
+                alert('❌ Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('❌ Request failed');
+        } finally {
+            setIsResolving(false);
+        }
+    };
+
     const formatTimeRemaining = (expiresAt: number) => {
         const remaining = expiresAt - Date.now();
         const hours = Math.floor(remaining / (1000 * 60 * 60));
@@ -204,12 +239,24 @@ export default function AdminDashboard() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${bet.status === 'active'
+                                            <div className="flex flex-col gap-2">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.status === 'active'
                                                     ? 'bg-primary/10 text-primary border border-primary/30'
                                                     : 'bg-green-500/10 text-green-500 border border-green-500/30'
-                                                }`}>
-                                                {bet.status === 'active' ? 'Ativa' : 'Finalizada'}
-                                            </span>
+                                                    }`}>
+                                                    {bet.status === 'active' ? 'Active' : 'Finished'}
+                                                </span>
+
+                                                {/* Resolution Button for Active but Expired Bets */}
+                                                {(bet.status === 'active' && Date.now() > bet.expiresAt) && (
+                                                    <button
+                                                        onClick={() => handleOpenResolveModal(bet)}
+                                                        className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
+                                                    >
+                                                        ⚖️ Resolve
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -218,6 +265,43 @@ export default function AdminDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* Resolution Modal */}
+            {resolveModalOpen && selectedBet && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-darkGray rounded-3xl max-w-sm w-full p-6">
+                        <h3 className="text-xl font-bold text-textPrimary mb-2">Resolve Bet</h3>
+                        <p className="text-sm text-textSecondary mb-4">
+                            Select the winning outcome for <span className="font-bold text-white">@{selectedBet.username}</span>.
+                            <br /><span className="text-xs text-red-400">This action cannot be undone.</span>
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <button
+                                onClick={() => resolveBet(selectedBet.id, 'yes')}
+                                disabled={isResolving}
+                                className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all"
+                            >
+                                ✅ Winner A (YES)
+                            </button>
+                            <button
+                                onClick={() => resolveBet(selectedBet.id, 'no')}
+                                disabled={isResolving}
+                                className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all"
+                            >
+                                ❌ Winner B (NO)
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setResolveModalOpen(false)}
+                            className="w-full bg-darkGray py-3 rounded-xl text-textPrimary font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
