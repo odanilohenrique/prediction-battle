@@ -226,8 +226,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             <h3 className="font-bold text-textPrimary text-lg">
                                 {bet.displayName || `@${bet.username}`}
                             </h3>
-                            <p className="text-sm text-textSecondary">
-                                @{bet.username} • {getBetTypeLabel()}
+                            <p className="text-xl font-black text-primary mt-1 leading-tight">
+                                {getBetTypeLabel()}
+                            </p>
+                            <p className="text-xs text-textSecondary mt-1">
+                                @{bet.username} • {bet.timeframe === '24h' ? '24 Hours' : '7 Days'}
                             </p>
                         </div>
                     </div>
@@ -271,7 +274,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             {(() => {
                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                if (yesPool === 0) return '2.00';
+                                if (yesPool === 0) return '1.00';
                                 // House takes 20% of WINNINGS (loser's pool), not total
                                 const multiplier = 1 + (noPool * 0.8) / yesPool;
                                 return multiplier.toFixed(2);
@@ -281,7 +284,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             {(() => {
                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                if (noPool === 0) return '2.00';
+                                if (noPool === 0) return '1.00';
                                 // House takes 20% of WINNINGS (loser's pool), not total
                                 const multiplier = 1 + (yesPool * 0.8) / noPool;
                                 return multiplier.toFixed(2);
@@ -348,7 +351,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             <div className="px-6 py-6 space-y-6">
                                 {/* Question */}
                                 <div className="bg-darkGray/30 rounded-xl p-4">
-                                    <p className="text-textPrimary">
+                                    <p className="text-textPrimary text-lg leading-relaxed">
                                         Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()} in {bet.timeframe === '24h' ? '24 hours' : '7 days'}?
                                     </p>
                                 </div>
@@ -366,7 +369,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
-                                            {bet.optionA ? (
+                                            {bet.optionA?.label ? (
                                                 <>
                                                     {bet.optionA.imageUrl && (
                                                         <img src={bet.optionA.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
@@ -389,7 +392,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
-                                            {bet.optionB ? (
+                                            {bet.optionB?.label ? (
                                                 <>
                                                     {bet.optionB.imageUrl && (
                                                         <img src={bet.optionB.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />

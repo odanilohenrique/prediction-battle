@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import BetCard from './BetCard';
 import { UserBet } from '@/lib/types';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -9,16 +10,22 @@ export default function PastBets() {
     const [bets, setBets] = useState<UserBet[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'completed' | 'payouts'>('completed');
+    const { address, isConnected } = useAccount();
 
     useEffect(() => {
-        fetchPastBets();
-    }, []);
+        if (isConnected && address) {
+            fetchPastBets();
+        } else {
+            setLoading(false);
+            setBets([]);
+        }
+    }, [isConnected, address]);
 
     async function fetchPastBets() {
+        if (!address) return;
+
         try {
-            // TODO: Replace with actual user ID from MiniKit auth
-            const userId = 'demo_user';
-            const response = await fetch(`/api/predictions/list?userId=${userId}&status=completed`);
+            const response = await fetch(`/api/predictions/list?userId=${address}&status=completed`);
             const data = await response.json();
             setBets(data.bets || []);
         } catch (error) {
