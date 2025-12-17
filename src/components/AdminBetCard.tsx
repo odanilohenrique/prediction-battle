@@ -205,6 +205,70 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     };
 
+    const handleSeedPool = async () => {
+        if (!confirm('🌱 Seed Pool: This will place $5 on YES and $5 on NO using your wallet to create initial liquidity. Confirm?')) return;
+
+        setIsSubmitting(true);
+        try {
+            // 1. Seed Logic: Simply place two bets sequentially
+            // We'll treat this as two separate bet flows for simplicity, or we could batch if contract supported it.
+            // For MVP, we will do two loops of the betting logic.
+
+            const seedAmount = 5; // $5 USD
+            const amountInWei = parseUnits(seedAmount.toString(), 6);
+
+            // Function to execute one side of the seed
+            const executeSeedSide = async (side: 'yes' | 'no') => {
+                console.log(`Seeding ${side.toUpperCase()}...`);
+                // Send USDC
+                const hash = await writeContractAsync({
+                    address: USDC_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'transfer',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [
+                            { name: 'to', type: 'address' },
+                            { name: 'amount', type: 'uint256' }
+                        ],
+                        outputs: [{ name: '', type: 'bool' }]
+                    }],
+                    functionName: 'transfer',
+                    args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
+                    gas: BigInt(200000),
+                });
+
+                await publicClient!.waitForTransactionReceipt({ hash });
+
+                // Register
+                await fetch('/api/predictions/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        betId: bet.id,
+                        choice: side,
+                        amount: seedAmount,
+                        txHash: hash,
+                        userAddress: address
+                    }),
+                });
+            };
+
+            // Execute both sides
+            await executeSeedSide('yes');
+            await executeSeedSide('no');
+
+            alert('✅ Pool Seeded Successfully! Liquidity injected.');
+            onBet(); // Refresh
+
+        } catch (error) {
+            console.error('Seeding failed:', error);
+            alert(`Seed Failed: ${(error as Error).message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <>
             <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6 hover:border-primary/50 transition-all">
@@ -313,21 +377,35 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     <div className="text-xs text-textSecondary">
                         ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)} USDC
                     </div>
-                    {Date.now() > bet.expiresAt ? (
-                        <button
-                            disabled
-                            className="bg-darkGray text-textSecondary font-bold px-6 py-2 rounded-xl cursor-not-allowed border border-red-500/30"
-                        >
-                            🚫 Expired / Closed
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
-                        >
-                            🎯 Predict
-                        </button>
-                    )}
+
+                    <div className="flex gap-2">
+                        {/* Seed Pool Button (Visible to authorized address) */}
+                        {(address?.toLowerCase() === '0x1cb37c59524db898031e411516e45f942918f80b') && Date.now() < bet.expiresAt && bet.totalPot === 0 && (
+                            <button
+                                onClick={handleSeedPool}
+                                disabled={isSubmitting}
+                                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-bold px-4 py-2 rounded-xl border border-yellow-500/30 transition-all flex items-center gap-2"
+                            >
+                                {isSubmitting ? 'Seeding...' : '🌱 Seed Pool'}
+                            </button>
+                        )}
+
+                        {Date.now() > bet.expiresAt ? (
+                            <button
+                                disabled
+                                className="bg-darkGray text-textSecondary font-bold px-6 py-2 rounded-xl cursor-not-allowed border border-red-500/30"
+                            >
+                                🚫 Expired / Closed
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
+                            >
+                                🎯 Predict
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div >
 
