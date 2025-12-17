@@ -31,13 +31,43 @@ export async function GET(request: NextRequest) {
             let betStatus: 'pending' | 'won' | 'lost' = 'pending';
             let payout: number | undefined;
 
-            if (bet.status === 'completed') {
-                // TODO: Add result logic when we implement result checking
+            if (bet.status === 'completed' && bet.result) {
+                if (bet.result === choice) {
+                    betStatus = 'won';
+                    // Calculate Payout
+                    const totalPot = bet.totalPot;
+                    const winnerPool = choice === 'yes'
+                        ? bet.participants.yes.reduce((a, b) => a + b.amount, 0)
+                        : bet.participants.no.reduce((a, b) => a + b.amount, 0);
+
+                    if (winnerPool > 0) {
+                        // Simple proportional share + house fee taken from losers
+                        // Formula: (YourStake / WinnerPool) * (TotalPot - HouseFee)
+                        // But we simplifed in payouts.ts: Stake + (Stake/WinnerPool * LoserPool * 0.8)
+
+                        const loserPool = totalPot - winnerPool;
+                        const winnings = (userBet.amount / winnerPool) * (loserPool * 0.8);
+                        payout = userBet.amount + winnings;
+                    } else {
+                        // Should not happen if there's a winner, but safety
+                        payout = userBet.amount;
+                    }
+
+                } else {
+                    betStatus = 'lost';
+                    payout = 0;
+                }
+            } else if (Date.now() > bet.expiresAt && !bet.result) {
+                // Expired but not resolved
                 betStatus = 'pending';
             }
 
             // Filter by status if requested
+            // If requesting 'completed', we want won/lost.
             if (status === 'active' && betStatus !== 'pending') continue;
+
+            // If requesting 'completed', include won/lost. 
+            // NOTE: The previous logic excluded 'pending', which is correct for history.
             if (status === 'completed' && betStatus === 'pending') continue;
 
             userBets.push({
@@ -51,7 +81,8 @@ export async function GET(request: NextRequest) {
                     castAuthor: bet.username,
                     metric: bet.type as any,
                     targetValue: bet.target,
-                    initialValue: 0
+                    initialValue: 0,
+                    result: bet.result
                 } as any, // Cast to any to bypass strict type mismatch for now
                 choice: choice as 'yes' | 'no',
                 amount: userBet.amount,
