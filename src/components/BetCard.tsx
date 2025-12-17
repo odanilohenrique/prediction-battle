@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Clock, TrendingUp, Users } from 'lucide-react';
 import { Prediction } from '@/lib/types';
+import ResultReveal from './ResultReveal';
 
 interface BetCardProps {
     prediction: Prediction;
@@ -38,83 +40,127 @@ export default function BetCard({
         lost: '😢',
     };
 
+    const [showReveal, setShowReveal] = useState(false);
+    const [hasViewedResult, setHasViewedResult] = useState(false);
+
+    // Check if result has been viewed before
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const viewed = localStorage.getItem(`viewed_${prediction.id}_${userChoice}`);
+            setHasViewedResult(!!viewed);
+        }
+    }, [prediction.id, userChoice]);
+
+    const handleViewResult = () => {
+        setShowReveal(true);
+        localStorage.setItem(`viewed_${prediction.id}_${userChoice}`, 'true');
+        setHasViewedResult(true);
+    };
+
+    // Determine if we should show the "View Result" button
+    // Only show if: Status is 'won' or 'lost' AND user hasn't viewed it yet
+    const showViewResultButton = (status === 'won' || status === 'lost') && !hasViewedResult;
+
     return (
-        <div className="bg-surface border border-darkGray rounded-2xl p-5 hover:border-primary/30 transition-all">
-            {/* Status Badge */}
-            <div className="flex items-center justify-between mb-4">
-                <div
-                    className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[status]}`}
-                >
-                    {statusIcons[status]} {status.toUpperCase()}
-                </div>
-                {prediction.status === 'active' && (
-                    <div className="flex items-center gap-1.5 text-textSecondary text-sm">
-                        <Clock className="w-4 h-4" />
-                        {hours}h {minutes}m left
-                    </div>
-                )}
-            </div>
-
-            {/* Cast Preview */}
-            <div className="mb-4 pb-4 border-b border-darkGray">
-                <div className="text-sm text-textSecondary mb-1">
-                    @{prediction.castAuthor}'s cast
-                </div>
-                <p className="text-textPrimary text-sm line-clamp-2">
-                    {prediction.castText}
-                </p>
-            </div>
-
-            {/* Prediction Details */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-textSecondary">Your Prediction</span>
-                    <span
-                        className={`font-bold ${userChoice === 'yes' ? 'text-green-500' : 'text-red-500'
-                            }`}
+        <>
+            <div className="bg-surface border border-darkGray rounded-2xl p-5 hover:border-primary/30 transition-all relative overflow-hidden">
+                {/* Status Badge */}
+                <div className="flex items-center justify-between mb-4">
+                    <div
+                        className={`px-3 py-1 rounded-full text-sm font-medium border ${statusColors[status]}`}
                     >
-                        {userChoice === 'yes' ? '✅ YES' : '❌ NO'}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-textSecondary">Target</span>
-                    <span className="text-textPrimary font-medium">
-                        {prediction.targetValue} {prediction.metric}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-textSecondary">Your Bet</span>
-                    <span className="text-primary font-bold">${userAmount.toFixed(2)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-textSecondary flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        Total Pot
-                    </span>
-                    <span className="text-textPrimary font-bold">${totalPot.toFixed(2)}</span>
-                </div>
-
-                {payout !== undefined && (
-                    <div className="flex items-center justify-between pt-3 border-t border-darkGray">
-                        <span className="text-sm text-textSecondary">Your Payout</span>
-                        <span className="text-green-500 font-bold text-lg">
-                            +${payout.toFixed(2)}
-                        </span>
+                        {statusIcons[status]} {status.toUpperCase()}
                     </div>
-                )}
+                    {prediction.status === 'active' && (
+                        <div className="flex items-center gap-1.5 text-textSecondary text-sm">
+                            <Clock className="w-4 h-4" />
+                            {hours}h {minutes}m left
+                        </div>
+                    )}
+                </div>
 
-                {prediction.finalValue !== undefined && (
+                {/* Cast Preview */}
+                <div className="mb-4 pb-4 border-b border-darkGray">
+                    <div className="text-sm text-textSecondary mb-1">
+                        @{prediction.castAuthor}'s cast
+                    </div>
+                    <p className="text-textPrimary text-sm line-clamp-2">
+                        {prediction.castText}
+                    </p>
+                </div>
+
+                {/* Prediction Details */}
+                <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-textSecondary">Final Result</span>
-                        <span className="text-textPrimary font-medium">
-                            {prediction.finalValue} {prediction.metric}
+                        <span className="text-sm text-textSecondary">Your Prediction</span>
+                        <span
+                            className={`font-bold ${userChoice === 'yes' ? 'text-green-500' : 'text-red-500'
+                                }`}
+                        >
+                            {userChoice === 'yes' ? '✅ YES' : '❌ NO'}
                         </span>
                     </div>
-                )}
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-textSecondary">Target</span>
+                        <span className="text-textPrimary font-medium">
+                            {prediction.targetValue} {prediction.metric}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-textSecondary">Your Bet</span>
+                        <span className="text-primary font-bold">${userAmount.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-textSecondary flex items-center gap-1">
+                            <Users className="w-4 h-4" />
+                            Total Pot
+                        </span>
+                        <span className="text-textPrimary font-bold">${totalPot.toFixed(2)}</span>
+                    </div>
+
+                    {showViewResultButton ? (
+                        <button
+                            onClick={handleViewResult}
+                            className="w-full mt-4 bg-gradient-to-r from-primary to-secondary text-background font-bold py-3 rounded-xl animate-pulse hover:opacity-90 transition-opacity"
+                        >
+                            🎁 View Result
+                        </button>
+                    ) : (
+                        <>
+                            {payout !== undefined && (
+                                <div className="flex items-center justify-between pt-3 border-t border-darkGray">
+                                    <span className="text-sm text-textSecondary">Your Payout</span>
+                                    <span className="text-green-500 font-bold text-lg">
+                                        +${payout.toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+
+                            {prediction.finalValue !== undefined && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-textSecondary">Final Result</span>
+                                    <span className="text-textPrimary font-medium">
+                                        {prediction.finalValue} {prediction.metric}
+                                    </span>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+
+            {/* Result Reveal Animation */}
+            {showReveal && (
+                <ResultReveal
+                    isWin={status === 'won'}
+                    amount={status === 'won' ? (payout || 0) : userAmount}
+                    betId={prediction.id}
+                    onComplete={() => setShowReveal(false)}
+                />
+            )}
+        </>
     );
 }
