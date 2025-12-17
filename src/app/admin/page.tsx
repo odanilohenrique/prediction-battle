@@ -280,16 +280,22 @@ export default function AdminDashboard() {
                             <button
                                 onClick={() => resolveBet(selectedBet.id, 'yes')}
                                 disabled={isResolving}
-                                className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all"
+                                className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all flex flex-col items-center gap-2"
                             >
-                                ✅ Winner A (YES)
+                                {selectedBet.optionA?.imageUrl && (
+                                    <img src={selectedBet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full" />
+                                )}
+                                ✅ {selectedBet.optionA?.label || 'YES'}
                             </button>
                             <button
                                 onClick={() => resolveBet(selectedBet.id, 'no')}
                                 disabled={isResolving}
-                                className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all"
+                                className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all flex flex-col items-center gap-2"
                             >
-                                ❌ Winner B (NO)
+                                {selectedBet.optionB?.imageUrl && (
+                                    <img src={selectedBet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full" />
+                                )}
+                                ❌ {selectedBet.optionB?.label || 'NO'}
                             </button>
                         </div>
 
