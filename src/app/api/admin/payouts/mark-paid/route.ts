@@ -7,11 +7,15 @@ export async function POST(req: Request) {
         const { betId, userId, txHash } = await req.json();
 
         if (!betId || !userId) {
+            console.error('Missing fields in mark-paid:', { betId, userId });
             return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
         }
 
+        console.log(`[MarkPaid] Attempting to mark ${userId} as paid for bet ${betId}, tx: ${txHash}`);
+
         const bet = await store.getBet(betId);
         if (!bet) {
+            console.error(`[MarkPaid] Bet not found: ${betId}`);
             return NextResponse.json({ error: 'Bet not found' }, { status: 404 });
         }
 
@@ -21,9 +25,10 @@ export async function POST(req: Request) {
         // Helper to update list
         const updateList = (list: any[]) => {
             return list.map(p => {
-                if (p.userId.toLowerCase() === userId.toLowerCase()) {
+                // Ensure case-insensitive comparison
+                if (p.userId && p.userId.toLowerCase() === userId.toLowerCase()) {
                     found = true;
-                    // Preserve existing data, only update paid status
+                    console.log(`[MarkPaid] Found participant ${p.userId}, marking paid.`);
                     return { ...p, paid: true, txHash };
                 }
                 return p;
@@ -34,10 +39,12 @@ export async function POST(req: Request) {
         bet.participants.no = updateList(bet.participants.no);
 
         if (!found) {
+            console.error(`[MarkPaid] Participant ${userId} not found in bet ${betId}`);
             return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
         }
 
         await store.saveBet(bet);
+        console.log(`[MarkPaid] Successfully saved bet ${betId}`);
 
         return NextResponse.json({ success: true });
 
