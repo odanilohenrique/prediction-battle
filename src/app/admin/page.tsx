@@ -15,6 +15,8 @@ interface Bet {
     totalPot: number;
     participantCount: number;
     expiresAt: number;
+    optionA?: { label: string; imageUrl?: string };
+    optionB?: { label: string; imageUrl?: string };
 }
 
 export default function AdminDashboard() {
