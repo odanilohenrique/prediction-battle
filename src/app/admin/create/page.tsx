@@ -236,7 +236,7 @@ export default function CreateBet() {
                                 onChange={(e) => setFormData({ ...formData, targetValue: parseInt(e.target.value) || 0 })}
                                 className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
                                 min={1}
-                                required={formData.betType !== 'custom_text'}
+                                required={(formData.betType as string) !== 'custom_text'}
                             />
                             <p className="text-sm text-primary mt-2 font-medium">
                                 {formData.targetValue}+ {currentBetType.targetLabel}
