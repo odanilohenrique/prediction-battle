@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
             customQuestion,
             optionA,
             optionB,
+            castHash, // Allow passing castHash for automated resolution
         } = body;
 
         // Validate input (custom_text doesn't need targetValue)
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
             castText: customQuestion,
             optionA,
             optionB,
+            castHash,
         };
 
         // Save to Redis
