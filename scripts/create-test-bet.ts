@@ -3,7 +3,7 @@ import 'dotenv/config'; // Load .env
 import { store } from '../src/lib/store';
 import { v4 as uuidv4 } from 'uuid';
 
-async function main() {
+async function mainLocal() {
     console.log('🚀 Creating Test Bet via Script...');
 
     const betId = uuidv4();
@@ -40,4 +40,6 @@ async function main() {
     console.log(`Expires in: 30 minutes`);
 }
 
-main().catch(console.error);
+mainLocal().catch(console.error);
+
+export {};

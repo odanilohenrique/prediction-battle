@@ -1,7 +1,7 @@
 
 const FETCH_URL = 'http://127.0.0.1:3000/api/admin/bets/create';
 
-async function main() {
+async function mainApi() {
     console.log(`🚀 Creating Test Bet via API: ${FETCH_URL}`);
 
     // Payload for the test bet
@@ -41,4 +41,6 @@ async function main() {
     }
 }
 
-main();
+mainApi();
+
+export { };
