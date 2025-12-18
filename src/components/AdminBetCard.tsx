@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Target, DollarSign, Users, Clock, ScrollText } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
+import { isAdmin } from '@/lib/config';
 
 interface AdminBet {
     id: string;
@@ -380,7 +381,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                     <div className="flex gap-2">
                         {/* Seed Pool Button (Visible to authorized address) */}
-                        {(address?.toLowerCase() === '0x1cb37c59524db898031e411516e45f942918f80b') && Date.now() < bet.expiresAt && bet.totalPot === 0 && (
+                        {(address && isAdmin(address)) && Date.now() < bet.expiresAt && bet.totalPot === 0 && (
                             <button
                                 onClick={handleSeedPool}
                                 disabled={isSubmitting}
