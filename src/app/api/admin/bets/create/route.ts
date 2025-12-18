@@ -29,8 +29,27 @@ export async function POST(request: NextRequest) {
             customQuestion,
             optionA,
             optionB,
-            castHash, // Allow passing castHash for automated resolution
+            castHash: manualCastHash,
+            castUrl,
         } = body;
+
+        // Function to extract hash from URL
+        const extractHash = (url: string) => {
+            if (!url) return null;
+            // Examples:
+            // https://warpcast.com/betashop.eth/0x7678633e
+            // https://farcaster.xyz/betashop.eth/0x7678633e
+            const parts = url.split('/');
+            const lastPart = parts[parts.length - 1];
+            if (lastPart && lastPart.startsWith('0x')) {
+                return lastPart;
+            }
+            return null;
+        };
+
+        const extractedCastHash = extractHash(castUrl);
+        const finalCastHash = manualCastHash || extractedCastHash;
+
 
         // Validate input (custom_text doesn't need targetValue)
         if (!username || !betType || !timeframe) {
@@ -76,7 +95,7 @@ export async function POST(request: NextRequest) {
             castText: customQuestion,
             optionA,
             optionB,
-            castHash,
+            castHash: finalCastHash,
         };
 
         // Save to Redis

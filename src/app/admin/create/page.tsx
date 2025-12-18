@@ -58,6 +58,7 @@ export default function CreateBet() {
         minBet: 0.05,
         maxBet: 10,
         rules: '',
+        castUrl: '', // New field for automation
         // Custom prediction text
         customQuestion: '',
         // Versus Mode
@@ -202,6 +203,23 @@ export default function CreateBet() {
                             <span className="text-sm text-textSecondary">Avatar preview</span>
                         </div>
                     )}
+
+                    {/* New Cast URL Field */}
+                    <div className="mt-6 pt-6 border-t border-darkGray/50">
+                        <label className="block text-sm font-medium text-textPrimary mb-2">
+                            🔗 Farcaster Cast URL (Optional for Automation)
+                        </label>
+                        <input
+                            type="url"
+                            value={formData.castUrl}
+                            onChange={(e) => setFormData({ ...formData, castUrl: e.target.value })}
+                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                            placeholder="https://warpcast.com/jessepollak/0x..."
+                        />
+                        <p className="text-xs text-textSecondary mt-2">
+                            Se colado, o sistema extrairá automaticamente o hash para verificação automática de likes/comentários.
+                        </p>
+                    </div>
                 </div>
 
                 {/* 2. Bet Type */}
