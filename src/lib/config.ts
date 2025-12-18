@@ -35,6 +35,7 @@ export const CURRENT_CONFIG = process.env.NEXT_PUBLIC_USE_MAINNET === 'true'
 export const ADMIN_ADDRESSES = [
     // Add your admin wallet address here
     process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase() || '',
+    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // User's Wallet
 ].filter(Boolean);
 
 // Check if address is admin
