@@ -51,6 +51,40 @@ export default function AdminDashboard() {
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
     const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
     const [isResolving, setIsResolving] = useState(false);
+    const [isCreatingTest, setIsCreatingTest] = useState(false);
+
+    const handleCreateTestBet = async () => {
+        setIsCreatingTest(true);
+        try {
+            const response = await fetch('/api/admin/bets/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: 'betashop.eth',
+                    displayName: 'betashop.eth',
+                    pfpUrl: 'https://wrpcd.net/cdn-cgi/imagedelivery/BXluQx4ige9GuW0Ia56BHw/486fd621-633b-4eb7-a13b-cb5cd118cb00/anim=false,fit=contain,f=auto,w=288',
+                    betType: 'likes_total',
+                    targetValue: 10,
+                    timeframe: '30m',
+                    castHash: '0x7678633e',
+                    minBet: 0.1,
+                    maxBet: 50,
+                    rules: 'Automated test 30m'
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('🚀 Test Bet Created Successfully!');
+                fetchAdminData();
+            } else {
+                alert('❌ Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('❌ Request failed');
+        } finally {
+            setIsCreatingTest(false);
+        }
+    };
 
     const handleOpenResolveModal = (bet: Bet) => {
         setSelectedBet(bet);
@@ -104,13 +138,23 @@ export default function AdminDashboard() {
                     </p>
                 </div>
 
-                <Link
-                    href="/admin/create"
-                    className="flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-background font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20"
-                >
-                    <Plus className="w-5 h-5" />
-                    Criar Nova Aposta
-                </Link>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleCreateTestBet}
+                        disabled={isCreatingTest}
+                        className="flex items-center gap-2 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium px-4 py-3 rounded-xl transition-all border border-white/10"
+                    >
+                        {isCreatingTest ? 'Criando...' : '🧪 Teste (30m)'}
+                    </button>
+
+                    <Link
+                        href="/admin/create"
+                        className="flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-background font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Criar Nova Aposta
+                    </Link>
+                </div>
             </div>
 
             {/* Stats Cards */}
