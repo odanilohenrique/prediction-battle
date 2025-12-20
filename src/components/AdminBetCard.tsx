@@ -391,8 +391,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
 
                     <div className="flex gap-2">
-                        {/* Seed Pool Button (Visible to authorized address) */}
-                        {/* Relaxed condition: check admin OR if totalPot is 0 (for testing) */}
+                        {/* Seed Pool Button */}
                         {((address && isAdmin(address)) || bet.totalPot === 0) && Date.now() < bet.expiresAt && (
                             <button
                                 onClick={handleSeedPool}
@@ -421,202 +420,202 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
                 </div>
             </div>
+
             {/* Debug Info for Admin Issue */}
             <div className="mt-2 text-[10px] text-textSecondary text-right font-mono opacity-50">
                 Admin: {isAdmin(address || '') ? 'YES' : 'NO'} | Pot: {bet.totalPot} | Expired: {Date.now() > bet.expiresAt ? 'YES' : 'NO'}
             </div>
-        </div >
 
-            {/* Bet Modal */ }
-    {
-        showModal && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
-                    <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
-                        <h2 className="text-xl font-bold text-textPrimary">
-                            Make Prediction
-                        </h2>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
-                        >
-                            <X className="w-5 h-5 text-textSecondary" />
-                        </button>
-                    </div>
-
-                    <div className="px-6 py-6 space-y-6">
-                        {/* Question */}
-                        <div className="bg-darkGray/30 rounded-xl p-4">
-                            <p className="text-textPrimary text-lg leading-relaxed">
-                                Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()} in {bet.timeframe === '24h' ? '24 hours' : '7 days'}?
-                            </p>
-                        </div>
-
-                        {/* Choice */}
-                        <div>
-                            <label className="block text-sm font-medium text-textPrimary mb-3">
-                                Your Prediction
-                            </label>
-                            <div className="grid grid-cols-2 gap-4">
+            {/* Bet Modal */}
+            {
+                showModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
+                            <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
+                                <h2 className="text-xl font-bold text-textPrimary">
+                                    Make Prediction
+                                </h2>
                                 <button
-                                    onClick={() => setChoice('yes')}
-                                    className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'yes'
-                                        ? 'border-green-500 bg-green-500/10'
-                                        : 'border-darkGray hover:border-darkGray/50'
-                                        }`}
+                                    onClick={() => setShowModal(false)}
+                                    className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
                                 >
-                                    {bet.optionA?.label ? (
-                                        <>
-                                            {bet.optionA.imageUrl && (
-                                                <img src={bet.optionA.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
-                                            )}
-                                            <div className="text-lg font-bold text-textPrimary text-center leading-tight">
-                                                {bet.optionA.label}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="text-4xl mb-2">✅</div>
-                                            <div className="text-lg font-bold text-textPrimary">YES</div>
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setChoice('no')}
-                                    className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'no'
-                                        ? 'border-red-500 bg-red-500/10'
-                                        : 'border-darkGray hover:border-darkGray/50'
-                                        }`}
-                                >
-                                    {bet.optionB?.label ? (
-                                        <>
-                                            {bet.optionB.imageUrl && (
-                                                <img src={bet.optionB.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
-                                            )}
-                                            <div className="text-lg font-bold text-textPrimary text-center leading-tight">
-                                                {bet.optionB.label}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="text-4xl mb-2">❌</div>
-                                            <div className="text-lg font-bold text-textPrimary">NO</div>
-                                        </>
-                                    )}
+                                    <X className="w-5 h-5 text-textSecondary" />
                                 </button>
                             </div>
-                        </div>
 
-                        {/* Amount */}
-                        <div>
-                            <label className="block text-sm font-medium text-textPrimary mb-3">
-                                Prediction Amount (USDC)
-                            </label>
-                            <div className="grid grid-cols-4 gap-3">
-                                {BET_AMOUNTS.filter(a => a >= bet.minBet && a <= bet.maxBet).map((a) => (
-                                    <button
-                                        key={a}
-                                        onClick={() => setAmount(a)}
-                                        className={`p-4 rounded-xl border-2 transition-all ${amount === a
-                                            ? 'border-primary bg-primary/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
-                                            }`}
-                                    >
-                                        <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
-                                        <div className="text-lg font-bold text-textPrimary">{a}</div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Summary */}
-                        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
-                            <p className="text-sm text-textPrimary mb-2">
-                                Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
-                                <span className="font-bold">
-                                    {choice === 'yes'
-                                        ? (bet.optionA?.label || 'YES')
-                                        : (bet.optionB?.label || 'NO')}
-                                </span>
-                            </p>
-
-                            <div className="flex justify-between items-center border-t border-primary/20 pt-2 mt-2">
-                                <span className="text-sm text-textSecondary">Potential Payout (Est.):</span>
-                                <div className="text-right">
-                                    <span className="block text-green-400 font-bold">
-                                        $ {(() => {
-                                            const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                            const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                            // Correct formula: 1 + (LoserPool * 0.8) / WinnerPool
-                                            // House takes 20% of WINNINGS only
-                                            const multiplier = choice === 'yes'
-                                                ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
-                                                : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
-                                            return (amount * multiplier).toFixed(2);
-                                        })()}
-                                    </span>
-                                    <span className="text-xs text-textSecondary">
-                                        20% House Fee on Winnings
-                                    </span>
+                            <div className="px-6 py-6 space-y-6">
+                                {/* Question */}
+                                <div className="bg-darkGray/30 rounded-xl p-4">
+                                    <p className="text-textPrimary text-lg leading-relaxed">
+                                        Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()} in {bet.timeframe === '24h' ? '24 hours' : '7 days'}?
+                                    </p>
                                 </div>
+
+                                {/* Choice */}
+                                <div>
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        Your Prediction
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => setChoice('yes')}
+                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'yes'
+                                                ? 'border-green-500 bg-green-500/10'
+                                                : 'border-darkGray hover:border-darkGray/50'
+                                                }`}
+                                        >
+                                            {bet.optionA?.label ? (
+                                                <>
+                                                    {bet.optionA.imageUrl && (
+                                                        <img src={bet.optionA.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
+                                                    )}
+                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
+                                                        {bet.optionA.label}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-4xl mb-2">✅</div>
+                                                    <div className="text-lg font-bold text-textPrimary">YES</div>
+                                                </>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => setChoice('no')}
+                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'no'
+                                                ? 'border-red-500 bg-red-500/10'
+                                                : 'border-darkGray hover:border-darkGray/50'
+                                                }`}
+                                        >
+                                            {bet.optionB?.label ? (
+                                                <>
+                                                    {bet.optionB.imageUrl && (
+                                                        <img src={bet.optionB.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
+                                                    )}
+                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
+                                                        {bet.optionB.label}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-4xl mb-2">❌</div>
+                                                    <div className="text-lg font-bold text-textPrimary">NO</div>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Amount */}
+                                <div>
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        Prediction Amount (USDC)
+                                    </label>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {BET_AMOUNTS.filter(a => a >= bet.minBet && a <= bet.maxBet).map((a) => (
+                                            <button
+                                                key={a}
+                                                onClick={() => setAmount(a)}
+                                                className={`p-4 rounded-xl border-2 transition-all ${amount === a
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-darkGray hover:border-darkGray/50'
+                                                    }`}
+                                            >
+                                                <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
+                                                <div className="text-lg font-bold text-textPrimary">{a}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Summary */}
+                                <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
+                                    <p className="text-sm text-textPrimary mb-2">
+                                        Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
+                                        <span className="font-bold">
+                                            {choice === 'yes'
+                                                ? (bet.optionA?.label || 'YES')
+                                                : (bet.optionB?.label || 'NO')}
+                                        </span>
+                                    </p>
+
+                                    <div className="flex justify-between items-center border-t border-primary/20 pt-2 mt-2">
+                                        <span className="text-sm text-textSecondary">Potential Payout (Est.):</span>
+                                        <div className="text-right">
+                                            <span className="block text-green-400 font-bold">
+                                                $ {(() => {
+                                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                    // Correct formula: 1 + (LoserPool * 0.8) / WinnerPool
+                                                    // House takes 20% of WINNINGS only
+                                                    const multiplier = choice === 'yes'
+                                                        ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
+                                                        : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
+                                                    return (amount * multiplier).toFixed(2);
+                                                })()}
+                                            </span>
+                                            <span className="text-xs text-textSecondary">
+                                                20% House Fee on Winnings
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Submit */}
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'Confirming in Wallet...' : '🎯 Confirm Prediction'}
+                                </button>
                             </div>
                         </div>
+                    </div>
+                )
+            }
 
-                        {/* Submit */}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={isSubmitting}
-                            className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Confirming in Wallet...' : '🎯 Confirm Prediction'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
-    {/* Rules Modal */ }
-    {
-        showRulesModal && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
-                    <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
-                        <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">
-                            <ScrollText className="w-5 h-5 text-primary" />
-                            Verification Rules
-                        </h2>
-                        <button
-                            onClick={() => setShowRulesModal(false)}
-                            className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
-                        >
-                            <X className="w-5 h-5 text-textSecondary" />
-                        </button>
-                    </div>
-                    <div className="px-6 py-6">
-                        <div className="bg-darkGray/30 rounded-xl p-4 mb-4">
-                            <h3 className="font-bold text-textPrimary mb-2">Bet: @{bet.username}</h3>
-                            <p className="text-sm text-textSecondary">
-                                Target: {bet.target} ({bet.type}) in {bet.timeframe}
-                            </p>
+            {/* Rules Modal */}
+            {
+                showRulesModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
+                            <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
+                                <h2 className="text-xl font-bold text-textPrimary flex items-center gap-2">
+                                    <ScrollText className="w-5 h-5 text-primary" />
+                                    Verification Rules
+                                </h2>
+                                <button
+                                    onClick={() => setShowRulesModal(false)}
+                                    className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-textSecondary" />
+                                </button>
+                            </div>
+                            <div className="px-6 py-6">
+                                <div className="bg-darkGray/30 rounded-xl p-4 mb-4">
+                                    <h3 className="font-bold text-textPrimary mb-2">Bet: @{bet.username}</h3>
+                                    <p className="text-sm text-textSecondary">
+                                        Target: {bet.target} ({bet.type}) in {bet.timeframe}
+                                    </p>
+                                </div>
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold text-textSecondary uppercase">How This Bet Is Verified:</h4>
+                                    <p className="text-textPrimary whitespace-pre-wrap">
+                                        {bet.rules || 'This bet is verified via Neynar API at the deadline. Engagement metrics are checked automatically.'}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowRulesModal(false)}
+                                    className="w-full mt-6 bg-primary hover:bg-secondary text-background font-bold py-3 rounded-xl transition-all"
+                                >
+                                    Got it!
+                                </button>
+                            </div>
                         </div>
-                        <div className="space-y-3">
-                            <h4 className="text-sm font-bold text-textSecondary uppercase">How This Bet Is Verified:</h4>
-                            <p className="text-textPrimary whitespace-pre-wrap">
-                                {bet.rules || 'This bet is verified via Neynar API at the deadline. Engagement metrics are checked automatically.'}
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setShowRulesModal(false)}
-                            className="w-full mt-6 bg-primary hover:bg-secondary text-background font-bold py-3 rounded-xl transition-all"
-                        >
-                            Got it!
-                        </button>
                     </div>
-                </div>
-            </div>
-        )
-    }
+                )
+            }
         </>
     );
 }
