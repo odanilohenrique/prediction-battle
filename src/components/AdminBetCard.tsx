@@ -95,6 +95,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             reply_marathon: `post ${bet.target}+ replies`,
             thread_length: `make a ${bet.target}+ post thread`,
             controversial: `hit ${bet.target}+ controversy score`,
+            word_mentions: `mention word ${bet.target}+ times`,
+            comment_count: `get ${bet.target}+ comments`,
         };
         return labels[bet.type] || `hit ${bet.target}`;
     };
