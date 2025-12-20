@@ -19,6 +19,8 @@ type BetType =
     | 'reply_marathon'
     | 'thread_length'
     | 'controversial'
+    | 'word_mentions'
+    | 'comment_count'
     | 'custom_text';
 
 type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d';
@@ -33,6 +35,8 @@ const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabe
     reply_marathon: { label: 'Reply Marathon', icon: '💬', targetLabel: 'replies', description: 'Total replies posted' },
     thread_length: { label: 'Thread Master', icon: '🧵', targetLabel: 'posts in thread', description: 'Longest thread length' },
     controversial: { label: 'Drama Alert 🌶️', icon: '🌶️', targetLabel: 'controversy score', description: 'Most replies/likes ratio' },
+    word_mentions: { label: '🔤 Word Count', icon: '🔤', targetLabel: 'word mentions', description: 'Specific word mentioned X times in post' },
+    comment_count: { label: '💬 Comments', icon: '💬', targetLabel: 'comments', description: 'Total comments/replies on post' },
     custom_text: { label: '✍️ Custom Prediction', icon: '✍️', targetLabel: '', description: 'Write any question you want!' },
 };
 

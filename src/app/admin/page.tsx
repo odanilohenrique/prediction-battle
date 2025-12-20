@@ -138,6 +138,13 @@ export default function AdminDashboard() {
                     </p>
                 </div>
 
+                <Link
+                    href="/admin/monitor"
+                    className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 font-medium px-4 py-3 rounded-xl transition-all border border-blue-500/30"
+                >
+                    📊 Live Monitor
+                </Link>
+
                 <button
                     onClick={async () => {
                         if (!confirm('This will force check all expired bets. Continue?')) return;
