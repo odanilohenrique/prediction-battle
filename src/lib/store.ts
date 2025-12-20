@@ -32,6 +32,7 @@ export interface Bet {
     rules?: string;        // Verification rules text
     // Optional fields for user-created viral bets (specific cast)
     castHash?: string;
+    castUrl?: string;
     castAuthor?: string;
     castText?: string;
     initialValue?: number;

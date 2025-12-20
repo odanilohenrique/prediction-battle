@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Target, Calendar, DollarSign, Users, Sparkles, User, Sword } from 'lucide-react';
+import { ArrowLeft, Target, Calendar, DollarSign, Users, Sparkles, User, Sword, Droplets } from 'lucide-react';
 import Link from 'next/link';
 import { USER_PRESETS } from '@/lib/presets';
+import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
+import { parseUnits } from 'viem';
 
 // Extended bet types
 type BetType =
@@ -65,9 +67,26 @@ export default function CreateBet() {
         isVersus: false,
         optionA: { label: '', imageUrl: '' },
         optionB: { label: '', imageUrl: '' },
+        // Initial Liquidity
+        initialLiquidityYes: 0,
+        initialLiquidityNo: 0,
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
+
+    // Wagmi hooks for liquidity
+    const { address, isConnected, chainId } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+    const { switchChainAsync } = useSwitchChain();
+    const publicClient = usePublicClient();
+
+    // Configuration
+    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532;
+    const USDC_ADDRESS = IS_MAINNET
+        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+        : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedId = e.target.value;
@@ -89,6 +108,7 @@ export default function CreateBet() {
         setIsSubmitting(true);
 
         try {
+            // 1. Create the bet first
             const response = await fetch('/api/admin/bets/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -97,12 +117,94 @@ export default function CreateBet() {
 
             const data = await response.json();
 
-            if (data.success) {
-                alert('✅ Bet created successfully!');
-                router.push('/admin');
-            } else {
+            if (!data.success) {
                 alert('❌ Error creating bet: ' + (data.error || 'Unknown error'));
+                return;
             }
+
+            const betId = data.betId;
+
+            // 2. If liquidity is provided, add it via wallet
+            const totalLiquidity = formData.initialLiquidityYes + formData.initialLiquidityNo;
+            if (totalLiquidity > 0 && isConnected && address) {
+                try {
+                    // Switch chain if needed
+                    if (chainId !== EXPECTED_CHAIN_ID) {
+                        if (switchChainAsync) {
+                            await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                        }
+                    }
+
+                    // Add YES liquidity
+                    if (formData.initialLiquidityYes > 0) {
+                        const yesAmount = parseUnits(formData.initialLiquidityYes.toString(), 6);
+                        const yesHash = await writeContractAsync({
+                            address: USDC_ADDRESS as `0x${string}`,
+                            abi: [{
+                                name: 'transfer',
+                                type: 'function',
+                                stateMutability: 'nonpayable',
+                                inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                                outputs: [{ name: '', type: 'bool' }]
+                            }],
+                            functionName: 'transfer',
+                            args: [HOUSE_ADDRESS as `0x${string}`, yesAmount],
+                            gas: BigInt(200000),
+                        });
+                        await publicClient!.waitForTransactionReceipt({ hash: yesHash });
+                        await fetch('/api/predictions/bet', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                betId,
+                                choice: 'yes',
+                                amount: formData.initialLiquidityYes,
+                                txHash: yesHash,
+                                userAddress: address
+                            }),
+                        });
+                    }
+
+                    // Add NO liquidity
+                    if (formData.initialLiquidityNo > 0) {
+                        const noAmount = parseUnits(formData.initialLiquidityNo.toString(), 6);
+                        const noHash = await writeContractAsync({
+                            address: USDC_ADDRESS as `0x${string}`,
+                            abi: [{
+                                name: 'transfer',
+                                type: 'function',
+                                stateMutability: 'nonpayable',
+                                inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                                outputs: [{ name: '', type: 'bool' }]
+                            }],
+                            functionName: 'transfer',
+                            args: [HOUSE_ADDRESS as `0x${string}`, noAmount],
+                            gas: BigInt(200000),
+                        });
+                        await publicClient!.waitForTransactionReceipt({ hash: noHash });
+                        await fetch('/api/predictions/bet', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                betId,
+                                choice: 'no',
+                                amount: formData.initialLiquidityNo,
+                                txHash: noHash,
+                                userAddress: address
+                            }),
+                        });
+                    }
+
+                    alert('✅ Bet created with initial liquidity!');
+                } catch (walletError) {
+                    console.error('Wallet error:', walletError);
+                    alert('⚠️ Bet created but liquidity failed. Add liquidity manually via Seed Pool.');
+                }
+            } else {
+                alert('✅ Bet created successfully!');
+            }
+
+            router.push('/admin');
         } catch (error) {
             console.error('Error creating bet:', error);
             alert('❌ Failed to create bet');
@@ -441,7 +543,53 @@ export default function CreateBet() {
                     />
                 </div>
 
-                {/* 7. Preview & Submit */}
+                {/* 7. Initial Liquidity (Admin Only) */}
+                {isConnected && (
+                    <div className="bg-yellow-500/5 border-2 border-yellow-500/30 rounded-2xl p-6">
+                        <label className="block text-sm font-medium text-textPrimary mb-4">
+                            <div className="flex items-center gap-2">
+                                <Droplets className="w-5 h-5 text-yellow-500" />
+                                💰 Initial Liquidity (Optional)
+                            </div>
+                            <span className="text-xs text-yellow-500 font-normal mt-1 block">
+                                Add USDC from your wallet to seed the pool when creating.
+                            </span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs text-green-500 mb-1 block font-bold">YES Pool (USDC)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.initialLiquidityYes || ''}
+                                    onChange={(e) => setFormData({ ...formData, initialLiquidityYes: parseFloat(e.target.value) || 0 })}
+                                    className="w-full bg-darkGray border border-green-500/30 rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-green-500"
+                                    placeholder="0.00"
+                                    min={0}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-red-500 mb-1 block font-bold">NO Pool (USDC)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.initialLiquidityNo || ''}
+                                    onChange={(e) => setFormData({ ...formData, initialLiquidityNo: parseFloat(e.target.value) || 0 })}
+                                    className="w-full bg-darkGray border border-red-500/30 rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-red-500"
+                                    placeholder="0.00"
+                                    min={0}
+                                />
+                            </div>
+                        </div>
+                        {(formData.initialLiquidityYes > 0 || formData.initialLiquidityNo > 0) && (
+                            <p className="text-xs text-yellow-500 mt-3">
+                                ⚡ Total: ${(formData.initialLiquidityYes + formData.initialLiquidityNo).toFixed(2)} USDC will be transferred from your wallet.
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {/* 8. Preview & Submit */}
                 <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6">
                     <h3 className="font-bold text-textPrimary mb-4 flex items-center gap-2">
                         <Target className="w-5 h-5 text-primary" />

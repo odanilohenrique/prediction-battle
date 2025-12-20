@@ -14,6 +14,26 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: 'res.cloudinary.com',
             },
+            {
+                protocol: 'https',
+                hostname: 'wrpcd.net',
+            },
+            {
+                protocol: 'https',
+                hostname: 'warpcast.com',
+            },
+            {
+                protocol: 'https',
+                hostname: '*.warpcast.com',
+            },
+            {
+                protocol: 'https',
+                hostname: 'pbs.twimg.com',
+            },
+            {
+                protocol: 'https',
+                hostname: 'abs.twimg.com',
+            },
         ],
     },
     webpack: (config) => {
