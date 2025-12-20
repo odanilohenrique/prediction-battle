@@ -27,6 +27,9 @@ interface AdminBet {
     rules?: string;
     optionA?: { label: string; imageUrl?: string };
     optionB?: { label: string; imageUrl?: string };
+    castHash?: string;
+    castUrl?: string;
+    castText?: string;
 }
 
 interface AdminBetCardProps {
@@ -297,15 +300,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             <p className="text-xs text-textSecondary mt-1">
                                 @{bet.username} • {bet.timeframe === '24h' ? '24 Hours' : (bet.timeframe === '7d' ? '7 Days' : bet.timeframe)}
                             </p>
-                            {/* Cast Link */}
-                            {bet.castHash && (
+                            {/* Cast Link - Prominent Button */}
+                            {(bet.castUrl || bet.castHash) && (
                                 <a
-                                    href={`https://warpcast.com/${bet.username}/${bet.castHash}`}
+                                    href={bet.castUrl || `https://warpcast.com/${bet.username}/${bet.castHash}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-1"
+                                    className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg text-primary text-sm font-medium transition-all"
                                 >
-                                    🔗 View Cast
+                                    🔗 View Original Cast
                                 </a>
                             )}
                         </div>
@@ -421,10 +424,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 </div>
             </div>
 
-            {/* Debug Info for Admin Issue */}
-            <div className="mt-2 text-[10px] text-textSecondary text-right font-mono opacity-50">
-                Admin: {isAdmin(address || '') ? 'YES' : 'NO'} | Pot: {bet.totalPot} | Expired: {Date.now() > bet.expiresAt ? 'YES' : 'NO'}
-            </div>
 
             {/* Bet Modal */}
             {

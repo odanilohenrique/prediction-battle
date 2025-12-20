@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
             optionA,
             optionB,
             castHash: finalCastHash,
+            castUrl: castUrl || undefined,
         };
 
         // Save to Redis
