@@ -170,11 +170,11 @@ export default function AdminDashboard() {
                     <Plus className="w-5 h-5" />
                     Criar Nova Aposta
                 </Link>
+                </div>
             </div>
-        </div>
 
-            {/* Stats Cards */ }
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-surface border border-darkGray rounded-2xl p-6">
             <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-textSecondary">Total Apostas</span>
