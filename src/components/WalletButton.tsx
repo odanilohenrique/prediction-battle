@@ -52,20 +52,31 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
     if (isConnected || farcasterUser) {
         return (
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-surface border border-darkGray rounded-xl px-4 py-2">
+            <div className="flex items-center gap-2">
+                {/* Profile Link */}
+                <a
+                    href="/profile"
+                    className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 py-2 rounded-xl transition-colors"
+                >
                     <User className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium hidden sm:inline">Profile</span>
+                </a>
+
+                {/* Wallet Address */}
+                <div className="flex items-center gap-2 bg-surface border border-darkGray rounded-xl px-3 py-2">
+                    <Wallet className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium text-textPrimary">
                         {farcasterUser ? `@${farcasterUser.username}` : (address && formatAddress(address))}
                     </span>
                 </div>
 
+                {/* Logout */}
                 <button
                     onClick={handleDisconnect}
-                    className="flex items-center gap-2 bg-darkGray hover:bg-darkGray/70 text-textPrimary px-4 py-2 rounded-xl transition-colors"
+                    className="flex items-center gap-2 bg-darkGray hover:bg-red-500/20 hover:text-red-400 text-textPrimary px-3 py-2 rounded-xl transition-colors"
                 >
                     <LogOut className="w-4 h-4" />
-                    <span className="text-sm font-medium">Logout</span>
+                    <span className="text-sm font-medium hidden sm:inline">Logout</span>
                 </button>
             </div>
         );

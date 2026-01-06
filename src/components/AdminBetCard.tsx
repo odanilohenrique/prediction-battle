@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Target, DollarSign, Users, Clock, ScrollText } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 import { isAdmin } from '@/lib/config';
+import ViralReceipt from './ViralReceipt';
 
 interface AdminBet {
     id: string;
@@ -30,6 +31,9 @@ interface AdminBet {
     castHash?: string;
     castUrl?: string;
     castText?: string;
+    wordToMatch?: string;
+    creatorAddress?: string;
+    creatorDisplayName?: string;
 }
 
 interface AdminBetCardProps {
@@ -43,8 +47,12 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [showModal, setShowModal] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
-    const [amount, setAmount] = useState(0.1);
+    const [amount, setAmount] = useState(bet.minBet);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Viral Receipt State
+    const [showReceipt, setShowReceipt] = useState(false);
+    const [receiptData, setReceiptData] = useState<any>(null);
 
     // Calculate percentages
     const totalYes = bet.participants.yes.length;
@@ -95,8 +103,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             reply_marathon: `post ${bet.target}+ replies`,
             thread_length: `make a ${bet.target}+ post thread`,
             controversial: `hit ${bet.target}+ controversy score`,
-            word_mentions: `mention word ${bet.target}+ times`,
+            word_mentions: `say "${bet.wordToMatch || 'WORD'}" ${bet.target}+ times`,
             comment_count: `get ${bet.target}+ comments`,
+            ratio: `get ratioed (replies > likes)`,
+            custom_text: `${bet.castText || 'custom bet'}`,
         };
         return labels[bet.type] || `hit ${bet.target}`;
     };
@@ -197,8 +207,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Prediction confirmed!`);
+                // Calculate potential win for the receipt
+                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                const multiplier = choice === 'yes'
+                    ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / (yesPool + amount)) // Approximate simplified
+                    : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / (noPool + amount));
+
+                setReceiptData({
+                    avatarUrl: bet.pfpUrl,
+                    username: bet.username,
+                    action: "JOINED BATTLE",
+                    amount: amount,
+                    potentialWin: amount * multiplier,
+                    multiplier: parseFloat(multiplier.toFixed(2)),
+                    choice: choice === 'yes' ? 'YES' : 'NO',
+                    targetName: getBetTypeLabel()
+                });
+
                 setShowModal(false);
+                setShowReceipt(true); // TRIGGER RECEIPT
                 onBet(); // Refresh the list
             } else {
                 alert('⚠️ Payment confirmed, but backend registration failed. Contact support.');
@@ -277,149 +305,249 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     return (
         <>
-            <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-2xl p-6 hover:border-primary/50 transition-all">
-                <div className="flex items-start justify-between mb-4">
+            <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300">
+                {/* Header Ticket Stub */}
+                <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
-                        {/* Farcaster Avatar */}
-                        {bet.pfpUrl ? (
-                            <img
-                                src={bet.pfpUrl}
-                                alt={bet.username}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
-                            />
-                        ) : (
-                            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                                <Target className="w-6 h-6 text-primary" />
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            <span className="text-xs font-mono text-white/60 tracking-widest uppercase">
+                                {Date.now() < bet.expiresAt ? 'LIVE BATTLE' : 'BATTLE ENDED'}
+                            </span>
+                        </div>
+                        {/* Creator Badge */}
+                        {bet.creatorAddress && (
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-white/40">created by:</span>
+                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${isAdmin(bet.creatorAddress)
+                                    ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
+                                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                    }`}>
+                                    {isAdmin(bet.creatorAddress) ? (
+                                        <>
+                                            <span>🛡️</span>
+                                            <span>ADMIN</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>👤</span>
+                                            <span>
+                                                {bet.creatorDisplayName ||
+                                                    `${bet.creatorAddress.slice(0, 6)}...${bet.creatorAddress.slice(-4)}`}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         )}
-                        <div>
-                            <h3 className="font-bold text-textPrimary text-lg">
-                                {bet.displayName || `@${bet.username}`}
-                            </h3>
-                            <p className="text-xl font-black text-primary mt-1 leading-tight">
-                                {getBetTypeLabel()}
-                            </p>
-                            <p className="text-xs text-textSecondary mt-1">
-                                @{bet.username} • {bet.timeframe === '24h' ? '24 Hours' : (bet.timeframe === '7d' ? '7 Days' : bet.timeframe)}
-                            </p>
-                            {/* Cast Link - Prominent Button */}
-                            {(bet.castUrl || bet.castHash) && (
-                                <a
-                                    href={bet.castUrl || `https://warpcast.com/${bet.username}/${bet.castHash}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg text-primary text-sm font-medium transition-all"
-                                >
-                                    🔗 View Original Cast
-                                </a>
-                            )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-mono text-primary">
+                        <Clock className="w-3 h-3" />
+                        <span>{formatTimeRemaining()}</span>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                    {/* BATTLE MODE: Two Fighters Layout */}
+                    {bet.optionA?.label && bet.optionB?.label ? (
+                        <>
+                            {/* Volume & Fighters - Top Right */}
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="text-sm font-bold text-white/80">
+                                    {getBetTypeLabel()}
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-2xl font-black text-white flex items-center justify-end gap-1">
+                                        <span className="text-primary">$</span>
+                                        {bet.totalPot.toFixed(2)}
+                                    </div>
+                                    <div className="text-xs text-white/40 flex items-center justify-end gap-1">
+                                        <Users className="w-3 h-3" /> {bet.participantCount} Fighters
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Two Fighters Face-Off */}
+                            <div className="flex items-center justify-center gap-4 mb-6">
+                                {/* Player A */}
+                                <div className="flex flex-col items-center">
+                                    <a href={`https://warpcast.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player">
+                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                                            {bet.optionA.imageUrl ? (
+                                                <img src={bet.optionA.imageUrl} alt={bet.optionA.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
+                                            ) : (
+                                                <div className="w-full h-full bg-green-500/20 flex items-center justify-center text-green-500 text-3xl font-black">
+                                                    {bet.optionA.label.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-2 text-center">
+                                            <div className="text-lg md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors">
+                                                {bet.optionA.label}
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+
+                                {/* VS */}
+                                <div className="text-4xl md:text-5xl font-black text-white/20 italic px-2">
+                                    VS
+                                </div>
+
+                                {/* Player B */}
+                                <div className="flex flex-col items-center">
+                                    <a href={`https://warpcast.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player">
+                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                                            {bet.optionB.imageUrl ? (
+                                                <img src={bet.optionB.imageUrl} alt={bet.optionB.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
+                                            ) : (
+                                                <div className="w-full h-full bg-red-500/20 flex items-center justify-center text-red-500 text-3xl font-black">
+                                                    {bet.optionB.label.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-2 text-center">
+                                            <div className="text-lg md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors">
+                                                {bet.optionB.label}
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Rules Button */}
+                            <div className="flex justify-center mb-4">
+                                <button onClick={() => setShowRulesModal(true)} className="text-xs text-white/40 hover:text-white transition-colors">
+                                    ? Rules
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        /* PREDICTION MODE: Single Player Layout */
+                        <div className="flex items-start justify-between mb-6">
+                            <div className="flex items-center gap-4">
+                                {/* Avatar */}
+                                {bet.pfpUrl ? (
+                                    <div className="relative">
+                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors">
+                                            <img src={bet.pfpUrl} alt={bet.username} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="absolute -bottom-2 -right-2 bg-primary text-black text-xs font-black px-2 py-0.5 rounded shadow-lg">
+                                            OP
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-primary/20 flex items-center justify-center border-2 border-primary/30">
+                                        <Swords className="w-12 h-12 text-primary" />
+                                    </div>
+                                )}
+
+                                {/* Prediction Info */}
+                                <div>
+                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none mb-1">
+                                        <a href={`https://warpcast.com/${bet.username}`} target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">
+                                            @{bet.username}
+                                        </a>
+                                    </h3>
+                                    <div className="text-sm font-bold text-white/80 flex items-center gap-2">
+                                        <span className="text-primary">VS</span>
+                                        <span>{getBetTypeLabel()}</span>
+                                    </div>
+                                    {/* POST LINK - Prominent */}
+                                    {(bet.castUrl && bet.castUrl.length > 10) && (
+                                        <a href={bet.castUrl}
+                                            target="_blank" rel="noreferrer"
+                                            className="mt-3 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary/30 to-orange-500/30 text-primary border border-primary/50 text-sm font-bold hover:from-primary/40 hover:to-orange-500/40 transition-all shadow-[0_0_15px_rgba(255,95,31,0.4)] hover:shadow-[0_0_25px_rgba(255,95,31,0.6)] transform hover:scale-105">
+                                            🔗 View Target Post
+                                        </a>
+                                    )}
+                                    <div className="mt-2">
+                                        <button onClick={() => setShowRulesModal(true)} className="text-xs text-white/40 hover:text-white transition-colors">
+                                            ? Rules
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pool Stats */}
+                            <div className="text-right">
+                                <div className="text-xs text-white/40 uppercase tracking-widest mb-1">Total Volume</div>
+                                <div className="text-2xl font-black text-white flex items-center justify-end gap-1">
+                                    <span className="text-primary">$</span>
+                                    {bet.totalPot.toFixed(2)}
+                                </div>
+                                <div className="text-xs text-white/40 flex items-center justify-end gap-1 mt-1">
+                                    <Users className="w-3 h-3" /> {bet.participantCount} Fighters
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tug of War Bar */}
+                    <div className="mb-6">
+                        <div className="flex justify-between text-xs font-black uppercase tracking-widest mb-2">
+                            <span className="text-green-500">
+                                {bet.optionA?.label || 'YES'} {Math.round(yesPercent)}%
+                            </span>
+                            <span className="text-red-500">
+                                {Math.round(noPercent)}% {bet.optionB?.label || 'NO'}
+                            </span>
+                        </div>
+                        <div className="relative h-3 bg-white/5 rounded-full overflow-hidden">
+                            {/* Glowing Center Line */}
+                            <div className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_white] z-10 transition-all duration-500"
+                                style={{ left: `${yesPercent}%` }} />
+
+                            <div className="absolute inset-0 flex">
+                                <div style={{ width: `${yesPercent}%` }} className="bg-gradient-to-r from-green-500/40 to-green-500/20 h-full transition-all duration-500" />
+                                <div style={{ width: `${noPercent}%` }} className="bg-gradient-to-l from-red-500/40 to-red-500/20 h-full transition-all duration-500" />
+                            </div>
+                        </div>
+                        <div className="flex justify-between mt-2 text-xs font-mono text-white/60">
+                            <span>MULT: <span className="text-green-400">
+                                {(() => {
+                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    if (yesPool === 0) return '1.00';
+                                    const multiplier = 1 + (noPool * 0.8) / yesPool;
+                                    return multiplier.toFixed(2);
+                                })()}x
+                            </span></span>
+                            <span>MULT: <span className="text-red-400">
+                                {(() => {
+                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    if (noPool === 0) return '1.00';
+                                    const multiplier = 1 + (yesPool * 0.8) / noPool;
+                                    return multiplier.toFixed(2);
+                                })()}x
+                            </span></span>
                         </div>
                     </div>
-                    <div className="text-right flex flex-col gap-2 items-end">
-                        <div className="flex items-center gap-1 text-textSecondary text-sm">
-                            <Clock className="w-4 h-4" />
-                            <span>{formatTimeRemaining()}</span>
-                        </div>
-                        {/* Rules Button */}
-                        <button
-                            onClick={() => setShowRulesModal(true)}
-                            className="flex items-center gap-1 text-xs text-primary hover:text-secondary transition-colors"
-                        >
-                            <ScrollText className="w-3 h-3" />
-                            Rules
-                        </button>
-                    </div>
-                </div>
 
-                <div className="flex items-center gap-4 mb-3">
-                    <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-primary" />
-                        <span className="text-textPrimary font-medium">${bet.totalPot.toFixed(2)}</span>
-                        <span className="text-textSecondary">pool</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-textSecondary" />
-                        <span className="text-textPrimary font-medium">{bet.participantCount}</span>
-                        <span className="text-textSecondary">predictors</span>
-                    </div>
-                </div>
-
-                {/* Dynamic Odds & Progress Section */}
-                <div className="mb-4">
-                    <div className="text-center mb-2">
-                        <span className="text-textSecondary text-xs uppercase tracking-wider font-semibold">est. returns</span>
-                    </div>
-
-                    <div className="flex justify-between items-end mb-1 px-1">
-                        <span className="text-green-400 font-bold text-lg">
-                            {(() => {
-                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                if (yesPool === 0) return '1.00';
-                                // House takes 20% of WINNINGS (loser's pool), not total
-                                const multiplier = 1 + (noPool * 0.8) / yesPool;
-                                return multiplier.toFixed(2);
-                            })()}x
-                        </span>
-                        <span className="text-red-400 font-bold text-lg">
-                            {(() => {
-                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                if (noPool === 0) return '1.00';
-                                // House takes 20% of WINNINGS (loser's pool), not total
-                                const multiplier = 1 + (yesPool * 0.8) / noPool;
-                                return multiplier.toFixed(2);
-                            })()}x
-                        </span>
-                    </div>
-
-                    <div className="w-full h-4 bg-darkGray rounded-full overflow-hidden flex shadow-inner">
-                        <div
-                            style={{ width: `${yesPercent}%` }}
-                            className="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-500 ease-out"
-                        />
-                        <div
-                            style={{ width: `${noPercent}%` }}
-                            className="h-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500 ease-out"
-                        />
-                    </div>
-
-                    <div className="flex justify-between text-xs text-textSecondary mt-1 font-medium">
-                        <span>YES: {Math.round(yesPercent)}% ({totalYes})</span>
-                        <span>NO: {Math.round(noPercent)}% ({totalNo})</span>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="text-xs text-textSecondary">
-                        ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)} USDC
-                    </div>
-
-                    <div className="flex gap-2">
-                        {/* Seed Pool Button */}
-                        {((address && isAdmin(address)) || bet.totalPot === 0) && Date.now() < bet.expiresAt && (
+                    {/* Action Area */}
+                    <div className="flex gap-3">
+                        {/* Seed button only for admin on empty pools */}
+                        {address && isAdmin(address) && bet.totalPot === 0 && Date.now() < bet.expiresAt && (
                             <button
                                 onClick={handleSeedPool}
                                 disabled={isSubmitting}
-                                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-bold px-4 py-2 rounded-xl border border-yellow-500/30 transition-all flex items-center gap-2"
+                                className="px-4 py-3 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold hover:bg-yellow-500/20 transition-all"
                             >
-                                {isSubmitting ? 'Seeding...' : '🌱 Seed Pool'}
+                                🌱 Seed
                             </button>
                         )}
 
                         {Date.now() > bet.expiresAt ? (
-                            <button
-                                disabled
-                                className="bg-darkGray text-textSecondary font-bold px-6 py-2 rounded-xl cursor-not-allowed border border-red-500/30"
-                            >
-                                🚫 Expired / Closed
+                            <button disabled className="w-full bg-white/5 text-white/40 font-bold py-3 rounded-xl cursor-not-allowed border border-white/5">
+                                BATTLE ENDED
                             </button>
                         ) : (
                             <button
                                 onClick={() => setShowModal(true)}
-                                className="bg-primary hover:bg-secondary text-background font-bold px-6 py-2 rounded-xl transition-all"
+                                className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-[1.02] active:scale-[0.98]"
                             >
-                                🎯 Predict
+                                JOINT BATTLE
                             </button>
                         )}
                     </div>
@@ -427,154 +555,222 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             </div>
 
 
-            {/* Bet Modal */}
+            {/* Battle Station Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full">
-                            <div className="sticky top-0 bg-surface border-b border-darkGray px-6 py-4 flex items-center justify-between rounded-t-3xl">
-                                <h2 className="text-xl font-bold text-textPrimary">
-                                    Make Prediction
+                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden">
+                            {/* Top Accent */}
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-white to-primary opacity-50"></div>
+
+                            <div className="px-6 py-6 border-b border-white/5 flex items-center justify-between">
+                                <h2 className="text-xl font-black text-white italic uppercase tracking-wider">
+                                    Battle Station
                                 </h2>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="w-10 h-10 rounded-full bg-darkGray hover:bg-darkGray/70 flex items-center justify-center transition-colors"
+                                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                                 >
-                                    <X className="w-5 h-5 text-textSecondary" />
+                                    <X className="w-5 h-5 text-white/60" />
                                 </button>
                             </div>
 
-                            <div className="px-6 py-6 space-y-6">
-                                {/* Question */}
-                                <div className="bg-darkGray/30 rounded-xl p-4">
-                                    <p className="text-textPrimary text-lg leading-relaxed">
-                                        Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()} in {bet.timeframe === '24h' ? '24 hours' : '7 days'}?
-                                    </p>
-                                </div>
+                            <div className="p-6 space-y-6">
 
-                                {/* Choice */}
+                                {/* Stylized Header for Battle Mode */}
+                                {bet.optionA && bet.optionB ? (
+                                    <div className="bg-gradient-to-br from-black/60 to-black/20 rounded-2xl p-4 border border-white/10 text-center relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20"></div>
+                                        <div className="relative z-10 flex items-center justify-center gap-6">
+                                            {/* Player 1 */}
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                                    {bet.optionA.imageUrl ? <img src={bet.optionA.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-green-500/20" />}
+                                                </div>
+                                                <div className="text-sm font-black text-green-500">{bet.optionA.label}</div>
+                                            </div>
+
+                                            <div className="text-4xl font-black italic text-white/20">VS</div>
+
+                                            {/* Player 2 */}
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                                    {bet.optionB.imageUrl ? <img src={bet.optionB.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-red-500/20" />}
+                                                </div>
+                                                <div className="text-sm font-black text-red-500">{bet.optionB.label}</div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-white/5">
+                                            <div className="text-white text-lg font-bold leading-tight">
+                                                "{bet.castText || bet.type}"
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* Standard Prediction Header */
+                                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                                        <div className="text-xs text-primary font-bold uppercase tracking-widest mb-1">Mission Objective</div>
+                                        <p className="text-white text-lg leading-tight">
+                                            Will <span className="font-bold">@{bet.username}</span> {getBetTypeLabel()}
+                                            {(bet.castUrl || bet.castHash) && (
+                                                <> in <a
+                                                    href={bet.castUrl || `https://warpcast.com/${bet.username}/${bet.castHash}`}
+                                                    target="_blank" rel="noreferrer"
+                                                    className="text-primary underline hover:text-white transition-colors"
+                                                >this post</a>
+                                                </>
+                                            )}?
+                                        </p>
+                                        <div className="text-xs text-white/40 mt-1">Deadline: {bet.timeframe}</div>
+                                    </div>
+                                )}
+
+                                {/* Choice Selection */}
                                 <div>
-                                    <label className="block text-sm font-medium text-textPrimary mb-3">
-                                        Your Prediction
+                                    <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-3">
+                                        Choose Position
                                     </label>
                                     <div className="grid grid-cols-2 gap-4">
                                         <button
                                             onClick={() => setChoice('yes')}
-                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'yes'
+                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 relative overflow-hidden ${choice === 'yes'
                                                 ? 'border-green-500 bg-green-500/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                                : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
                                         >
-                                            {bet.optionA?.label ? (
-                                                <>
-                                                    {bet.optionA.imageUrl && (
-                                                        <img src={bet.optionA.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
-                                                    )}
-                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
-                                                        {bet.optionA.label}
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="text-4xl mb-2">✅</div>
-                                                    <div className="text-lg font-bold text-textPrimary">YES</div>
-                                                </>
+                                            {bet.optionA?.imageUrl && (
+                                                <img src={bet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
                                             )}
+                                            <div className="text-2xl font-black text-green-500">
+                                                {bet.optionA?.label || 'YES'}
+                                            </div>
+                                            {choice === 'yes' && <div className="absolute inset-0 bg-green-500/5 animate-pulse" />}
                                         </button>
                                         <button
                                             onClick={() => setChoice('no')}
-                                            className={`p-6 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${choice === 'no'
+                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 relative overflow-hidden ${choice === 'no'
                                                 ? 'border-red-500 bg-red-500/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                                : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
                                         >
-                                            {bet.optionB?.label ? (
-                                                <>
-                                                    {bet.optionB.imageUrl && (
-                                                        <img src={bet.optionB.imageUrl} className="w-12 h-12 rounded-full mb-1 object-cover" />
-                                                    )}
-                                                    <div className="text-lg font-bold text-textPrimary text-center leading-tight">
-                                                        {bet.optionB.label}
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="text-4xl mb-2">❌</div>
-                                                    <div className="text-lg font-bold text-textPrimary">NO</div>
-                                                </>
+                                            {bet.optionB?.imageUrl && (
+                                                <img src={bet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
                                             )}
+                                            <div className="text-2xl font-black text-red-500">
+                                                {bet.optionB?.label || 'NO'}
+                                            </div>
+                                            {choice === 'no' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Amount */}
+                                {/* Amount Selection - Flexible Input */}
                                 <div>
-                                    <label className="block text-sm font-medium text-textPrimary mb-3">
-                                        Prediction Amount (USDC)
+                                    <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-3">
+                                        Entry Size (USDC)
                                     </label>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {BET_AMOUNTS.filter(a => a >= bet.minBet && a <= bet.maxBet).map((a) => (
+                                    <div className="space-y-3">
+                                        {/* Slider */}
+                                        <input
+                                            type="range"
+                                            min={bet.minBet}
+                                            max={bet.maxBet}
+                                            step={0.01}
+                                            value={amount}
+                                            onChange={(e) => setAmount(parseFloat(e.target.value))}
+                                            className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        {/* Input + Quick Buttons */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">$</span>
+                                                <input
+                                                    type="number"
+                                                    min={bet.minBet}
+                                                    max={bet.maxBet}
+                                                    step={0.01}
+                                                    value={amount}
+                                                    onChange={(e) => {
+                                                        const val = parseFloat(e.target.value);
+                                                        if (val >= bet.minBet && val <= bet.maxBet) {
+                                                            setAmount(val);
+                                                        }
+                                                    }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white font-bold text-lg focus:outline-none focus:border-primary"
+                                                />
+                                            </div>
+                                            {/* Quick Select Buttons */}
                                             <button
-                                                key={a}
-                                                onClick={() => setAmount(a)}
-                                                className={`p-4 rounded-xl border-2 transition-all ${amount === a
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-darkGray hover:border-darkGray/50'
-                                                    }`}
+                                                type="button"
+                                                onClick={() => setAmount(bet.minBet)}
+                                                className={`px-3 py-2 rounded-lg text-xs font-bold border ${amount === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
-                                                <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
-                                                <div className="text-lg font-bold text-textPrimary">{a}</div>
+                                                MIN
                                             </button>
-                                        ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setAmount(bet.maxBet)}
+                                                className={`px-3 py-2 rounded-lg text-xs font-bold border ${amount === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                            >
+                                                MAX
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-white/40 text-center">
+                                            Range: ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)}
+                                        </p>
                                     </div>
                                 </div>
 
-                                {/* Summary */}
-                                <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/30 rounded-xl p-4">
-                                    <p className="text-sm text-textPrimary mb-2">
-                                        Predicting <span className="font-bold text-primary">{amount} USDC</span> on{' '}
-                                        <span className="font-bold">
-                                            {choice === 'yes'
-                                                ? (bet.optionA?.label || 'YES')
-                                                : (bet.optionB?.label || 'NO')}
-                                        </span>
-                                    </p>
-
-                                    <div className="flex justify-between items-center border-t border-primary/20 pt-2 mt-2">
-                                        <span className="text-sm text-textSecondary">Potential Payout (Est.):</span>
-                                        <div className="text-right">
-                                            <span className="block text-green-400 font-bold">
-                                                $ {(() => {
+                                {/* Summary & Multiplier */}
+                                <div className="bg-black rounded-xl p-4 border border-white/10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-2 opacity-20">
+                                        <Zap className="w-12 h-12 text-white" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="text-xs text-white/60 mb-1">Potential Payout</div>
+                                        <div className="text-3xl font-black text-white flex items-end gap-2">
+                                            ${(() => {
+                                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
+                                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                const multiplier = choice === 'yes'
+                                                    ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
+                                                    : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
+                                                return (amount * multiplier).toFixed(2);
+                                            })()}
+                                            <span className="text-sm font-bold text-primary mb-1.5">
+                                                ({(() => {
                                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                                    // Correct formula: 1 + (LoserPool * 0.8) / WinnerPool
-                                                    // House takes 20% of WINNINGS only
                                                     const multiplier = choice === 'yes'
                                                         ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
                                                         : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
-                                                    return (amount * multiplier).toFixed(2);
-                                                })()}
-                                            </span>
-                                            <span className="text-xs text-textSecondary">
-                                                20% House Fee on Winnings
+                                                    return multiplier.toFixed(2);
+                                                })()}x)
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Submit */}
+                                {/* Submit Button */}
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting}
-                                    className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-background font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                                    className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-4 rounded-xl transition-all uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
                                 >
-                                    {isSubmitting ? 'Confirming in Wallet...' : '🎯 Confirm Prediction'}
+                                    {isSubmitting ? 'INITIATING...' : 'CONFIRM ENTRY'}
                                 </button>
                             </div>
                         </div>
                     </div>
                 )
             }
+
+            {/* Viral Receipt Integration */}
+            <ViralReceipt
+                isOpen={showReceipt}
+                onClose={() => setShowReceipt(false)}
+                data={receiptData || { username: '', amount: 0, potentialWin: 0, multiplier: 0, choice: 'YES', targetName: '' }}
+            />
 
             {/* Rules Modal */}
             {

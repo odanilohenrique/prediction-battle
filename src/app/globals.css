@@ -9,10 +9,23 @@
 
   body {
     @apply bg-background text-textPrimary antialiased;
+    background-image: radial-gradient(circle at 50% 0%, rgba(255, 95, 31, 0.05) 0%, rgba(10, 10, 10, 1) 70%);
   }
 }
 
 @layer utilities {
+  .glass {
+    @apply bg-surface/40 backdrop-blur-md border border-white/5;
+  }
+
+  .glass-card {
+    @apply bg-surface/60 backdrop-blur-xl border border-white/10 shadow-xl;
+  }
+
+  .neon-border {
+    @apply border border-primary/50 shadow-neon;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

@@ -82,7 +82,9 @@ export async function GET(request: NextRequest) {
                     metric: bet.type as any,
                     targetValue: bet.target,
                     initialValue: 0,
-                    result: bet.result
+                    result: bet.result,
+                    creatorAddress: bet.creatorAddress,
+                    wordToMatch: bet.wordToMatch,
                 } as any, // Cast to any to bypass strict type mismatch for now
                 choice: choice as 'yes' | 'no',
                 amount: userBet.amount,

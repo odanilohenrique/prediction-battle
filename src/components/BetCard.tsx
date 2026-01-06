@@ -36,7 +36,8 @@ export default function BetCard({
     const timeRemaining = prediction.expiresAt - Date.now();
     const hours = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
     const minutes = Math.max(0, Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60)));
-    const isExpired = timeRemaining <= 0;
+    const isNoLimit = timeRemaining > 365 * 24 * 60 * 60 * 1000 * 50; // > 50 years
+    const isExpired = !isNoLimit && timeRemaining <= 0;
 
     const totalPot =
         prediction.pot.yes.reduce((sum, bet) => sum + bet.amount, 0) +
@@ -90,8 +91,8 @@ export default function BetCard({
     return (
         <>
             <div className={`bg-surface border rounded-2xl p-5 transition-all relative overflow-hidden ${status === 'won' ? 'border-green-500/50 shadow-lg shadow-green-500/10' :
-                    status === 'lost' ? 'border-red-500/30' :
-                        'border-darkGray hover:border-primary/30'
+                status === 'lost' ? 'border-red-500/30' :
+                    'border-darkGray hover:border-primary/30'
                 }`}>
 
                 {/* Win/Loss Banner */}
@@ -104,10 +105,14 @@ export default function BetCard({
                     <div className={`px-3 py-1.5 rounded-full text-sm font-bold border ${statusDisplay.color}`}>
                         {statusDisplay.icon} {statusDisplay.label}
                     </div>
-                    {!isExpired && !isResolved && (
+                    {!isResolved && (
                         <div className="flex items-center gap-1.5 text-textSecondary text-sm">
                             <Clock className="w-4 h-4" />
-                            {hours}h {minutes}m left
+                            {isNoLimit ? (
+                                <span className="text-primary font-bold">No Time Limit</span>
+                            ) : (
+                                isExpired ? 'Expired' : `${hours}h ${minutes}m left`
+                            )}
                         </div>
                     )}
                 </div>

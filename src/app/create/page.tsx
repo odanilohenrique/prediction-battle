@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 
+import { isAdmin } from '@/lib/config';
+
 // Extended bet types
 type BetType =
     | 'post_count'
@@ -77,7 +79,7 @@ async function getPlayersList() {
 export default function CreateCommunityBet() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('prediction');
+    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('battle');
     const [savedPlayers, setSavedPlayers] = useState<any[]>(POPULAR_PLAYERS);
     const [showAllPlayers, setShowAllPlayers] = useState(false);
     const [showAllPlayersA, setShowAllPlayersA] = useState(false);
@@ -170,7 +172,6 @@ export default function CreateCommunityBet() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-
         console.log('Submit Triggered');
 
         if (!isConnected || !address) {
@@ -178,9 +179,6 @@ export default function CreateCommunityBet() {
             alert('Please connect your wallet to create a battle.');
             return;
         }
-
-        // Removed confirm dialog to prevent browser blocking issues
-        // if (!confirm(...)) return; 
 
         setIsSubmitting(true);
 
@@ -213,8 +211,6 @@ export default function CreateCommunityBet() {
                 }],
                 functionName: 'transfer',
                 args: [HOUSE_ADDRESS as `0x${string}`, totalSeedWei],
-                // Manual gas limit to prevent estimation errors
-                // Manual gas limit to prevent estimation errors
                 gas: BigInt(1000000),
             });
 
@@ -228,97 +224,74 @@ export default function CreateCommunityBet() {
                 throw new Error('Transaction failed on-chain.');
             }
 
-            // 2. Create the bet via Permissionless API
-            console.log('Creating prediction...');
+            alert('✅ Transaction Confirmed on Blockchain! Now communicating with server...');
 
-            // Construct text based on mode
+            // 2. Prepare Data
+            console.log('Creating prediction...');
             let finalQuestion = '';
             let username = formData.username;
 
             if (creationMode === 'battle') {
-                // Battle mode: use custom question and set both players as author
                 finalQuestion = formData.battleQuestion;
                 username = `${formData.optionA.label} vs ${formData.optionB.label}`;
 
-                // Save players to database for future autocomplete
+                // Save players logic (silent)
                 try {
                     if (formData.optionA.label) {
-                        await fetch('/api/players', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: formData.optionA.label,
-                                pfpUrl: formData.optionA.imageUrl,
-                            }),
-                        });
+                        await fetch('/api/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: formData.optionA.label, pfpUrl: formData.optionA.imageUrl }) }).catch(() => { });
                     }
                     if (formData.optionB.label) {
-                        await fetch('/api/players', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: formData.optionB.label,
-                                pfpUrl: formData.optionB.imageUrl,
-                            }),
-                        });
+                        await fetch('/api/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: formData.optionB.label, pfpUrl: formData.optionB.imageUrl }) }).catch(() => { });
                     }
-                } catch (e) {
-                    console.log('Failed to save players (non-critical):', e);
-                }
+                } catch (err) { console.warn("Player save error ignored:", err); }
+
             } else if (formData.betType === 'custom_text') {
                 finalQuestion = formData.predictionQuestion;
             } else if (formData.betType === 'ratio') {
                 finalQuestion = `Will @${formData.username || 'user'} get RATIOED (Replies > Likes)?`;
             } else {
-                finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType.targetLabel}?`;
+                finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType?.targetLabel || ''}?`;
             }
 
+            // 3. MAIN API CALL
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // Core
-                    metric: formData.betType,
-                    targetValue: formData.noTargetValue || formData.betType === 'custom_text' ? 0 : (formData.betType === 'ratio' || creationMode === 'battle' ? 1 : formData.targetValue),
-                    choice: 'both',
                     betAmount: totalRequiredSeed,
                     userAddress: address,
+                    initialValue: 0,
                     maxEntrySize: formData.maxBet,
                     minBet: formData.minBet,
-
-                    // Metadata
-                    castHash: 'manual_creation',
+                    displayName: creationMode === 'battle' ? 'Battle Master' : formData.displayName,
+                    pfpUrl: formData.pfpUrl || '',
+                    timeframe: formData.timeframe,
+                    castHash: `battle-${Date.now()}`,
                     castAuthor: username,
                     castText: finalQuestion,
-                    initialValue: 0,
-                    wordToMatch: formData.wordToMatch,
-
-                    // Manual Overrides
-                    displayName: formData.displayName,
-                    pfpUrl: formData.pfpUrl,
-
-                    // Battle Mode specifics
+                    metric: creationMode === 'battle' ? 'versus_battle' : formData.betType,
+                    targetValue: formData.noTargetValue || formData.betType === 'custom_text' ? 0 : (formData.betType === 'ratio' || creationMode === 'battle' ? 1 : formData.targetValue),
+                    choice: 'seed',
                     isVersus: creationMode === 'battle' || formData.isVersus,
                     optionA: creationMode === 'battle' ? formData.optionA : undefined,
                     optionB: creationMode === 'battle' ? formData.optionB : undefined,
                     predictionImage: formData.predictionImage,
-
-                    // Timeframe (CRITICAL - was missing!)
-                    timeframe: formData.timeframe,
                     castUrl: formData.castUrl,
+                    rules: formData.rules
                 }),
             });
 
+            console.log('API Response Status:', response.status);
             const data = await response.json();
-            console.log('[CREATE PAGE] API Response:', JSON.stringify(data));
 
-            if (!data.success) {
-                throw new Error(data.error || 'API failed to register bet');
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Server returned failure.');
             }
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
-            alert(creationMode === 'battle' ? '⚔️ Battle Launched! Showing in Community tab.' : '✅ Battle Created Successfully! Showing in Community tab.');
+            alert('✅ Battle Created Successfully! Showing on home feed...');
             router.push('/');
+            router.refresh();
 
         } catch (error) {
             console.error('Error creating bet:', error);
@@ -327,6 +300,7 @@ export default function CreateCommunityBet() {
             setIsSubmitting(false);
         }
     }
+
 
     return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -348,19 +322,20 @@ export default function CreateCommunityBet() {
                 </p>
             </div>
 
-            {/* Creation Mode Tabs */}
             <div className="flex p-1 bg-white/5 rounded-xl mb-8 border border-white/5">
-                <button
-                    type="button"
-                    onClick={() => setCreationMode('prediction')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${creationMode === 'prediction'
-                        ? 'bg-primary text-black shadow-lg shadow-primary/20'
-                        : 'text-white/40 hover:text-white hover:bg-white/5'
-                        }`}
-                >
-                    <Target className="w-4 h-4" />
-                    Prediction
-                </button>
+                {address && isAdmin(address) && (
+                    <button
+                        type="button"
+                        onClick={() => setCreationMode('prediction')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${creationMode === 'prediction'
+                            ? 'bg-primary text-black shadow-lg shadow-primary/20'
+                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                            }`}
+                    >
+                        <Target className="w-4 h-4" />
+                        Prediction
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={() => setCreationMode('battle')}
@@ -456,6 +431,33 @@ export default function CreateCommunityBet() {
                                             className="w-full bg-black/30 border border-green-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500"
                                             placeholder="https://..."
                                         />
+                                        <div className="text-center text-xs text-white/40 my-2">- OR -</div>
+                                        <label className="block w-full text-center py-2 px-3 border border-dashed border-green-500/30 rounded-lg cursor-pointer hover:bg-green-500/10 transition-colors">
+                                            <span className="text-xs text-green-500 font-bold">Upload Image</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        if (file.size > 500000) {
+                                                            alert('Image too large! Max 500KB.');
+                                                            return;
+                                                        }
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                isVersus: true,
+                                                                optionA: { ...prev.optionA, imageUrl: reader.result as string }
+                                                            }));
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                        </label>
                                     </div>
                                     {/* Player A Reference Link */}
                                     <div>
@@ -539,6 +541,33 @@ export default function CreateCommunityBet() {
                                             className="w-full bg-black/30 border border-red-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-red-500"
                                             placeholder="https://..."
                                         />
+                                        <div className="text-center text-xs text-white/40 my-2">- OR -</div>
+                                        <label className="block w-full text-center py-2 px-3 border border-dashed border-red-500/30 rounded-lg cursor-pointer hover:bg-red-500/10 transition-colors">
+                                            <span className="text-xs text-red-500 font-bold">Upload Image</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        if (file.size > 500000) {
+                                                            alert('Image too large! Max 500KB.');
+                                                            return;
+                                                        }
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                isVersus: true,
+                                                                optionB: { ...prev.optionB, imageUrl: reader.result as string }
+                                                            }));
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                        </label>
                                     </div>
                                     {/* Player B Reference Link */}
                                     <div>
