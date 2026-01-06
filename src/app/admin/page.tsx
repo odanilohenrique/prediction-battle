@@ -31,6 +31,7 @@ interface Bet {
     expiresAt: number;
     optionA?: { label: string; imageUrl?: string };
     optionB?: { label: string; imageUrl?: string };
+    createdAt: number;
 }
 
 export default function AdminDashboard() {
@@ -548,7 +549,7 @@ export default function AdminDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-darkGray">
-                                        {bets.map((bet) => (
+                                        {[...bets].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((bet) => (
                                             <tr key={bet.id} className="hover:bg-darkGray/20 transition-colors">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div>
@@ -586,7 +587,7 @@ export default function AdminDashboard() {
                                                         </span>
 
                                                         {/* Resolution Button for Active but Expired Bets */}
-                                                        {(bet.status === 'active' && Date.now() > bet.expiresAt) && (
+                                                        {(bet.status === 'active') && (
                                                             <button
                                                                 onClick={() => handleOpenResolveModal(bet)}
                                                                 className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
