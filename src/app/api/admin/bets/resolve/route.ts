@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store, Bet } from '@/lib/store';
+import { isAdmin } from '@/lib/config';
 
 export async function POST(req: NextRequest) {
     try {
@@ -23,6 +24,25 @@ export async function POST(req: NextRequest) {
         // 2. Set the winner and update status
         bet.result = result;
         bet.status = 'completed';
+
+        // Calculate Fees & Settlements
+        // Taxa da Casa: 20% Total on Volume
+        const totalFeePercentage = 0.20;
+        bet.feeAmount = bet.totalPot * totalFeePercentage;
+        bet.winnerPool = bet.totalPot - bet.feeAmount;
+
+        // Fee Split Feature:
+        // - If Admin created: 20% to Protocol.
+        // - If User created: 15% to Protocol, 5% to Creator.
+        const creatorIsAdmin = bet.creatorAddress ? isAdmin(bet.creatorAddress) : true; // Default to admin for legacy bets
+
+        if (creatorIsAdmin) {
+            bet.protocolFeeAmount = bet.feeAmount;
+            bet.creatorFeeAmount = 0;
+        } else {
+            bet.protocolFeeAmount = bet.totalPot * 0.15; // 15% to Protocol
+            bet.creatorFeeAmount = bet.totalPot * 0.05;  // 5% to User Creator
+        }
 
         // 3. Save the updated bet
         await store.saveBet(bet);

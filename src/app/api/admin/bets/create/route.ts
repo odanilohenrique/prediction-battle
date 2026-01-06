@@ -9,6 +9,7 @@ const TIMEFRAME_MS: Record<string, number> = {
     '12h': 12 * 60 * 60 * 1000,
     '24h': 24 * 60 * 60 * 1000,
     '7d': 7 * 24 * 60 * 60 * 1000,
+    'none': 100 * 365 * 24 * 60 * 60 * 1000, // 100 years
 };
 
 export async function POST(request: NextRequest) {
@@ -31,20 +32,28 @@ export async function POST(request: NextRequest) {
             optionB,
             castHash: manualCastHash,
             castUrl,
+            wordToMatch, // New field,
+            predictionImage, // Optional image
         } = body;
 
         // Function to extract hash from URL
+        // Function to extract hash from URL
         const extractHash = (url: string) => {
             if (!url) return null;
-            // Examples:
-            // https://warpcast.com/betashop.eth/0x7678633e
-            // https://farcaster.xyz/betashop.eth/0x7678633e
-            const parts = url.split('/');
-            const lastPart = parts[parts.length - 1];
-            if (lastPart && lastPart.startsWith('0x')) {
-                return lastPart;
+            try {
+                // Examples:
+                // https://warpcast.com/betashop.eth/0x7678633e
+                // https://farcaster.xyz/betashop.eth/0x7678633e
+                const parts = url.split('/');
+                const lastPart = parts[parts.length - 1];
+                if (lastPart && lastPart.startsWith('0x')) {
+                    return lastPart;
+                }
+                return null;
+            } catch (e) {
+                console.error('Error parsing URL:', e);
+                return null;
             }
-            return null;
         };
 
         const extractedCastHash = extractHash(castUrl);
@@ -97,6 +106,8 @@ export async function POST(request: NextRequest) {
             optionB,
             castHash: finalCastHash,
             castUrl: castUrl || undefined,
+            wordToMatch,
+            predictionImage,
         };
 
         // Save to Redis
@@ -110,7 +121,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error in /api/admin/bets/create:', error);
         return NextResponse.json(
-            { success: false, error: 'Failed to create bet' },
+            { success: false, error: (error as Error).message || 'Failed to create bet' },
             { status: 500 }
         );
     }

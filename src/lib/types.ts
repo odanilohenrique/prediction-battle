@@ -1,6 +1,6 @@
 // Type definitions for Prediction Battle
 
-export type MetricType = 'likes' | 'recasts' | 'replies';
+export type MetricType = 'likes' | 'recasts' | 'replies' | 'ratio';
 
 export type PredictionChoice = 'yes' | 'no';
 
@@ -32,6 +32,8 @@ export interface Prediction {
     // Versus Mode Options
     optionA?: { label: string; imageUrl?: string };
     optionB?: { label: string; imageUrl?: string };
+    creatorAddress?: string;
+    wordToMatch?: string;
 }
 
 export interface Cast {
