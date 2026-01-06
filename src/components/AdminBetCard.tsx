@@ -352,11 +352,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     {bet.optionA?.label && bet.optionB?.label ? (
                         <>
                             {/* Volume & Fighters - Top Right */}
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="text-sm font-bold text-white/80">
-                                    {getBetTypeLabel()}
+                            <div className="flex justify-between items-start mb-4 relative min-h-[40px]">
+                                <div className="flex-1 text-center px-4">
+                                    <h3 className="text-xl font-black text-white italic leading-tight drop-shadow-lg">
+                                        {bet.castText || getBetTypeLabel()}
+                                    </h3>
                                 </div>
-                                <div className="text-right">
+                                <div className="absolute right-0 top-0 text-right">
                                     <div className="text-2xl font-black text-white flex items-center justify-end gap-1">
                                         <span className="text-primary">$</span>
                                         {bet.totalPot.toFixed(2)}
