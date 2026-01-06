@@ -64,9 +64,9 @@ export default function Home() {
     // Expired bets: Status is 'expired' OR 'resolved' OR just past deadline?
     // User requested "last 3 expired".
     const expiredBattles = battles
-        .filter(b => b.status === 'completed' || b.status === 'expired' || b.status === 'resolved' || Date.now() >= b.expiresAt)
+        .filter(b => b.status !== 'active' || Date.now() >= b.expiresAt)
         .sort((a, b) => b.expiresAt - a.expiresAt)
-        .slice(0, 20);
+        .slice(0, 50);
 
     const displayedBattles = activeTab === 'official'
         ? officialBattles
