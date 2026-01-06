@@ -362,12 +362,12 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         {bet.totalPot.toFixed(2)}
                                     </div>
                                     <div className="text-xs text-white/40 flex items-center justify-end gap-1">
-                                        <Users className="w-3 h-3" /> {bet.participantCount} Fighters
+                                        <Users className="w-3 h-3" /> {bet.participantCount} Predictors
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Two Fighters Face-Off */}
+                            {/* Two Predictors Face-Off */}
                             <div className="flex items-center justify-center gap-4 mb-6">
                                 {/* Player A */}
                                 <div className="flex flex-col items-center">
@@ -477,7 +477,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     {bet.totalPot.toFixed(2)}
                                 </div>
                                 <div className="text-xs text-white/40 flex items-center justify-end gap-1 mt-1">
-                                    <Users className="w-3 h-3" /> {bet.participantCount} Fighters
+                                    <Users className="w-3 h-3" /> {bet.participantCount} Predictors
                                 </div>
                             </div>
                         </div>
