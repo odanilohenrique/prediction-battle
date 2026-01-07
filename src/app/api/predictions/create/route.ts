@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
             timeframe, // Accepted from client
             predictionImage, // Optional image
             castUrl, // Optional Cast URL
+            autoVerify, // [NEW] Admin switch for auto-verification
         } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback
@@ -140,6 +141,20 @@ export async function POST(request: NextRequest) {
                 optionA: optionA || undefined,
                 optionB: optionB || undefined,
                 predictionImage: predictionImage || undefined,
+
+                // [NEW] Automated Verification
+                verification: autoVerify ? {
+                    enabled: true,
+                    type: (metric === 'likes_total' ? 'likes' :
+                        metric === 'followers_gain' ? 'followers' :
+                            metric === 'word_mentions' ? 'keyword' :
+                                metric === 'comment_count' ? 'replies' :
+                                    metric === 'quotes' ? 'recasts' : 'likes'), // Default fallback
+                    target: targetValue,
+                    url: castUrl || undefined,
+                    username: castAuthor, // For follower checks
+                    wordToMatch: wordToMatch,
+                } : undefined
             };
 
             // Seed YES Side

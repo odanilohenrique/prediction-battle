@@ -11,6 +11,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
+    contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x2c7d1abe1d6c00f9c01f616d5499f86e3303db5c',
 };
 
 export const MAINNET_CONFIG = {
@@ -24,6 +25,7 @@ export const MAINNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base Mainnet
+    contractAddress: '', // Fill when deployed to mainnet
 };
 
 // Use testnet by default, can be changed via env var

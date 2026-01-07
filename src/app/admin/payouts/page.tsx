@@ -204,7 +204,42 @@ export default function PayoutsPage() {
                                     </div>
                                 </div>
 
-                                <h4 className="text-sm font-bold text-textSecondary uppercase mb-2">Winners to Pay</h4>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-sm font-bold text-textSecondary uppercase">Winners to Pay</h4>
+
+                                    {/* Smart Contract Distribution Button */}
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm(`Run Auto-Distribution for ${bet.id} via Smart Contract? (Ensures ETH payouts)`)) return;
+
+                                            // Optimistic UI for button
+                                            const btn = document.getElementById(`dist-btn-${bet.id}`);
+                                            if (btn) { btn.innerHTML = 'Processing...'; (btn as any).disabled = true; }
+
+                                            try {
+                                                const res = await fetch('/api/admin/payouts/distribute', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ predictionId: bet.id })
+                                                });
+                                                const d = await res.json();
+                                                if (d.success) {
+                                                    alert(`✅ Distribution Complete!\nTx: ${d.txHash}`);
+                                                    fetchPayouts(); // Refresh
+                                                } else {
+                                                    throw new Error(d.error);
+                                                }
+                                            } catch (e) {
+                                                alert(`❌ Distribute Failed: ${(e as Error).message}`);
+                                                if (btn) { btn.innerHTML = '⚡ Distribute (Contract)'; (btn as any).disabled = false; }
+                                            }
+                                        }}
+                                        id={`dist-btn-${bet.id}`}
+                                        className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                                    >
+                                        ⚡ Distribute (Contract)
+                                    </button>
+                                </div>
                                 <div className="space-y-2">
                                     {winners.filter(w => !w.paid && w.userId !== 'demo_user' && !justPaid[`${bet.id}-${w.userId}`]).length === 0 ? (
                                         <p className="text-sm text-textSecondary italic">All eligible winners paid.</p>
