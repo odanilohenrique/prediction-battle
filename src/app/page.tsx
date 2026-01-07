@@ -17,6 +17,9 @@ export default function Home() {
 
     useEffect(() => {
         fetchBattles();
+        // Polling every 5 seconds to ensure instant updates
+        const interval = setInterval(fetchBattles, 5000);
+        return () => clearInterval(interval);
     }, [address]);
 
     async function fetchBattles() {
@@ -179,7 +182,6 @@ export default function Home() {
                 ) : (
                     <div className="space-y-4">
                         {displayedBattles
-                            .filter(battle => Date.now() < battle.expiresAt)
                             .map((battle) => (
                                 <AdminBetCard
                                     key={battle.id}
@@ -188,7 +190,7 @@ export default function Home() {
                                 />
                             ))}
 
-                        {displayedBattles.filter(battle => Date.now() < battle.expiresAt).length === 0 && (
+                        {displayedBattles.length === 0 && (
                             <div className="text-center py-20 glass rounded-2xl border-white/5 border-dashed border-2">
                                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Trophy className="w-8 h-8 text-white/20" />
