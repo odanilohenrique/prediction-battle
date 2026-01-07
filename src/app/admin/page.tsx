@@ -63,7 +63,10 @@ export default function AdminDashboard() {
     async function fetchPlayers() {
         setLoadingPlayers(true);
         try {
-            const res = await fetch('/api/admin/players');
+            const res = await fetch(`/api/admin/players?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache' }
+            });
             const data = await res.json();
             if (data.success) {
                 setPlayers(data.players || []);
@@ -144,7 +147,10 @@ export default function AdminDashboard() {
 
     async function fetchAdminData() {
         try {
-            const response = await fetch('/api/admin/bets');
+            const response = await fetch(`/api/admin/bets?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache' }
+            });
             const data = await response.json();
 
             if (data.success) {
