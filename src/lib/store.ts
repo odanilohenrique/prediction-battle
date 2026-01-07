@@ -54,6 +54,16 @@ export interface Bet {
 
     creatorAddress?: string;    // Wallet address of the battle creator
     wordToMatch?: string;       // For 'word_mentions' type
+
+    // Automated Verification Metadata
+    verification?: {
+        enabled: boolean;
+        type: 'likes' | 'recasts' | 'replies' | 'followers' | 'keyword';
+        target: number | string; // e.g. 1000 or "build"
+        url?: string; // Link to the specific cast to verify (for engagement bets)
+        username?: string; // User to check (for follower/keyword bets)
+        wordToMatch?: string; // If keyword type
+    };
 }
 
 const BETS_KEY = 'prediction_bets';
