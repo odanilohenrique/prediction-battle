@@ -14,7 +14,7 @@ export async function GET() {
             totalVolume: bets.reduce((sum, b) => sum + b.totalPot, 0),
             totalFees: bets.reduce((sum, b) => sum + (b.totalPot * 0.2), 0),
         };
-        console.log(`[API BETS] Returning ${bets.length} bets to client`);
+        console.log(`[API BETS] Returning ${bets.length} bets to client. Stats: ${JSON.stringify(stats)}`);
 
         return NextResponse.json({
             success: true,
