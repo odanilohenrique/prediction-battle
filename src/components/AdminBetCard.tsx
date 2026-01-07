@@ -56,6 +56,7 @@ const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [showRulesModal, setShowRulesModal] = useState(false);
+    const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(bet.minBet);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -257,7 +258,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     targetName: getBetTypeLabel()
                 });
 
-                closeModal();
+                closeModal(); // Close the Helper Modal (if any)
+                setIsBattleModalOpen(false); // Close the Battle Station
                 setShowReceipt(true); // TRIGGER RECEIPT
                 onBet(); // Refresh the list
             } else {
@@ -586,7 +588,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         ) : (
                             <button
-                                onClick={() => setShowModal(true)}
+                                onClick={() => setIsBattleModalOpen(true)}
                                 className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-[1.02] active:scale-[0.98]"
                             >
                                 JOIN BATTLE
@@ -599,7 +601,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
             {/* Battle Station Modal */}
             {
-                showModal && (
+                isBattleModalOpen && (
                     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4">
                         <div className="bg-[#0a0a0a] border-0 md:border md:border-white/10 rounded-none md:rounded-3xl w-full h-[100dvh] md:h-auto md:max-h-[90dvh] md:max-w-md shadow-2xl relative flex flex-col">
                             {/* Top Accent */}
@@ -610,7 +612,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     Battle Station
                                 </h2>
                                 <button
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => setIsBattleModalOpen(false)}
                                     className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                                 >
                                     <X className="w-5 h-5 text-white/60" />
