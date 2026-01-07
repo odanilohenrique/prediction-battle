@@ -34,6 +34,7 @@ interface AdminBet {
     wordToMatch?: string;
     creatorAddress?: string;
     creatorDisplayName?: string;
+    status?: string;
 }
 
 interface AdminBetCardProps {
@@ -581,7 +582,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </button>
                             </div>
 
-                            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto max-h-[calc(90dvh-80px)]">
+                            <div className="p-3 md:p-6 space-y-3 md:space-y-6 overflow-y-auto max-h-[calc(90dvh-80px)]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
                                 {/* Stylized Header for Battle Mode */}
                                 {bet.optionA && bet.optionB ? (
@@ -590,20 +591,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <div className="relative z-10 flex items-center justify-center gap-6">
                                             {/* Player 1 */}
                                             <div className="flex flex-col items-center gap-2">
-                                                <div className="w-16 h-16 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
                                                     {bet.optionA.imageUrl ? <img src={bet.optionA.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-green-500/20" />}
                                                 </div>
-                                                <div className="text-xs md:text-sm font-black text-green-500">{bet.optionA.label}</div>
+                                                <div className="text-[10px] md:text-sm font-black text-green-500">{bet.optionA.label}</div>
                                             </div>
 
-                                            <div className="text-4xl font-black italic text-white/20">VS</div>
+                                            <div className="text-2xl md:text-4xl font-black italic text-white/20">VS</div>
 
                                             {/* Player 2 */}
                                             <div className="flex flex-col items-center gap-2">
-                                                <div className="w-16 h-16 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                                                     {bet.optionB.imageUrl ? <img src={bet.optionB.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-red-500/20" />}
                                                 </div>
-                                                <div className="text-xs md:text-sm font-black text-red-500">{bet.optionB.label}</div>
+                                                <div className="text-[10px] md:text-sm font-black text-red-500">{bet.optionB.label}</div>
                                             </div>
                                         </div>
                                         <div className="mt-4 pt-4 border-t border-white/5">
@@ -639,7 +640,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <div className="grid grid-cols-2 gap-4">
                                         <button
                                             onClick={() => setChoice('yes')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 relative overflow-hidden ${choice === 'yes'
+                                            className={`p-2 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'yes'
                                                 ? 'border-green-500 bg-green-500/10'
                                                 : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
@@ -647,14 +648,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             {bet.optionA?.imageUrl && (
                                                 <img src={bet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
                                             )}
-                                            <div className="text-2xl font-black text-green-500">
+                                            <div className="text-lg md:text-2xl font-black text-green-500">
                                                 {bet.optionA?.label || 'YES'}
                                             </div>
                                             {choice === 'yes' && <div className="absolute inset-0 bg-green-500/5 animate-pulse" />}
                                         </button>
                                         <button
                                             onClick={() => setChoice('no')}
-                                            className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 relative overflow-hidden ${choice === 'no'
+                                            className={`p-2 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'no'
                                                 ? 'border-red-500 bg-red-500/10'
                                                 : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
@@ -662,7 +663,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             {bet.optionB?.imageUrl && (
                                                 <img src={bet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
                                             )}
-                                            <div className="text-2xl font-black text-red-500">
+                                            <div className="text-lg md:text-2xl font-black text-red-500">
                                                 {bet.optionB?.label || 'NO'}
                                             </div>
                                             {choice === 'no' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
@@ -728,7 +729,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </div>
 
                                 {/* Summary & Multiplier */}
-                                <div className="bg-black rounded-xl p-4 border border-white/10 relative overflow-hidden">
+                                <div className="bg-black rounded-xl p-3 md:p-4 border border-white/10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-2 opacity-20">
                                         <Zap className="w-12 h-12 text-white" />
                                     </div>
@@ -761,7 +762,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isSubmitting}
-                                    className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-4 rounded-xl transition-all uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
+                                    className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
                                 >
                                     {isSubmitting ? 'INITIATING...' : 'CONFIRM ENTRY'}
                                 </button>
