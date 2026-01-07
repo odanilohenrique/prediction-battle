@@ -703,21 +703,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                             setAmount(val);
                                                         }
                                                     }}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white font-bold text-lg focus:outline-none focus:border-primary"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 md:py-3 text-white font-bold text-base md:text-lg focus:outline-none focus:border-primary"
                                                 />
                                             </div>
                                             {/* Quick Select Buttons */}
                                             <button
                                                 type="button"
                                                 onClick={() => setAmount(bet.minBet)}
-                                                className={`px-3 py-2 rounded-lg text-xs font-bold border ${amount === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${amount === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MIN
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setAmount(bet.maxBet)}
-                                                className={`px-3 py-2 rounded-lg text-xs font-bold border ${amount === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${amount === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MAX
                                             </button>
