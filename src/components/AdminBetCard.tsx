@@ -55,7 +55,6 @@ interface AdminBetCardProps {
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
-    const [showModal, setShowModal] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(bet.minBet);
@@ -258,7 +257,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     targetName: getBetTypeLabel()
                 });
 
-                setShowModal(false);
+                closeModal();
                 setShowReceipt(true); // TRIGGER RECEIPT
                 onBet(); // Refresh the list
             } else {
