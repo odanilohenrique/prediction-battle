@@ -17,14 +17,14 @@ export default function Home() {
 
     useEffect(() => {
         fetchBattles();
-        // Polling every 5 seconds to ensure instant updates
-        const interval = setInterval(fetchBattles, 5000);
+        // Polling every 10 seconds (background update)
+        const interval = setInterval(() => fetchBattles(true), 10000);
         return () => clearInterval(interval);
     }, [address]);
 
-    async function fetchBattles() {
+    async function fetchBattles(isBackground = false) {
         try {
-            setLoading(true);
+            if (!isBackground) setLoading(true);
             // Add timestamp to bust any caching
             const response = await fetch(`/api/admin/bets?_t=${Date.now()}`, {
                 cache: 'no-store',
@@ -39,7 +39,7 @@ export default function Home() {
         } catch (error) {
             console.error('Error fetching battles:', error);
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     }
 
@@ -62,14 +62,15 @@ export default function Home() {
         `);
     });
 
-    const officialBattles = battles.filter(b => b.status === 'active' && (!b.creatorAddress || isAdmin(b.creatorAddress)));
-    // Community: Show ONLY non-admin active battles
-    const communityBattles = battles.filter(b => b.status === 'active' && b.creatorAddress && !isAdmin(b.creatorAddress));
+    // Helper to determine if a bet is truly active (status active AND time remaining)
+    const isTrulyActive = (b: any) => b.status === 'active' && Date.now() < new Date(b.expiresAt).getTime();
 
-    // Expired bets: Status is 'expired' OR 'resolved' OR just past deadline?
-    // User requested "last 3 expired".
+    const officialBattles = battles.filter(b => isTrulyActive(b) && (!b.creatorAddress || isAdmin(b.creatorAddress)));
+    const communityBattles = battles.filter(b => isTrulyActive(b) && b.creatorAddress && !isAdmin(b.creatorAddress));
+
+    // Expired: Everything else (Resolved, Completed, Expired Time, or Status !== active)
     const expiredBattles = battles
-        .filter(b => b.status !== 'active' || Date.now() >= new Date(b.expiresAt).getTime())
+        .filter(b => !isTrulyActive(b))
         .sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())
         .slice(0, 50);
 
