@@ -43,7 +43,10 @@ export default function MonitorPage() {
 
     async function fetchBets() {
         try {
-            const response = await fetch('/api/admin/bets');
+            const response = await fetch(`/api/admin/bets?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache' }
+            });
             const data = await response.json();
             if (data.success) {
                 setBets(data.bets || []);
@@ -196,8 +199,8 @@ export default function MonitorPage() {
                                         </div>
                                     </div>
                                     <div className={`px-3 py-1 rounded-full text-xs font-bold ${timeInfo.isExpired
-                                            ? 'bg-yellow-500/20 text-yellow-500 animate-pulse'
-                                            : 'bg-green-500/20 text-green-500'
+                                        ? 'bg-yellow-500/20 text-yellow-500 animate-pulse'
+                                        : 'bg-green-500/20 text-green-500'
                                         }`}>
                                         {timeInfo.isExpired ? '⏰ NEEDS RESOLUTION' : '🟢 LIVE'}
                                     </div>

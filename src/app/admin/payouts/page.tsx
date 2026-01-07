@@ -29,7 +29,7 @@ export default function PayoutsPage() {
 
     async function fetchPayouts() {
         try {
-            const res = await fetch('/api/admin/payouts', { cache: 'no-store' });
+            const res = await fetch(`/api/admin/payouts?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.success) {
                 setPayouts(data.payouts);
