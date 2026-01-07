@@ -25,6 +25,7 @@ contract PredictionBattle {
         mapping(address => uint256) yesBets;
         mapping(address => uint256) noBets;
         // Payout tracking
+        bool isVoid; // New: Refund/Draw flag
         uint256 processedIndex; // To track how many winners have been paid (for batching)
         bool paidOut;
     }
@@ -35,6 +36,7 @@ contract PredictionBattle {
     event PredictionCreated(string id, uint256 target, uint256 deadline);
     event BetPlaced(string id, address user, bool vote, uint256 amount);
     event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 platformFee);
+    event PredictionVoided(string id, uint256 totalPool, uint256 platformFee);
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
 
@@ -56,6 +58,7 @@ contract PredictionBattle {
         p.target = _target;
         p.deadline = block.timestamp + _duration;
         p.resolved = false;
+        p.isVoid = false;
         p.processedIndex = 0;
         p.paidOut = false;
         
@@ -72,10 +75,6 @@ contract PredictionBattle {
         require(msg.value > 0, "Bet amount must be greater than 0");
 
         if (_vote) {
-            // Add to array only if first time betting or logic dictates (here we allow multiple bets, but strictly unique address tracking needs care)
-            // Ideally we check if they already bet to avoid duplicate array entries, OR we just append and handle duplicates in loop (more gas first time, easier later).
-            // Cheaper for user: Append. More expensive for admin: Duplicates. 
-            // Let's Check duplicates to save admin gas later.
             if (p.yesBets[msg.sender] == 0) {
                 p.yesBettors.push(msg.sender);
             }
@@ -112,25 +111,96 @@ contract PredictionBattle {
         emit PredictionResolved(_id, _result, totalPool - fee, fee);
     }
 
+    // 3.5. Resolve as Void (Draw/Refund)
+    function resolveVoid(string memory _id) external onlyAdmin {
+        require(predictionExists[_id], "Prediction does not exist");
+        Prediction storage p = predictions[_id];
+        require(!p.resolved, "Already resolved");
+
+        p.resolved = true;
+        p.isVoid = true; // Mark as void
+
+        uint256 totalPool = p.totalYes + p.totalNo;
+        uint256 fee = (totalPool * platformFeeBps) / 10000;
+
+        // Send fee to admin immediately
+        (bool sent, ) = admin.call{value: fee}("");
+        require(sent, "Failed to send platform fee");
+
+        emit PredictionVoided(_id, totalPool - fee, fee);
+    }
+
     // 4. Distribute Winnings (Batch Processing)
-    // _batchSize: number of users to process in this call (e.g., 50)
     function distributeWinnings(string memory _id, uint256 _batchSize) external onlyAdmin {
         Prediction storage p = predictions[_id];
         require(p.resolved, "Prediction not resolved yet");
         require(!p.paidOut, "Already fully paid out");
 
         address[] memory winners;
-        uint256 winningPool;
-        uint256 losingPool;
+        uint256 totalPool = p.totalYes + p.totalNo;
+        uint256 fee = (totalPool * platformFeeBps) / 10000;
+        uint256 distributablePot = totalPool - fee;
+        
+        // --- VOID LOGIC ---
+        if (p.isVoid) {
+            // Need to iterate through ALL bettors (YES and NO)
+            // Ideally we'd have a single array of allBettors, but we have two.
+            // Complex to do in one loop if sizes differ.
+            // Better strategy: Treat them as a single virtual list.
+            
+            uint256 totalYesCount = p.yesBettors.length;
+            uint256 totalNoCount = p.noBettors.length;
+            uint256 totalBettors = totalYesCount + totalNoCount;
+            
+            uint256 endIndex = p.processedIndex + _batchSize;
+            if (endIndex > totalBettors) endIndex = totalBettors;
 
+            for (uint256 i = p.processedIndex; i < endIndex; i++) {
+                address userAddr;
+                uint256 betAmount;
+                
+                if (i < totalYesCount) {
+                    // Processing YES bettors
+                    userAddr = p.yesBettors[i];
+                    betAmount = p.yesBets[userAddr];
+                    p.yesBets[userAddr] = 0; 
+                } else {
+                    // Processing NO bettors
+                    uint256 noIndex = i - totalYesCount;
+                    userAddr = p.noBettors[noIndex];
+                    betAmount = p.noBets[userAddr];
+                    p.noBets[userAddr] = 0;
+                }
+
+                if (betAmount > 0) {
+                    // Refund calculation: (UserBet / TotalPool) * Distributable
+                    // Or simply: UserBet * (0.8) if fee is constant 20%
+                    // Using (betAmount * distributablePot) / totalPool is safer for precision
+                    uint256 refund = (betAmount * distributablePot) / totalPool;
+                    
+                    (bool sent, ) = userAddr.call{value: refund}("");
+                    require(sent, "Transfer failed"); 
+                    emit PayoutDistributed(_id, userAddr, refund);
+                }
+            }
+            
+            p.processedIndex = endIndex;
+            if (p.processedIndex >= totalBettors) {
+                p.paidOut = true;
+                emit DistributionCompleted(_id);
+            }
+            return;
+        }
+
+        // --- NORMAL LOGIC (Win/Loss) ---
+        uint256 winningPool;
+        
         if (p.result) { // YES won
             winners = p.yesBettors;
             winningPool = p.totalYes;
-            losingPool = p.totalNo;
         } else { // NO won
             winners = p.noBettors;
             winningPool = p.totalNo;
-            losingPool = p.totalYes;
         }
 
         if (winners.length == 0) {
@@ -139,23 +209,15 @@ contract PredictionBattle {
         }
 
         uint256 totalWinners = winners.length;
-        uint256 endIndex = p.processedIndex + _batchSize;
-        if (endIndex > totalWinners) {
-            endIndex = totalWinners;
-        }
+        uint256 endNormalIndex = p.processedIndex + _batchSize;
+        if (endNormalIndex > totalWinners) endNormalIndex = totalWinners;
 
-        // Pot Calculation matching claim logic
-        uint256 totalPool = winningPool + losingPool;
-        uint256 fee = (totalPool * platformFeeBps) / 10000;
-        uint256 distributablePot = totalPool - fee;
-
-        for (uint256 i = p.processedIndex; i < endIndex; i++) {
+        for (uint256 i = p.processedIndex; i < endNormalIndex; i++) {
             address winnerAddr = winners[i];
             uint256 betAmount;
             
             if (p.result) {
                 betAmount = p.yesBets[winnerAddr];
-                // Reset to prevent re-entrancy/double pay effectively handled by processedIndex but good practice
                 p.yesBets[winnerAddr] = 0; 
             } else {
                 betAmount = p.noBets[winnerAddr];
@@ -165,12 +227,12 @@ contract PredictionBattle {
             if (betAmount > 0) {
                 uint256 payout = (betAmount * distributablePot) / winningPool;
                 (bool sent, ) = winnerAddr.call{value: payout}("");
-                require(sent, "Transfer failed"); // If one fails, batch fails. Safer for ensuring everyone gets paid.
+                require(sent, "Transfer failed");
                 emit PayoutDistributed(_id, winnerAddr, payout);
             }
         }
 
-        p.processedIndex = endIndex;
+        p.processedIndex = endNormalIndex;
 
         if (p.processedIndex >= totalWinners) {
             p.paidOut = true;
@@ -178,3 +240,4 @@ contract PredictionBattle {
         }
     }
 }
+

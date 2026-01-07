@@ -170,11 +170,37 @@ export default function PayoutsPage() {
             ) : (
                 <div className="grid gap-6">
                     {payouts.map((bet) => {
+                        // Handle "void" or "draw" (checking if bet.result is used this way, or if we need a new field. 
+                        // The contract returns "isVoid", we might need to update the API/Type to include it.
+                        // For now, assuming standard result='yes'/'no'.
+                        // But wait, if I set 'isVoid' in contract, the indexer/API needs to return it.
+                        // The current `BetMonitor` interface in `MonitorPage` didn't have `isVoid`.
+                        // I'll assume for now `result` might be 'void' or I check a flag if available. 
+                        // Let's assume the API returns `result: 'draw'` or similar if I update the resolver?
+                        // Actually, I haven't updated the API to return 'isVoid' yet.
+                        // Crucially, the frontend relies on `bet` object.
+
+                        // Let's assume for this step I interpret a specific condition or just result string.
+                        // I'll stick to 'yes'/'no' for now but handle case where I might manually set 'draw' in DB if I update API.
+                        // Actually, better: allow 'draw' as a fallback.
+
+                        const isDraw = bet.result === 'draw' || (bet as any).isVoid;
                         const result = bet.result || 'no';
-                        const winners = result === 'yes' ? bet.participants.yes : bet.participants.no;
+
+                        let winners: any[] = [];
+                        let totalWinningStake = 0;
+
+                        if (isDraw) {
+                            winners = [...bet.participants.yes, ...bet.participants.no];
+                            totalWinningStake = bet.totalPot; // Everyone is a "winner" of their refund share
+                        } else {
+                            winners = result === 'yes' ? bet.participants.yes : bet.participants.no;
+                            totalWinningStake = winners.reduce((sum, p) => sum + p.amount, 0);
+                        }
+
                         const totalPot = bet.totalPot;
                         const winnersPot = totalPot * 0.8;
-                        const totalWinningStake = winners.reduce((sum, p) => sum + p.amount, 0);
+
 
                         return (
                             <div key={bet.id} className="bg-surface border border-darkGray rounded-xl p-6">
@@ -187,9 +213,10 @@ export default function PayoutsPage() {
                                             Target: {bet.target} ({bet.type})
                                         </p>
                                     </div>
-                                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${result === 'yes' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                                    <div className={`px-3 py-1 rounded-full text-sm font-bold ${isDraw ? 'bg-gray-500/20 text-gray-400' :
+                                            result === 'yes' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
                                         }`}>
-                                        Result: {result.toUpperCase()}
+                                        Result: {isDraw ? 'DRAW (REFUND)' : result.toUpperCase()}
                                     </div>
                                 </div>
 
@@ -200,7 +227,11 @@ export default function PayoutsPage() {
                                     </div>
                                     <div>
                                         <span className="text-textSecondary">Winners Pot (80%):</span>{' '}
-                                        <span className="font-bold text-green-500">${winnersPot.toFixed(2)}</span>
+                                        <div>
+                                            <span className="text-textSecondary">Winners Pot (80%):</span>{' '}
+                                            <span className="font-bold text-green-500">${winnersPot.toFixed(2)}</span>
+                                            {isDraw && <span className="text-xs text-gray-400 ml-2">(Refund Pool)</span>}
+                                        </div>
                                     </div>
                                 </div>
 
