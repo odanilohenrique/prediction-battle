@@ -124,6 +124,7 @@ export default function CreateCommunityBet() {
         predictionImage: '',
         noTargetValue: false, // For subjective bets
         referenceUrl: '', // For Prediction Mode
+        autoVerify: false, // [NEW] Admin switch
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
@@ -277,7 +278,8 @@ export default function CreateCommunityBet() {
                     optionB: creationMode === 'battle' ? formData.optionB : undefined,
                     predictionImage: formData.predictionImage,
                     castUrl: formData.castUrl,
-                    rules: formData.rules
+                    rules: formData.rules,
+                    autoVerify: formData.autoVerify,
                 }),
             });
 
@@ -639,6 +641,8 @@ export default function CreateCommunityBet() {
                                 ))}
                             </div>
                         </div>
+
+
 
                         {/* Limits for Battle */}
                         <div className="bg-black/20 border border-white/10 rounded-2xl p-6">
@@ -1113,6 +1117,48 @@ export default function CreateCommunityBet() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Rules Field (Manual Verification or Context) */}
+                        <div className="bg-surface border border-darkGray rounded-2xl p-6 mb-6">
+                            <label className="block text-sm font-medium text-textPrimary mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Info className="w-5 h-5 text-primary" />
+                                    Verification Rules / Notes
+                                </div>
+                            </label>
+                            <textarea
+                                value={formData.rules}
+                                onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
+                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[80px] text-sm"
+                                placeholder={formData.autoVerify ? "Auto-verification enabled. Add any extra notes..." : "Describe how the winner will be determined..."}
+                            />
+                        </div>
+
+                        {/* Admin: Auto Verification */}
+                        {address && isAdmin(address) && (
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 mb-6 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-white font-bold flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-blue-400" />
+                                        Auto-Verification (Bot)
+                                    </h3>
+                                    <p className="text-xs text-white/60">
+                                        Automatically resolve based on Neynar API data?
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, autoVerify: !prev.autoVerify }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${formData.autoVerify ? 'bg-blue-500' : 'bg-white/10'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.autoVerify ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+                        )}
 
                         {/* 5. Limits & Economics */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
