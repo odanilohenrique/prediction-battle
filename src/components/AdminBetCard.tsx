@@ -35,6 +35,15 @@ interface AdminBet {
     creatorAddress?: string;
     creatorDisplayName?: string;
     status?: string;
+    // Automated Verification Metadata
+    verification?: {
+        enabled: boolean;
+        type: 'likes' | 'recasts' | 'replies' | 'followers' | 'keyword';
+        target: number | string; // e.g. 1000 or "build"
+        url?: string; // Link to the specific cast to verify (for engagement bets)
+        username?: string; // User to verify (for follower/keyword bets)
+        wordToMatch?: string; // If keyword type
+    };
 }
 
 interface AdminBetCardProps {

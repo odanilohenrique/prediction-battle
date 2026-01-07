@@ -164,3 +164,53 @@ export async function getUserByUsername(username: string): Promise<{
         return null;
     }
 }
+return null;
+    }
+}
+
+/**
+ * Get user stats (followers, following)
+ */
+export async function getUserStats(username: string): Promise<{
+    followers: number;
+    following: number;
+} | null> {
+    const user = await getUserByUsername(username);
+    if (!user) return null;
+
+    try {
+        const response = await fetch(
+            `${NEYNAR_API_BASE}/farcaster/user?fid=${user.fid}`,
+            {
+                headers: { 'api_key': NEYNAR_API_KEY }
+            }
+        );
+        const data = await response.json();
+        return {
+            followers: data.user.follower_count,
+            following: data.user.following_count
+        };
+    } catch (e) {
+        console.error('Error fetching user stats:', e);
+        return null;
+    }
+}
+
+/**
+ * Get user's recent casts
+ */
+export async function getUserRecentCasts(fid: number, limit: number = 20): Promise<any[]> {
+    try {
+        const response = await fetch(
+            `${NEYNAR_API_BASE}/farcaster/feed/user/casts?fid=${fid}&limit=${limit}`,
+            {
+                headers: { 'api_key': NEYNAR_API_KEY }
+            }
+        );
+        const data = await response.json();
+        return data.casts || [];
+    } catch (e) {
+        console.error('Error fetching recent casts:', e);
+        return [];
+    }
+}
