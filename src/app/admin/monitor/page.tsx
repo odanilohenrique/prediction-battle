@@ -47,7 +47,61 @@ const formatTimeRemaining = (expiresAt: number) => {
 
 // Start of Component
 export default function MonitorPage() {
-    const [bets, setBets] = useState<BetMonitor[]>([]);
+    const { writeContractAsync } = useWriteContract();
+
+    // ... imports ...
+
+    async function handleVoid(betId: string) {
+        if (!confirm('Are you sure you want to VOID this bet? This will refund all participants (minus fee).')) return;
+        try {
+            const hash = await writeContractAsync({
+                address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'resolveVoid',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [{ name: '_id', type: 'string' }],
+                    outputs: []
+                }],
+                functionName: 'resolveVoid',
+                args: [betId],
+            });
+            alert(`Void Tx Sent: ${hash}`);
+            fetchBets();
+        } catch (e) {
+            console.error(e);
+            alert('Error voiding bet: ' + (e as Error).message);
+        }
+    }
+
+    async function handleResolve(betId: string, result: boolean) {
+        if (!confirm(`Resolve as ${result ? 'YES' : 'NO'}?`)) return;
+        try {
+            // ... existing resolve logic or replicate here if missing
+            // Since I don't see it in the file, I'll assume I need to implement or it's somewhere else.
+            // Given the context, I'll just add handleVoid for now and assume handleResolve exists or I add it.
+            // Wait, if I'm adding buttons to renderBet, I need both.
+
+            const hash = await writeContractAsync({
+                address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'resolvePrediction',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [{ name: '_id', type: 'string' }, { name: '_result', type: 'bool' }],
+                    outputs: []
+                }],
+                functionName: 'resolvePrediction',
+                args: [betId, result],
+            });
+            alert(`Resolve Tx Sent: ${hash}`);
+            fetchBets();
+        } catch (e) {
+            console.error(e);
+            alert('Error resolving: ' + (e as Error).message);
+        }
+    }
+
     const [loading, setLoading] = useState(true);
     const [selectedBet, setSelectedBet] = useState<BetMonitor | null>(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
@@ -164,7 +218,9 @@ export default function MonitorPage() {
                             ⚠️ Pending Resolution (Action Required)
                         </h2>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5">
-                            {pendingBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets))}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5">
+                                {pendingBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -188,7 +244,7 @@ export default function MonitorPage() {
                                 <p className="text-textSecondary">All quiet on the front.</p>
                             </div>
                         ) : (
-                            liveBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets))
+                            liveBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))
                         )}
                     </div>
                 </div>
@@ -205,7 +261,7 @@ export default function MonitorPage() {
                         </button>
                         {showExpired && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {completedBets.slice(0, 10).map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets))}
+                                {completedBets.slice(0, 10).map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))}
                             </div>
                         )}
                     </div>
@@ -225,7 +281,7 @@ const formatTimestamp = (ts: number) => {
 };
 
 // Helper component extracted for cleaner rendering
-function renderBet(bet: BetMonitor, selectedBet: BetMonitor | null, setSelectedBet: any, fetchBets: any) {
+function renderBet(bet: BetMonitor, selectedBet: BetMonitor | null, setSelectedBet: any, fetchBets: any, handleResolve: any, handleVoid: any) {
 
     const timeInfo = formatTimeRemaining(bet.expiresAt);
     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
@@ -331,6 +387,30 @@ function renderBet(bet: BetMonitor, selectedBet: BetMonitor | null, setSelectedB
             {/* Expanded Details */}
             {selectedBet?.id === bet.id && (
                 <div className="mt-6 pt-6 border-t border-darkGray space-y-4">
+                    {/* Resolution Actions (Only for Expired Active Bets) */}
+                    {isExpired && bet.status === 'active' && (
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleResolve(bet.id, true); }}
+                                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg"
+                            >
+                                Resolve YES
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleResolve(bet.id, false); }}
+                                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg"
+                            >
+                                Resolve NO
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleVoid(bet.id); }}
+                                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg"
+                            >
+                                VOID / DRAW
+                            </button>
+                        </div>
+                    )}
+
                     <h4 className="font-bold text-textPrimary">📋 Participant History</h4>
 
                     {/* YES Bets */}

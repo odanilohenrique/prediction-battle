@@ -31,6 +31,14 @@ export async function GET(req: NextRequest) {
 
         // 3. Loop and Verify
         for (const bet of activeBets) {
+            // SAFETY: Skip Auto-Verify for Versus Battles for now.
+            // The current logic checks a SINGLE target/username. It cannot referee a race (Who posted first?).
+            // For Battle Mode, we must verify manually or upgrade this logic later.
+            if (bet.optionA && bet.optionB) {
+                results.push({ id: bet.id, result: 'SKIPPED_VERSUS', reason: 'Auto-verify not supported for battles yet.' });
+                continue;
+            }
+
             const { type, target, url, username } = bet.verification!;
             let verified = false;
             let currentVal: number | string = 0;
