@@ -164,9 +164,7 @@ export async function getUserByUsername(username: string): Promise<{
         return null;
     }
 }
-return null;
-    }
-}
+
 
 /**
  * Get user stats (followers, following)
