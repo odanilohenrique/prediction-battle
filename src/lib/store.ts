@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import { unstable_noStore as noStore } from 'next/cache';
 
 export interface BetParticipant {
     userId: string;
@@ -76,78 +77,24 @@ export interface Player {
 }
 
 export const store = {
-    // Get all bets (REPLACED WITH DIRECT FETCH TO BYPASS CACHE)
+    // Get all bets
     async getBets(): Promise<Bet[]> {
+        noStore(); // Opt out of static optimizations
         const t = Date.now();
         console.log(`[STORE] getBets START at ${new Date(t).toISOString()}`);
 
         try {
-            // BYPASS @vercel/kv SDK caching by using direct fetch
-            const url = process.env.KV_REST_API_URL;
-            const token = process.env.KV_REST_API_TOKEN;
-
-            if (!url || !token) {
-                console.error('[STORE] Missing KV_REST_API_URL or KV_REST_API_TOKEN');
-                // Fallback to SDK if env vars missing
-                const bets = await kv.hgetall(BETS_KEY);
-                return bets ? Object.values(bets) as Bet[] : [];
-            }
-
-            // Append timestamp to URL to force fresh request at CDN level
-            // Standard Upstash/Redis REST API
-            const fetchUrl = `${url}/hgetall/${BETS_KEY}?_t=${t}`;
-
-            console.log(`[STORE] Fetching from REST API using fetch(): ${url}/hgetall/${BETS_KEY} (cache: no-store)`);
-
-            const response = await fetch(fetchUrl, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                cache: 'no-store', // Critical: Force fresh fetch
-                next: { revalidate: 0 } // Explicit Next.js revalidation disable
-            });
-
-            if (!response.ok) {
-                console.error(`[STORE] REST API Error: ${response.status} ${response.statusText}`);
-                const text = await response.text();
-                // If 404/Null, return empty
+            const bets = await kv.hgetall(BETS_KEY);
+            if (!bets) {
+                console.log(`[STORE] getBets: No bets found in Redis. (Duration: ${Date.now() - t}ms)`);
                 return [];
             }
+            // Redis returns object with id keys, convert to array
+            const betArray = Object.values(bets) as Bet[];
 
-            const data = await response.json();
-            const result = data.result;
-
-            if (!result) {
-                console.log(`[STORE] getBets: No result in REST response.`);
-                return [];
-            }
-
-            let betArray: Bet[] = [];
-
-            if (Array.isArray(result)) {
-                // Upstash Redis REST returns ["key", "value", "key", "value"] for HGETALL
-                for (let i = 1; i < result.length; i += 2) {
-                    const val = result[i];
-                    if (typeof val === 'string') {
-                        try {
-                            betArray.push(JSON.parse(val));
-                        } catch (e) {
-                            console.error('Json parse error', e);
-                        }
-                    } else if (typeof val === 'object') {
-                        betArray.push(val);
-                    }
-                }
-            } else if (typeof result === 'object') {
-                betArray = Object.values(result).map((v: any) => {
-                    return typeof v === 'string' ? JSON.parse(v) : v;
-                });
-            }
-
-            console.log(`[STORE] getBets: Found ${betArray.length} bets from REST API. (Duration: ${Date.now() - t}ms)`);
+            console.log(`[STORE] getBets: Found ${betArray.length} bets via SDK. (Duration: ${Date.now() - t}ms)`);
 
             if (betArray.length > 0) {
-                // Log newest for debug
                 const sorted = [...betArray].sort((a, b) => b.createdAt - a.createdAt);
                 const newest = sorted[0];
                 console.log(`[STORE] Newest Bet ID: ${newest.id}, CreatedAt: ${new Date(newest.createdAt).toISOString()}`);
@@ -155,20 +102,14 @@ export const store = {
 
             return betArray;
         } catch (error) {
-            console.error(`[STORE] Error in manual fetch (getBets) after ${Date.now() - t}ms:`, error);
-            // Fallback
-            console.log('[STORE] Falling back to SDK kv.hgetall...');
-            try {
-                const bets = await kv.hgetall(BETS_KEY);
-                return bets ? Object.values(bets) as Bet[] : [];
-            } catch (kverr) {
-                return [];
-            }
+            console.error(`[STORE] Redis Error (getBets) after ${Date.now() - t}ms:`, error);
+            return [];
         }
     },
 
     // Get single bet
     async getBet(id: string): Promise<Bet | null> {
+        noStore();
         try {
             const bet = await kv.hget(BETS_KEY, id);
             return bet as Bet | null;
@@ -203,6 +144,7 @@ export const store = {
     // --- PLAYER METHODS ---
 
     async getPlayers(): Promise<Player[]> {
+        noStore();
         try {
             const players = await kv.hgetall(PLAYERS_KEY);
             if (!players) return [];
