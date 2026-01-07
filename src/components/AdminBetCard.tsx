@@ -310,9 +310,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                             <span className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                                {Date.now() < bet.expiresAt ? 'LIVE BATTLE' : 'BATTLE ENDED'}
+                                {bet.status !== 'active' ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
                             </span>
                         </div>
                         {/* Creator Badge */}
@@ -530,7 +530,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     {/* Action Area */}
                     <div className="flex gap-3">
                         {/* Seed button only for admin on empty pools */}
-                        {address && isAdmin(address) && bet.totalPot === 0 && Date.now() < bet.expiresAt && (
+                        {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < bet.expiresAt && (
                             <button
                                 onClick={handleSeedPool}
                                 disabled={isSubmitting}
@@ -540,16 +540,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
 
-                        {Date.now() > bet.expiresAt ? (
-                            <button disabled className="w-full bg-white/5 text-white/40 font-bold py-3 rounded-xl cursor-not-allowed border border-white/5">
-                                BATTLE ENDED
+                        {bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
+                            <button
+                                disabled
+                                className="w-full bg-red-500/10 text-red-500 font-black py-4 rounded-xl cursor-not-allowed border border-red-500/20 uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                <span>🚫</span>
+                                {bet.status !== 'active' ? 'BATTLE RESOLVED' : 'BATTLE EXPIRED'}
                             </button>
                         ) : (
                             <button
                                 onClick={() => setShowModal(true)}
                                 className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-[1.02] active:scale-[0.98]"
                             >
-                                JOINT BATTLE
+                                JOIN BATTLE
                             </button>
                         )}
                     </div>
@@ -560,8 +564,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             {/* Battle Station Modal */}
             {
                 showModal && (
-                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl max-w-md w-full shadow-2xl relative overflow-hidden">
+                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4">
+                        <div className="bg-[#0a0a0a] border-0 md:border md:border-white/10 rounded-none md:rounded-3xl w-full h-[100dvh] md:h-auto md:max-h-[90dvh] md:max-w-md shadow-2xl relative flex flex-col">
                             {/* Top Accent */}
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-white to-primary opacity-50"></div>
 
@@ -577,7 +581,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </button>
                             </div>
 
-                            <div className="p-6 space-y-6">
+                            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto max-h-[calc(90dvh-80px)]">
 
                                 {/* Stylized Header for Battle Mode */}
                                 {bet.optionA && bet.optionB ? (
@@ -586,20 +590,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <div className="relative z-10 flex items-center justify-center gap-6">
                                             {/* Player 1 */}
                                             <div className="flex flex-col items-center gap-2">
-                                                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                                <div className="w-16 h-16 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
                                                     {bet.optionA.imageUrl ? <img src={bet.optionA.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-green-500/20" />}
                                                 </div>
-                                                <div className="text-sm font-black text-green-500">{bet.optionA.label}</div>
+                                                <div className="text-xs md:text-sm font-black text-green-500">{bet.optionA.label}</div>
                                             </div>
 
                                             <div className="text-4xl font-black italic text-white/20">VS</div>
 
                                             {/* Player 2 */}
                                             <div className="flex flex-col items-center gap-2">
-                                                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                                <div className="w-16 h-16 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                                                     {bet.optionB.imageUrl ? <img src={bet.optionB.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-red-500/20" />}
                                                 </div>
-                                                <div className="text-sm font-black text-red-500">{bet.optionB.label}</div>
+                                                <div className="text-xs md:text-sm font-black text-red-500">{bet.optionB.label}</div>
                                             </div>
                                         </div>
                                         <div className="mt-4 pt-4 border-t border-white/5">

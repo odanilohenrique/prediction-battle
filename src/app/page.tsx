@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Sword, Flame, Trophy, Crown, Users, Plus, Clock } from 'lucide-react';
@@ -11,11 +12,12 @@ import { isAdmin } from '@/lib/config';
 export default function Home() {
     const [battles, setBattles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { address } = useAccount();
     const [activeTab, setActiveTab] = useState<'official' | 'community' | 'expired'>('official');
 
     useEffect(() => {
         fetchBattles();
-    }, []);
+    }, [address]);
 
     async function fetchBattles() {
         try {
@@ -64,8 +66,8 @@ export default function Home() {
     // Expired bets: Status is 'expired' OR 'resolved' OR just past deadline?
     // User requested "last 3 expired".
     const expiredBattles = battles
-        .filter(b => b.status !== 'active' || Date.now() >= b.expiresAt)
-        .sort((a, b) => b.expiresAt - a.expiresAt)
+        .filter(b => b.status !== 'active' || Date.now() >= new Date(b.expiresAt).getTime())
+        .sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())
         .slice(0, 50);
 
     const displayedBattles = activeTab === 'official'

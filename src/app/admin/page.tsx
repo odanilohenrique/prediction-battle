@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -52,10 +53,12 @@ export default function AdminDashboard() {
         totalFees: 0,
     });
 
+    const { address } = useAccount();
+
     useEffect(() => {
         if (activeTab === 'dashboard') fetchAdminData();
         if (activeTab === 'users') fetchPlayers();
-    }, [activeTab]);
+    }, [activeTab, address]);
 
     async function fetchPlayers() {
         setLoadingPlayers(true);
