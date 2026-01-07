@@ -6,6 +6,7 @@ import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'w
 import { parseUnits } from 'viem';
 import { isAdmin } from '@/lib/config';
 import ViralReceipt from './ViralReceipt';
+import Modal from '@/components/ui/Modal';
 
 interface AdminBet {
     id: string;
@@ -63,6 +64,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Viral Receipt State
     const [showReceipt, setShowReceipt] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
+
+    // Modal State
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        type: 'info'
+    });
+
+    const showModal = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', onConfirm?: () => void) => {
+        setModalConfig({ isOpen: true, title, description, type, onConfirm });
+    };
+
+    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
     // Calculate percentages
     const totalYes = bet.participants.yes.length;
@@ -141,7 +162,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     }
                 } catch (switchError) {
                     console.error('Failed to switch chain:', switchError);
-                    alert(`⚠️ Error: Wrong network. Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`);
+                    showModal('Wrong Network', `Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`, 'error');
                     setIsSubmitting(false);
                     return;
                 }
@@ -177,7 +198,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 setIsSubmitting(true); // Keep loading
                 if (!publicClient) throw new Error("Public Client not initialized");
 
-                alert('⏳ Aguardando confirmação na blockchain... (não feche)');
+                // alert('⏳ Aguardando confirmação na blockchain... (não feche)');
+                // Instead of blocking alert, we just log/show status in button
+                console.log("Waiting for receipt...");
                 const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
                 if (receipt.status !== 'success') {
@@ -239,11 +262,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 setShowReceipt(true); // TRIGGER RECEIPT
                 onBet(); // Refresh the list
             } else {
-                alert('⚠️ Payment confirmed, but backend registration failed. Contact support.');
+                showModal('Partial Error', 'Payment confirmed, but backend registration failed. Please contact support with your TX Hash.', 'warning');
             }
         } catch (error) {
             console.error('Error submitting bet:', error);
-            alert(`❌ ${(error as Error).message}`);
+            showModal('Action Failed', (error as Error).message || 'Unknown error occurred', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -302,12 +325,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             await executeSeedSide('yes');
             await executeSeedSide('no');
 
-            alert('✅ Pool Seeded Successfully! Liquidity injected.');
-            onBet(); // Refresh
+            await executeSeedSide('yes');
+            await executeSeedSide('no');
+
+            showModal('Success', 'Pool Seeded Successfully! Liquidity injected.', 'success', onBet);
 
         } catch (error) {
             console.error('Seeding failed:', error);
-            alert(`Seed Failed: ${(error as Error).message}`);
+            showModal('Seed Failed', (error as Error).message, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -362,19 +387,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     {bet.optionA?.label && bet.optionB?.label ? (
                         <>
                             {/* Volume & Fighters - Top Right */}
-                            <div className="flex justify-between items-start mb-4 relative min-h-[40px]">
-                                <div className="flex-1 text-center px-4">
-                                    <h3 className="text-xl font-black text-white italic leading-tight drop-shadow-lg">
+                            {/* Volume & Fighters - Top Right */}
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                                <div className="text-center w-full md:w-auto">
+                                    <h3 className="text-xl md:text-2xl font-black text-white italic leading-tight drop-shadow-lg">
                                         {bet.castText || getBetTypeLabel()}
                                     </h3>
                                 </div>
-                                <div className="absolute right-0 top-0 text-right">
-                                    <div className="text-2xl font-black text-white flex items-center justify-end gap-1">
+                                <div className="flex items-center gap-4 bg-black/40 rounded-full px-4 py-2 border border-white/5">
+                                    <div className="text-xl font-black text-white flex items-center gap-1">
                                         <span className="text-primary">$</span>
                                         {bet.totalPot.toFixed(2)}
                                     </div>
-                                    <div className="text-xs text-white/40 flex items-center justify-end gap-1">
-                                        <Users className="w-3 h-3" /> {bet.participantCount} Predictors
+                                    <div className="w-px h-6 bg-white/10"></div>
+                                    <div className="text-xs text-white/60 flex items-center gap-1">
+                                        <Users className="w-3 h-3" /> {bet.participantCount} <span className="hidden sm:inline">Predictors</span>
                                     </div>
                                 </div>
                             </div>
@@ -829,6 +856,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
                 )
             }
+            {/* Modal Portal */}
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={closeModal}
+                title={modalConfig.title}
+                description={modalConfig.description}
+                type={modalConfig.type}
+                onConfirm={modalConfig.onConfirm}
+            />
         </>
     );
 }
