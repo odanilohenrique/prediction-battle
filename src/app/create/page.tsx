@@ -65,7 +65,10 @@ const POPULAR_PLAYERS = [
 // Helper to merge API players
 async function getPlayersList() {
     try {
-        const res = await fetch('/api/admin/players');
+        const res = await fetch(`/api/admin/players?t=${Date.now()}`, {
+            cache: 'no-store',
+            headers: { 'Pragma': 'no-cache' }
+        });
         const data = await res.json();
         if (data.success && data.players.length > 0) {
             return data.players;
