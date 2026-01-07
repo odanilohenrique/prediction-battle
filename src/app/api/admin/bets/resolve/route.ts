@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { isAdmin } from '@/lib/config';
 
@@ -46,6 +47,12 @@ export async function POST(req: NextRequest) {
 
         // 3. Save the updated bet
         await store.saveBet(bet);
+
+        // Purge cache
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/admin/monitor');
+        revalidatePath('/admin/payouts');
 
         return NextResponse.json({ success: true, bet });
     } catch (error) {

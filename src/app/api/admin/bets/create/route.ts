@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { getUserByUsername } from '@/lib/neynar';
 
@@ -112,6 +113,12 @@ export async function POST(request: NextRequest) {
 
         // Save to Redis
         await store.saveBet(bet);
+
+        // Purge cache
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/admin/monitor');
+        revalidatePath('/admin/payouts');
 
         return NextResponse.json({
             success: true,

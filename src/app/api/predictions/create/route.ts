@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { store, Bet, BetParticipant } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
@@ -191,6 +192,11 @@ export async function POST(request: NextRequest) {
             console.error('[API CREATE] ❌ REDIS SAVE FAILED:', saveError);
             throw saveError;
         }
+
+        // Purge cache for key pages
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/admin/monitor');
 
         return NextResponse.json({
             success: true,
