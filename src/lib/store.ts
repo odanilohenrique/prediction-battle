@@ -77,20 +77,30 @@ export interface Player {
 
 export const store = {
     // Get all bets
+    // Get all bets
     async getBets(): Promise<Bet[]> {
+        const t = Date.now();
+        console.log(`[STORE] getBets START at ${new Date(t).toISOString()}`);
         try {
             const bets = await kv.hgetall(BETS_KEY);
             if (!bets) {
-                console.log('[STORE] getBets: No bets found in Redis.');
+                console.log(`[STORE] getBets: No bets found in Redis. (Duration: ${Date.now() - t}ms)`);
                 return [];
             }
             // Redis returns object with id keys, convert to array
             const betArray = Object.values(bets) as Bet[];
-            console.log(`[STORE] getBets: Found ${betArray.length} bets.`);
-            betArray.forEach(b => console.log(`[STORE]   - ${b.id}, creator: ${b.creatorAddress}, status: ${b.status}, expires: ${new Date(b.expiresAt).toISOString()}`));
+            console.log(`[STORE] getBets: Found ${betArray.length} bets from Redis. (Duration: ${Date.now() - t}ms)`);
+
+            // Log the most recent bet for debugging
+            if (betArray.length > 0) {
+                const sorted = [...betArray].sort((a, b) => b.createdAt - a.createdAt);
+                const newest = sorted[0];
+                console.log(`[STORE] Newest Bet ID: ${newest.id}, CreatedAt: ${new Date(newest.createdAt).toISOString()}, Status: ${newest.status}`);
+            }
+
             return betArray;
         } catch (error) {
-            console.error('[STORE] Redis Error (getBets):', error);
+            console.error(`[STORE] Redis Error (getBets) after ${Date.now() - t}ms:`, error);
             return [];
         }
     },
