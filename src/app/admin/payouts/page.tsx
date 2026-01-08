@@ -8,6 +8,9 @@ import { useModal } from '@/providers/ModalProvider';
 
 // ... (keep surrounding code)
 
+import { CURRENT_CONFIG } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+
 export default function PayoutsPage() {
     const { showModal, showAlert, showConfirm } = useModal();
     const { address, chainId } = useAccount();
@@ -18,6 +21,7 @@ export default function PayoutsPage() {
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState<Record<string, boolean>>({});
     const [justPaid, setJustPaid] = useState<Record<string, boolean>>({});
+    const [resolvingContract, setResolvingContract] = useState<string | null>(null);
 
     const EXPECTED_CHAIN_ID = 8453;
     const IS_MAINNET = true;
@@ -186,6 +190,14 @@ export default function PayoutsPage() {
                                         </div>
                                     </div>
                                     {/* Smart Contract Distribution Button */}
+                                    <button
+                                        onClick={() => handleForceResolve(bet)}
+                                        disabled={!!resolvingContract}
+                                        className="mr-2 bg-yellow-600 hover:bg-yellow-500 text-white text-xs px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                                    >
+                                        {resolvingContract === bet.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚠️ Force Resolve'}
+                                    </button>
+
                                     <button
                                         onClick={async () => {
                                             showConfirm('Run Distribution?', `Run Auto-Distribution for ${bet.id} via Smart Contract? (Ensures ETH payouts)`, async () => {
