@@ -11,7 +11,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x2c7d1abe1d6c00f9c01f616d5499f86e3303db5c',
+    contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x7bccefc2825a36d78b37313038f8c36a8ecf3257',
 };
 
 export const MAINNET_CONFIG = {
