@@ -19,21 +19,38 @@ if (fs.existsSync(envPath)) {
         console.log('Stripped UTF-8 BOM.');
     }
     envContent = envContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // Strip null bytes (UTF-16 to UTF-8 conversion hack)
     envContent = envContent.replace(/\x00/g, '');
+
+    // Also remove any non-printable characters just in case, except newlines
+    // envContent = envContent.replace(/[^\x20-\x7E\n\r]/g, ''); 
+
     console.log('File size after cleanup:', envContent.length);
     envContent.split('\n').forEach(line => {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return;
 
-        const [key, ...rest] = trimmed.split('=');
-        const keyName = key ? key.trim() : '';
-        if (keyName && rest.length > 0) {
-            if (keyName === 'PRIVATE_KEY') {
-                const val = rest.join('=').trim().replace(/^["']|["']$/g, '');
-                console.log(`Found PRIVATE_KEY. Length: ${val.length}`);
-                loadedPrivateKey = val;
-                process.env.PRIVATE_KEY = val;
-            }
+        // Handle cases where = might be surrounded by weird spaces
+        const parts = trimmed.split('=');
+        if (parts.length < 2) return;
+
+        const key = parts[0].trim();
+        const val = parts.slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+
+        // Aggressive key cleaning: remove all internal whitespace from key just in case
+        const cleanKey = key.replace(/\s+/g, '');
+
+        console.log(`Found key: "${cleanKey}"`);
+
+        if (cleanKey === 'PRIVATE_KEY') {
+            console.log(`MATCH! Found PRIVATE_KEY. Raw Value: "${val.substring(0, 10)}..." (len: ${val.length})`);
+
+            // Aggressively clean value: remove ALL whitespace/nulls to fix encoding/copy-paste issues
+            const cleanVal = val.replace(/[\s\uFEFF\x00]+/g, '');
+            console.log(`Cleaned Value Length: ${cleanVal.length}`);
+
+            loadedPrivateKey = cleanVal;
+            process.env.PRIVATE_KEY = cleanVal;
         }
     });
 } else {

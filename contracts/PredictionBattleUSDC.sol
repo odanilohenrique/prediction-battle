@@ -58,6 +58,12 @@ contract PredictionBattleUSDC {
         usdcToken = IERC20(_usdcAddress);
     }
 
+    // Transfer admin rights to another address
+    function setAdmin(address _newAdmin) external onlyAdmin {
+        require(_newAdmin != address(0), "Invalid address");
+        admin = _newAdmin;
+    }
+
     // 1. Create a Prediction Market (Anyone can create)
     function createPrediction(string memory _id, uint256 _target, uint256 _duration) external {
         require(!predictionExists[_id], "Prediction ID already exists");
