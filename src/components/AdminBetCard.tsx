@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
-import { isAdmin } from '@/lib/config';
+import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 
 interface AdminBet {
@@ -153,50 +154,65 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 }
             }
 
-            // 1. Send USDC Transaction
-            console.log('Initiating transaction...');
-            const amountInWei = parseUnits(amount.toString(), 6); // USDC usually has 6 decimals
+            // 1. Approve USDC to Contract
+            console.log('Step 1: Approving USDC to contract...');
+            const amountInWei = parseUnits(amount.toString(), 6); // USDC has 6 decimals
 
-            let hash;
+            let approveHash;
             try {
-                // Ensure manual gas limit is used for Rabby compatibility on testnets
-                hash = await writeContractAsync({
+                approveHash = await writeContractAsync({
                     address: USDC_ADDRESS as `0x${string}`,
                     abi: [{
-                        name: 'transfer',
+                        name: 'approve',
                         type: 'function',
                         stateMutability: 'nonpayable',
                         inputs: [
-                            { name: 'to', type: 'address' },
+                            { name: 'spender', type: 'address' },
                             { name: 'amount', type: 'uint256' }
                         ],
                         outputs: [{ name: '', type: 'bool' }]
                     }],
-                    functionName: 'transfer',
-                    args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
-                    // Manual gas for Rabby/Sepolia compatibility
-                    gas: BigInt(200000),
+                    functionName: 'approve',
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, amountInWei],
+                    gas: BigInt(100000),
                 });
-                console.log('Transaction broadcast:', hash);
+                console.log('Approve tx sent:', approveHash);
 
-                // WAIT FOR RECEIPT
-                setIsSubmitting(true); // Keep loading
                 if (!publicClient) throw new Error("Public Client not initialized");
-
-                // alert('⏳ Aguardando confirmação na blockchain... (não feche)');
-                // Instead of blocking alert, we just log/show status in button
-                console.log("Waiting for receipt...");
-                const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-                if (receipt.status !== 'success') {
-                    throw new Error('A transação falhou na blockchain.');
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+                if (approveReceipt.status !== 'success') {
+                    throw new Error('USDC approval failed on-chain.');
                 }
-                console.log('Transaction confirmed:', receipt.transactionHash);
-
+                console.log('Approval confirmed.');
 
             } catch (txError) {
-                console.error('Wallet transaction error:', txError);
-                // Extract detail from wagmi error if possible
+                console.error('Approval error:', txError);
+                const msg = (txError as any).shortMessage || (txError as any).message || 'Wallet Error';
+                throw new Error(`Approval Failed: ${msg}`);
+            }
+
+            // 2. Place Bet on Smart Contract
+            console.log('Step 2: Placing bet on contract...');
+            let hash;
+            try {
+                hash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'placeBet',
+                    args: [bet.id, choice === 'yes', amountInWei],
+                    gas: BigInt(300000),
+                });
+                console.log('PlaceBet tx sent:', hash);
+
+                if (!publicClient) throw new Error("Public Client not initialized");
+                const receipt = await publicClient.waitForTransactionReceipt({ hash });
+                if (receipt.status !== 'success') {
+                    throw new Error('Bet placement failed on-chain.');
+                }
+                console.log('Bet confirmed on-chain:', receipt.transactionHash);
+
+            } catch (txError) {
+                console.error('PlaceBet error:', txError);
                 const msg = (txError as any).shortMessage || (txError as any).message || 'Wallet Error';
                 throw new Error(`Transaction Failed: ${msg}`);
             }
