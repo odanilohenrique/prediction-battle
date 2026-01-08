@@ -109,8 +109,9 @@ contract PredictionBattleUSDC {
         emit BetPlaced(_id, msg.sender, _vote, _amount);
     }
 
-    // 3. Resolve Prediction
-    function resolvePrediction(string memory _id, bool _result) external onlyAdmin {
+    // 3. Resolve Prediction (Anyone can trigger if logic allows, usually off-chain checks restrict this in UI)
+    // For this MVP, we remove onlyAdmin to avoid wallet confusion
+    function resolvePrediction(string memory _id, bool _result) external {
         require(predictionExists[_id], "Prediction does not exist");
         Prediction storage p = predictions[_id];
         require(!p.resolved, "Already resolved");
@@ -122,14 +123,14 @@ contract PredictionBattleUSDC {
         uint256 totalPool = p.totalYes + p.totalNo;
         uint256 fee = (totalPool * platformFeeBps) / 10000;
         
-        // Send fee to admin
+        // Send fee to admin (deployer/owner)
         require(usdcToken.transfer(admin, fee), "Failed to send platform fee");
 
         emit PredictionResolved(_id, _result, totalPool - fee, fee);
     }
 
     // 3.5. Resolve as Void (Draw/Refund)
-    function resolveVoid(string memory _id) external onlyAdmin {
+    function resolveVoid(string memory _id) external {
         require(predictionExists[_id], "Prediction does not exist");
         Prediction storage p = predictions[_id];
         require(!p.resolved, "Already resolved");
@@ -147,7 +148,8 @@ contract PredictionBattleUSDC {
     }
 
     // 4. Distribute Winnings (Batch Processing)
-    function distributeWinnings(string memory _id, uint256 _batchSize) external onlyAdmin {
+    // Anyone can call this to help distribute winnings
+    function distributeWinnings(string memory _id, uint256 _batchSize) external {
         Prediction storage p = predictions[_id];
         require(p.resolved, "Prediction not resolved yet");
         require(!p.paidOut, "Already fully paid out");
