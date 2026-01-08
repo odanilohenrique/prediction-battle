@@ -16,6 +16,7 @@ interface ViralReceiptProps {
         multiplier: number;
         choice: 'YES' | 'NO' | string; // Can be player name
         targetName: string;
+        predictionId?: string;
         // Battle specific
         variant?: 'standard' | 'battle';
         opponentName?: string;
@@ -42,9 +43,11 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
     if (!isOpen) return null;
 
     const handleShare = () => {
+        const link = data.predictionId ? `${window.location.origin}/predict/${data.predictionId}` : window.location.origin;
+
         const text = isBattle
-            ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\nvs ${data.opponentName}\n\nStaked: $${data.amount}\nPotential Win: $${data.potentialWin} (${data.multiplier}x)\n\nWho you got? Join the fight! 🥊`
-            : `⚔️ I just entered the Battle Arena!\n\nStaked: $${data.amount} on ${data.choice}\nPotential Win: $${data.potentialWin} (${data.multiplier}x)\n\nTarget: ${data.targetName}\n\nJoin the fight on Prediction Battle! 🥊`;
+            ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\n${data.choice} vs ${data.opponentName}\n\nStaked: $${data.amount}\nPotential Win: $${data.potentialWin} (${data.multiplier}x)\n\nWho you got? Join the fight! 🥊\n\n${link}`
+            : `⚔️ I just entered the Battle Arena!\n\nStaked: $${data.amount} on ${data.choice}\nPotential Win: $${data.potentialWin} (${data.multiplier}x)\n\nTarget: ${data.targetName}\n\nJoin the fight on Prediction Battle! 🥊\n\n${link}`;
 
         const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');

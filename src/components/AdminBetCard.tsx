@@ -256,19 +256,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 }
 
                 setReceiptData({
+                    predictionId: bet.id,
                     avatarUrl: bet.pfpUrl, // For Battle, this might be unused or general
                     username: bet.username,
                     action: "JOINED BATTLE",
                     amount: amount,
                     potentialWin: amount * multiplier,
                     multiplier: parseFloat(multiplier.toFixed(2)),
-                    choice: finalChoice,
+                    choice: finalChoice === 'YES' ? 'YES' : (finalChoice === 'NO' ? 'NO' : finalChoice),
                     targetName: getBetTypeLabel(),
-                    // Battle Props
+                    // Battle Specific
                     variant: isBattle ? 'battle' : 'standard',
-                    opponentName,
-                    opponentAvatar,
-                    myFighterAvatar
+                    opponentName: opponentName,
+                    opponentAvatar: opponentAvatar,
+                    myFighterAvatar: myFighterAvatar
                 });
 
                 setShowReceipt(true);
