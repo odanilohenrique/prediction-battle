@@ -23,9 +23,10 @@ export default function PayoutsPage() {
     const [resolvingContract, setResolvingContract] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'pending' | 'paid'>('pending');
 
-    const EXPECTED_CHAIN_ID = 8453;
-    const IS_MAINNET = true;
-    const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
+    // Use Global Config
+    const EXPECTED_CHAIN_ID = CURRENT_CONFIG.chainId;
+    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+    const USDC_ADDRESS = CURRENT_CONFIG.usdcAddress;
 
     useEffect(() => {
         fetchPayouts();
@@ -37,6 +38,8 @@ export default function PayoutsPage() {
             const res = await fetch('/api/admin/bets?status=resolved');
             const data = await res.json();
             if (data.success && data.bets) {
+                // Debug logs
+                console.log('Fetched bets:', data.bets);
                 setPayouts(data.bets);
             }
         } catch (e) {
@@ -51,7 +54,15 @@ export default function PayoutsPage() {
         const winningOption = bet.result;
         const winners = bet.participants?.[winningOption as 'yes' | 'no'] || [];
         if (winners.length === 0) return true; // No winners = technically settled
-        return winners.every((w: any) => w.paid || justPaid[`${bet.id}-${w.userId}`]);
+
+        // Debug
+        // console.log(`Checking fully paid for ${bet.id}:`, winners);
+
+        return winners.every((w: any) => {
+            const paid = w.paid || justPaid[`${bet.id}-${w.userId}`];
+            //  if (!paid) console.log(`User ${w.userId} not paid in bet ${bet.id}`);
+            return paid;
+        });
     };
 
     // Filtered Lists
@@ -94,7 +105,7 @@ export default function PayoutsPage() {
                         throw new Error("Troca de rede não suportada pela carteira.");
                     }
                 } catch (switchError) {
-                    showAlert('Wrong Network', `Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`, 'error');
+                    showAlert('Wrong Network', `Please switch to ${CURRENT_CONFIG.chainName}.`, 'error');
                     return;
                 }
             }
@@ -120,7 +131,7 @@ export default function PayoutsPage() {
                     console.log(`Transaction Sent! Hash: ${hash}`);
 
                     try {
-                        await fetch('/api/admin/payouts/mark-paid', {
+                        const markRes = await fetch('/api/admin/payouts/mark-paid', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -130,14 +141,39 @@ export default function PayoutsPage() {
                             })
                         });
 
-                        setJustPaid(prev => ({ ...prev, [key]: true }));
-                        fetchPayouts();
+                        if (markRes.ok) {
+                            setJustPaid(prev => ({ ...prev, [key]: true }));
+                            // Optimistic update of local state to show "Paid" immediately
+                            setPayouts(currentPayouts => currentPayouts.map(b => {
+                                if (b.id === betId) {
+                                    const winningOption = b.result;
+                                    const winners = b.participants?.[winningOption] || [];
+                                    const updatedWinners = winners.map((w: any) =>
+                                        w.userId === userAddress ? { ...w, paid: true, txHash: hash } : w
+                                    );
+                                    return {
+                                        ...b,
+                                        participants: {
+                                            ...b.participants,
+                                            [winningOption]: updatedWinners
+                                        }
+                                    };
+                                }
+                                return b;
+                            }));
+                            showAlert('Success', 'Payment confirmed and recorded!', 'success');
+                        } else {
+                            const errText = await markRes.text();
+                            console.error("Mark paid failed:", errText);
+                            showAlert('Warning', "Tx sent but database update failed. Check console.", 'warning');
+                        }
 
                     } catch (err) {
+                        console.error(err);
                         showAlert('Warning', "Transaction sent but failed to update database. Please check manually.", 'warning');
                     }
-
                 } catch (error) {
+                    console.error('Payment tx failed:', error);
                     showAlert('Payment Failed', (error as Error).message, 'error');
                 } finally {
                     setProcessing(prev => ({ ...prev, [key]: false }));
@@ -243,8 +279,8 @@ export default function PayoutsPage() {
                 <button
                     onClick={() => setActiveTab('pending')}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'pending'
-                            ? 'bg-primary text-black shadow-lg'
-                            : 'text-textSecondary hover:text-white hover:bg-white/5'
+                        ? 'bg-primary text-black shadow-lg'
+                        : 'text-textSecondary hover:text-white hover:bg-white/5'
                         }`}
                 >
                     <Clock className="w-4 h-4" />
@@ -253,8 +289,8 @@ export default function PayoutsPage() {
                 <button
                     onClick={() => setActiveTab('paid')}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'paid'
-                            ? 'bg-green-500 text-black shadow-lg'
-                            : 'text-textSecondary hover:text-white hover:bg-white/5'
+                        ? 'bg-green-500 text-black shadow-lg'
+                        : 'text-textSecondary hover:text-white hover:bg-white/5'
                         }`}
                 >
                     <CheckCircle className="w-4 h-4" />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2 } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
@@ -66,6 +66,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
     const [amount, setAmount] = useState(bet.minBet);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Viral Receipt State
     const [showReceipt, setShowReceipt] = useState(false);
@@ -370,6 +371,32 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         });
     };
 
+    const handleDelete = async () => {
+        showConfirm('Delete Bet?', 'Are you sure you want to delete this bet? This action cannot be undone and will not refund participants automatically.', async () => {
+            setIsDeleting(true);
+            try {
+                const response = await fetch('/api/admin/bets/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ betId: bet.id }),
+                });
+
+                if (response.ok) {
+                    showAlert('Deleted', 'Bet deleted successfully.', 'success');
+                    onBet(); // Refresh list
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showAlert('Error', (error as Error).message, 'error');
+            } finally {
+                setIsDeleting(false);
+            }
+        });
+    };
+
     return (
         <>
             <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300">
@@ -406,6 +433,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     )}
                                 </div>
                             </div>
+                        )}
+                        {/* Delete Button (Only for Admin) */}
+                        {address && isAdmin(address) && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                disabled={isDeleting}
+                                className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors ml-2"
+                                title="Delete Bet"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
                         )}
                     </div>
                     <div className="flex items-center gap-1 text-xs font-mono text-primary">
