@@ -313,10 +313,13 @@ export default function CreateCommunityBet() {
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
 
-            // 4. Create Prediction on Smart Contract
+            // 4. Create Prediction on Smart Contract (REQUIRED for betting to work)
             if (CURRENT_CONFIG.contractAddress && data.predictionId) {
                 try {
                     console.log('[CREATE PAGE] Creating on-chain prediction...');
+                    console.log('[CREATE PAGE] Contract Address:', CURRENT_CONFIG.contractAddress);
+                    console.log('[CREATE PAGE] Prediction ID:', data.predictionId);
+
                     const TIMEFRAME_SECONDS: Record<string, number> = {
                         '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800, 'none': 31536000
                     };
@@ -327,17 +330,25 @@ export default function CreateCommunityBet() {
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
                         functionName: 'createPrediction',
-                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)]
+                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)],
+                        gas: BigInt(500000), // Explicit gas limit
                     });
                     console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
 
                     if (publicClient) {
-                        await publicClient.waitForTransactionReceipt({ hash: contractHash });
+                        const receipt = await publicClient.waitForTransactionReceipt({ hash: contractHash });
+                        if (receipt.status !== 'success') {
+                            throw new Error('Contract transaction reverted');
+                        }
                         console.log('[CREATE PAGE] On-chain creation confirmed!');
                     }
-                } catch (contractError) {
+                } catch (contractError: any) {
                     console.error('[CREATE PAGE] Contract creation failed:', contractError);
-                    // Don't fail the whole flow, bet was created in DB
+                    const errorMsg = contractError?.shortMessage || contractError?.message || 'Unknown error';
+                    showAlert('On-Chain Creation Failed', `Bet was saved to DB but NOT created on blockchain: ${errorMsg}. Users will NOT be able to bet on this.`, 'error');
+                    // Don't proceed - this is a critical failure
+                    setIsSubmitting(false);
+                    return;
                 }
             }
 
