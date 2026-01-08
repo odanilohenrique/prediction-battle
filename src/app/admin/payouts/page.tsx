@@ -146,14 +146,47 @@ export default function PayoutsPage() {
     };
 
     const handleForceResolve = async (bet: any) => {
-        if (!CURRENT_CONFIG.contractAddress) {
-            showAlert('Config Error', 'No contract address.', 'error');
+        if (!CURRENT_CONFIG.contractAddress || !publicClient) {
+            showAlert('Config Error', 'No contract or public client available.', 'error');
             return;
         }
 
-        showConfirm('Force Resolve?', `Force update contract status to "${bet.result?.toUpperCase()}"? This is required if distribution is failing with "not resolved yet".`, async () => {
+        showConfirm('Force Resolve?', `Force update contract status to "${bet.result?.toUpperCase()}"? This will CREATE the prediction on-chain if missing, then RESOLVE it.`, async () => {
             setResolvingContract(bet.id);
             try {
+                // 1. Check if prediction exists
+                const exists = await publicClient.readContract({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'predictionExists',
+                    args: [bet.id]
+                });
+
+                if (!exists) {
+                    console.log('Prediction missing on-chain. Creating now...', bet.id);
+                    showAlert('Syncing', 'Prediction missing on contract. Creating...', 'info');
+
+                    // Defaults for creation if missing
+                    const durationMap: Record<string, number> = {
+                        '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800
+                    };
+                    const duration = durationMap[bet.timeframe] || 86400;
+
+                    const createHash = await writeContractAsync({
+                        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                        abi: PredictionBattleABI.abi,
+                        functionName: 'createPrediction',
+                        args: [bet.id, BigInt(bet.target || 0), BigInt(duration)]
+                    });
+
+                    console.log('Create Tx Sent:', createHash);
+                    showAlert('Creating', 'Creation Tx Sent. Waiting for confirmation...', 'info');
+
+                    await publicClient.waitForTransactionReceipt({ hash: createHash });
+                    console.log('Creation Confirmed.');
+                }
+
+                // 2. Resolve
                 const hash = await writeContractAsync({
                     address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
