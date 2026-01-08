@@ -46,60 +46,62 @@ const formatTimeRemaining = (expiresAt: number) => {
 };
 
 // Start of Component
+import { useModal } from '@/providers/ModalProvider';
+
+// ... (keep surrounding code)
+
 export default function MonitorPage() {
+    const { showModal, showAlert, showConfirm } = useModal();
     const { writeContractAsync } = useWriteContract();
 
     // ... imports ...
 
     async function handleVoid(betId: string) {
-        if (!confirm('Are you sure you want to VOID this bet? This will refund all participants (minus fee).')) return;
-        try {
-            const hash = await writeContractAsync({
-                address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
-                abi: [{
-                    name: 'resolveVoid',
-                    type: 'function',
-                    stateMutability: 'nonpayable',
-                    inputs: [{ name: '_id', type: 'string' }],
-                    outputs: []
-                }],
-                functionName: 'resolveVoid',
-                args: [betId],
-            });
-            alert(`Void Tx Sent: ${hash}`);
-            fetchBets();
-        } catch (e) {
-            console.error(e);
-            alert('Error voiding bet: ' + (e as Error).message);
-        }
+        showConfirm('Confirm Void?', 'Are you sure you want to VOID this bet? This will refund all participants (minus fee).', async () => {
+            try {
+                const hash = await writeContractAsync({
+                    address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'resolveVoid',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [{ name: '_id', type: 'string' }],
+                        outputs: []
+                    }],
+                    functionName: 'resolveVoid',
+                    args: [betId],
+                });
+                showAlert('Void Tx Sent', `Hash: ${hash}`, 'success');
+                fetchBets();
+            } catch (e) {
+                console.error(e);
+                showAlert('Error', 'Error voiding bet: ' + (e as Error).message, 'error');
+            }
+        });
     }
 
     async function handleResolve(betId: string, result: boolean) {
-        if (!confirm(`Resolve as ${result ? 'YES' : 'NO'}?`)) return;
-        try {
-            // ... existing resolve logic or replicate here if missing
-            // Since I don't see it in the file, I'll assume I need to implement or it's somewhere else.
-            // Given the context, I'll just add handleVoid for now and assume handleResolve exists or I add it.
-            // Wait, if I'm adding buttons to renderBet, I need both.
-
-            const hash = await writeContractAsync({
-                address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
-                abi: [{
-                    name: 'resolvePrediction',
-                    type: 'function',
-                    stateMutability: 'nonpayable',
-                    inputs: [{ name: '_id', type: 'string' }, { name: '_result', type: 'bool' }],
-                    outputs: []
-                }],
-                functionName: 'resolvePrediction',
-                args: [betId, result],
-            });
-            alert(`Resolve Tx Sent: ${hash}`);
-            fetchBets();
-        } catch (e) {
-            console.error(e);
-            alert('Error resolving: ' + (e as Error).message);
-        }
+        showConfirm('Confirm Resolution', `Resolve as ${result ? 'YES' : 'NO'}?`, async () => {
+            try {
+                const hash = await writeContractAsync({
+                    address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'resolvePrediction',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [{ name: '_id', type: 'string' }, { name: '_result', type: 'bool' }],
+                        outputs: []
+                    }],
+                    functionName: 'resolvePrediction',
+                    args: [betId, result],
+                });
+                showAlert('Resolve Tx Sent', `Hash: ${hash}`, 'success');
+                fetchBets();
+            } catch (e) {
+                console.error(e);
+                showAlert('Error', 'Error resolving: ' + (e as Error).message, 'error');
+            }
+        });
     }
 
     const [loading, setLoading] = useState(true);

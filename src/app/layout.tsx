@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import OnchainProviders from "@/components/OnchainProviders";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     }
 };
 
-import OnchainProviders from "@/components/OnchainProviders";
+import { ModalProvider } from "@/providers/ModalProvider";
 
 // ... previous code ...
 
@@ -29,7 +30,9 @@ export default function RootLayout({
         <html lang="en">
             <body className={inter.className}>
                 <OnchainProviders>
-                    {children}
+                    <ModalProvider>
+                        {children}
+                    </ModalProvider>
                 </OnchainProviders>
             </body>
         </html>

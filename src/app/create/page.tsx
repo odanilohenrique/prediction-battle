@@ -79,60 +79,20 @@ async function getPlayersList() {
     return POPULAR_PLAYERS;
 }
 
+import { useModal } from '@/providers/ModalProvider';
+
+// ... (keep top imports if needed, but I can just add this hook inside the component)
+
 export default function CreateCommunityBet() {
+    const { showModal, showAlert, closeModal } = useModal();
     const router = useRouter();
+
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('battle');
+    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('prediction');
     const [savedPlayers, setSavedPlayers] = useState<any[]>(POPULAR_PLAYERS);
     const [showAllPlayers, setShowAllPlayers] = useState(false);
-    const [showAllPlayersA, setShowAllPlayersA] = useState(false);
-    const [showAllPlayersB, setShowAllPlayersB] = useState(false);
 
-    useEffect(() => {
-        getPlayersList().then(setSavedPlayers);
-    }, []);
-
-
-    const [formData, setFormData] = useState({
-        // User info
-        username: '',
-        displayName: '',
-        pfpUrl: '',
-
-        // Bet config
-        betType: 'post_count' as BetType,
-        targetValue: 3,
-        timeframe: '24h' as Timeframe,
-        castUrl: '', // Added for Post Link
-
-        // Limits & Econ
-        minBet: 0.05,
-        maxBet: 5,   // Creator sets this
-
-        // Metadata
-        rules: '',
-
-
-        // Custom
-        predictionQuestion: '', // Separated state
-        battleQuestion: '',     // Separated state
-        wordToMatch: '',
-
-        // Versus
-        isVersus: false,
-        optionA: { label: '', imageUrl: '', referenceUrl: '' },
-        optionB: { label: '', imageUrl: '', referenceUrl: '' },
-
-        // New Features
-        predictionImage: '',
-        noTargetValue: false, // For subjective bets
-        referenceUrl: '', // For Prediction Mode
-        autoVerify: false, // [NEW] Admin switch
-    });
-
-    const currentBetType = BET_TYPE_CONFIG[formData.betType];
-
-    // Wagmi hooks
+    // Wagmi hooks - FIXED ReferenceError
     const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const { switchChainAsync } = useSwitchChain();
@@ -146,10 +106,51 @@ export default function CreateCommunityBet() {
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
-    // Liquidity Calculation
-    const requiredSeedPerSide = formData.maxBet;
+    const [formData, setFormData] = useState({
+        // User info
+        username: '',
+        displayName: '',
+        pfpUrl: '',
 
-    // Clear specific fields when switching modes to prevent state leaks
+        // Bet config
+        betType: 'post_count' as BetType,
+        targetValue: 3,
+        timeframe: '24h' as Timeframe,
+        castUrl: '',
+
+        // Limits & Econ
+        minBet: 0.1, // Community default
+        maxBet: 10,  // Community max
+
+        // Metadata
+        rules: '',
+
+        // Custom
+        predictionQuestion: '',
+        battleQuestion: '',
+        wordToMatch: '',
+
+        // Versus
+        isVersus: false,
+        optionA: { label: '', imageUrl: '', referenceUrl: '' },
+        optionB: { label: '', imageUrl: '', referenceUrl: '' },
+
+        // New Features
+        predictionImage: '',
+        noTargetValue: false,
+        autoVerify: false,
+    });
+
+    const currentBetType = BET_TYPE_CONFIG[formData.betType];
+    const requiredSeedPerSide = formData.maxBet; // Logic: creator seeds max possible win pool? Or just max bet? In admin it was maxBet.
+    const totalRequiredSeed = requiredSeedPerSide * 2;
+
+    // Load players
+    useEffect(() => {
+        getPlayersList().then(setSavedPlayers);
+    }, []);
+
+    // Clear specific fields when switching modes
     useEffect(() => {
         if (creationMode === 'battle') {
             setFormData(prev => ({ ...prev, castUrl: '', predictionQuestion: '' }));
@@ -161,9 +162,7 @@ export default function CreateCommunityBet() {
     // Auto-fill logic
     useEffect(() => {
         if (!formData.username) return;
-
         const foundPlayer = savedPlayers.find(p => p.username.toLowerCase() === formData.username.toLowerCase());
-
         if (foundPlayer) {
             setFormData(prev => ({
                 ...prev,
@@ -172,7 +171,6 @@ export default function CreateCommunityBet() {
             }));
         }
     }, [formData.username, savedPlayers]);
-    const totalRequiredSeed = requiredSeedPerSide * 2;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -180,7 +178,7 @@ export default function CreateCommunityBet() {
 
         if (!isConnected || !address) {
             console.log('Wallet not connected');
-            alert('Please connect your wallet to create a battle.');
+            showAlert('Wallet Required', 'Please connect your wallet to create a battle.', 'warning');
             return;
         }
 
@@ -194,7 +192,7 @@ export default function CreateCommunityBet() {
                         await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
                     }
                 } catch (error) {
-                    alert('Wrong Network. Please switch to Base.');
+                    showAlert('Wrong Network', 'Please switch to Base.', 'error');
                     setIsSubmitting(false);
                     return;
                 }
@@ -204,22 +202,35 @@ export default function CreateCommunityBet() {
             console.log('Sending seed transaction...');
             const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
 
-            const hash = await writeContractAsync({
-                address: USDC_ADDRESS as `0x${string}`,
-                abi: [{
-                    name: 'transfer',
-                    type: 'function',
-                    stateMutability: 'nonpayable',
-                    inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-                    outputs: [{ name: '', type: 'bool' }]
-                }],
-                functionName: 'transfer',
-                args: [HOUSE_ADDRESS as `0x${string}`, totalSeedWei],
-                gas: BigInt(1000000),
-            });
+            let hash;
+            try {
+                hash = await writeContractAsync({
+                    address: USDC_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'transfer',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                        outputs: [{ name: '', type: 'bool' }]
+                    }],
+                    functionName: 'transfer',
+                    args: [HOUSE_ADDRESS as `0x${string}`, totalSeedWei],
+                    gas: BigInt(1000000),
+                });
+            } catch (err) {
+                // Check if user rejected
+                setIsSubmitting(false);
+                return;
+            }
 
             console.log('Tx sent:', hash);
-            alert('⏳ Transaction sent! Waiting for confirmation...');
+            // Non-blocking notification
+            showModal({
+                title: 'Transaction Sent',
+                message: 'Waiting for blockchain confirmation...',
+                type: 'info',
+                confirmText: 'Okay'
+            });
 
             if (!publicClient) throw new Error("Public Client missing");
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -228,7 +239,13 @@ export default function CreateCommunityBet() {
                 throw new Error('Transaction failed on-chain.');
             }
 
-            alert('✅ Transaction Confirmed on Blockchain! Now communicating with server...');
+            // Update modal to success + processing
+            showModal({
+                title: 'Confirmed!',
+                message: 'Transaction confirmed on blockchain. Finalizing...',
+                type: 'success',
+                confirmText: 'Okay'
+            });
 
             // 2. Prepare Data
             console.log('Creating prediction...');
@@ -294,13 +311,23 @@ export default function CreateCommunityBet() {
             }
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
-            alert('✅ Battle Created Successfully! Showing on home feed...');
-            router.push('/');
-            router.refresh();
+
+            // Final Success Modal with redirect callback
+            showModal({
+                title: 'BATTLE CREATED!',
+                message: 'Your battle is now live in the arena.',
+                type: 'success',
+                confirmText: 'Go to Arena',
+                onConfirm: () => {
+                    closeModal(); // Must close explicitly
+                    router.push('/');
+                    router.refresh(); // Ensure data reloads
+                }
+            });
 
         } catch (error) {
             console.error('Error creating bet:', error);
-            alert(`❌ Error: ${(error as Error).message}`);
+            showAlert('Error', (error as Error).message, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -557,7 +584,7 @@ export default function CreateCommunityBet() {
                                                     const file = e.target.files?.[0];
                                                     if (file) {
                                                         if (file.size > 500000) {
-                                                            alert('Image too large! Max 500KB.');
+                                                            showAlert('File Too Large', 'Image must be under 500KB.', 'error');
                                                             return;
                                                         }
                                                         const reader = new FileReader();

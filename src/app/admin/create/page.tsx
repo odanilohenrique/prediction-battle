@@ -6,7 +6,8 @@ import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon,
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
-import Modal from '@/components/ui/Modal';
+import { useModal } from '@/providers/ModalProvider';
+
 
 // Extended bet types
 type BetType =
@@ -128,25 +129,9 @@ export default function CreateCommunityBet() {
         referenceUrl: '', // For Prediction Mode
     });
 
-    // Modal State
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        description: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-        onConfirm?: () => void;
-    }>({
-        isOpen: false,
-        title: '',
-        description: '',
-        type: 'info'
-    });
 
-    const showModal = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', onConfirm?: () => void) => {
-        setModalConfig({ isOpen: true, title, description, type, onConfirm });
-    };
 
-    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+    const { showModal, showAlert, closeModal } = useModal();
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
 
@@ -199,7 +184,7 @@ export default function CreateCommunityBet() {
 
         if (!isConnected || !address) {
             console.log('Wallet not connected');
-            showModal('Connect Wallet', 'Please connect your wallet to create a battle.', 'warning');
+            showAlert('Connect Wallet', 'Please connect your wallet to create a battle.', 'warning');
             return;
         }
 
@@ -216,7 +201,7 @@ export default function CreateCommunityBet() {
                         await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
                     }
                 } catch (error) {
-                    showModal('Wrong Network', 'Please switch to Base.', 'error');
+                    showAlert('Wrong Network', 'Please switch to Base.', 'error');
                     setIsSubmitting(false);
                     return;
                 }
@@ -342,16 +327,20 @@ export default function CreateCommunityBet() {
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
 
-            showModal(
-                'Battle Created!',
-                creationMode === 'battle' ? '⚔️ Battle Launched! Redirecting...' : '✅ Battle Created Successfully! Redirecting...',
-                'success',
-                () => router.push('/')
-            );
+            showModal({
+                title: 'Battle Created!',
+                message: creationMode === 'battle' ? '⚔️ Battle Launched! Redirecting...' : '✅ Battle Created Successfully! Redirecting...',
+                type: 'success',
+                onConfirm: () => {
+                    closeModal();
+                    router.push('/');
+                },
+                confirmText: 'Go to Arena'
+            });
 
         } catch (error) {
             console.error('Error creating bet:', error);
-            showModal('Creation Failed', (error as Error).message, 'error');
+            showAlert('Creation Failed', (error as Error).message, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -1316,14 +1305,6 @@ export default function CreateCommunityBet() {
                 </div>
 
             </form>
-            <Modal
-                isOpen={modalConfig.isOpen}
-                onClose={closeModal}
-                title={modalConfig.title}
-                description={modalConfig.description}
-                type={modalConfig.type}
-                onConfirm={modalConfig.onConfirm}
-            />
         </div>
     );
 }

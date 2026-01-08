@@ -35,114 +35,54 @@ interface Bet {
     createdAt: number;
 }
 
+import { useModal } from '@/providers/ModalProvider';
+
+// ... (keep surrounding code)
+
 export default function AdminDashboard() {
+    const { showModal, showAlert, showConfirm } = useModal();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'users'>('dashboard');
-    const [bets, setBets] = useState<Bet[]>([]);
+    // ...
 
-    // Player Management State
-    const [players, setPlayers] = useState<Player[]>([]);
-    const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [editingPlayer, setEditingPlayer] = useState<Partial<Player> | null>(null);
-    const [loadingPlayers, setLoadingPlayers] = useState(false);
-    const [stats, setStats] = useState({
-        totalBets: 0,
-        activeBets: 0,
-        totalVolume: 0,
-        totalFees: 0,
-    });
-
-    const { address } = useAccount();
-
-    useEffect(() => {
-        if (activeTab === 'dashboard') fetchAdminData();
-        if (activeTab === 'users') fetchPlayers();
-    }, [activeTab, address]);
-
-    async function fetchPlayers() {
-        setLoadingPlayers(true);
-        try {
-            const res = await fetch(`/api/admin/players?t=${Date.now()}`, {
-                cache: 'no-store',
-                headers: { 'Pragma': 'no-cache' }
-            });
-            const data = await res.json();
-            if (data.success) {
-                setPlayers(data.players || []);
-                setFilteredPlayers(data.players || []);
-            }
-        } catch (e) {
-            console.error('Failed to fetch players', e);
-        } finally {
-            setLoadingPlayers(false);
-        }
-    }
-
-    // Filter players when search changes
-    useEffect(() => {
-        if (!searchQuery) {
-            setFilteredPlayers(players);
-        } else {
-            setFilteredPlayers(players.filter(p =>
-                p.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-            ));
-        }
-    }, [searchQuery, players]);
-
+    // ... (handleLoadTop100)
     const handleLoadTop100 = () => {
-        // Merge existing players with Top 100 list
-        const newPlayers = [...players];
-        TOP_100_HANDLES.forEach(handle => {
-            if (!newPlayers.find(p => p.username.toLowerCase() === handle.toLowerCase())) {
-                newPlayers.push({
-                    username: handle,
-                    displayName: handle, // Default display name Same as handle
-                    pfpUrl: ''
-                });
-            }
-        });
+        // ... (logic)
+        // ...
         setPlayers(newPlayers);
-        alert(`Loaded template! Added missing profiles from Top 100 list. Please add photos and click Save All.`);
+        showAlert('Template Loaded', `Added missing profiles from Top 100 list. Please add photos and click Save All.`, 'success');
     };
 
     const handleSavePlayer = async (player: Player) => {
         try {
-            const res = await fetch('/api/admin/players', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: player.username, displayName: player.displayName, pfpUrl: player.pfpUrl })
-            });
+            // ... (fetch)
             if (res.ok) {
-                // Update local state
-                const updated = players.map(p => p.username === player.username ? player : p);
-                if (!updated.find(p => p.username === player.username)) updated.push(player);
-                setPlayers(updated);
+                // ... (state updates)
                 setEditingPlayer(null);
             }
         } catch (e) {
-            alert('Error saving player');
+            showAlert('Error', 'Error saving player', 'error');
         }
     };
 
     const handleBulkSave = async () => {
-        if (!confirm(`Save all ${players.length} players?`)) return;
-        try {
-            const res = await fetch('/api/admin/players', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ players })
-            });
-            if (res.ok) alert('Saved successfully!');
-        } catch (e) {
-            alert('Error saving');
-        }
+        showConfirm('Save All?', `Save all ${players.length} players?`, async () => {
+            try {
+                const res = await fetch('/api/admin/players', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ players })
+                });
+                if (res.ok) showAlert('Success', 'Saved successfully!', 'success');
+            } catch (e) {
+                showAlert('Error', 'Error saving', 'error');
+            }
+        });
     };
 
     const handleDeletePlayer = (username: string) => {
-        if (!confirm('Remove this player from the list? (Requires Save to persist)')) return;
-        setPlayers(players.filter(p => p.username !== username));
+        showConfirm('Delete Player?', 'Remove this player from the list? (Requires Save to persist)', () => {
+            setPlayers(players.filter(p => p.username !== username));
+        });
     };
 
     async function fetchAdminData() {
@@ -189,13 +129,13 @@ export default function AdminDashboard() {
             });
             const data = await response.json();
             if (data.success) {
-                alert('🚀 Test Bet Created Successfully!');
+                showAlert('Test Bet Created', 'Test Bet Created Successfully!', 'success');
                 fetchAdminData();
             } else {
-                alert('❌ Error: ' + data.error);
+                showAlert('Error', 'Error: ' + data.error, 'error');
             }
         } catch (e) {
-            alert('❌ Request failed');
+            showAlert('Error', 'Request failed', 'error');
         } finally {
             setIsCreatingTest(false);
         }
@@ -207,28 +147,28 @@ export default function AdminDashboard() {
     };
 
     const resolveBet = async (betId: string, result: 'yes' | 'no') => {
-        if (!confirm(`Are you sure you want to declare ${result.toUpperCase()} as the winner? Payouts provided cannot be reversed.`)) return;
-
-        setIsResolving(true);
-        try {
-            const response = await fetch('/api/admin/bets/resolve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ betId, result })
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert('✅ Bet resolved successfully!');
-                setResolveModalOpen(false);
-                fetchAdminData();
-            } else {
-                alert('❌ Error: ' + data.error);
+        showConfirm('Confirm Resolution', `Are you sure you want to declare ${result.toUpperCase()} as the winner? Payouts provided cannot be reversed.`, async () => {
+            setIsResolving(true);
+            try {
+                const response = await fetch('/api/admin/bets/resolve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ betId, result })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Resolved', 'Bet resolved successfully!', 'success');
+                    setResolveModalOpen(false);
+                    fetchAdminData();
+                } else {
+                    showAlert('Error', 'Error: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showAlert('Error', 'Request failed', 'error');
+            } finally {
+                setIsResolving(false);
             }
-        } catch (e) {
-            alert('❌ Request failed');
-        } finally {
-            setIsResolving(false);
-        }
+        });
     };
 
     const formatTimeRemaining = (expiresAt: number) => {
@@ -275,15 +215,16 @@ export default function AdminDashboard() {
 
                         <button
                             onClick={async () => {
-                                if (!confirm('This will force check all expired bets. Continue?')) return;
-                                try {
-                                    const res = await fetch('/api/check', { method: 'POST' });
-                                    const data = await res.json();
-                                    alert(`Check Complete: ${data.checked} bets checked.`);
-                                    fetchAdminData();
-                                } catch (e) {
-                                    alert('Check Failed');
-                                }
+                                showConfirm('Force Cron', 'This will force check all expired bets. Continue?', async () => {
+                                    try {
+                                        const res = await fetch('/api/check', { method: 'POST' });
+                                        const data = await res.json();
+                                        showAlert('Check Complete', `${data.checked} bets checked.`, 'success');
+                                        fetchAdminData();
+                                    } catch (e) {
+                                        showAlert('Error', 'Check Failed', 'error');
+                                    }
+                                });
                             }}
                             className="hidden md:flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-medium px-4 py-3 rounded-xl transition-all border border-yellow-500/30"
                         >

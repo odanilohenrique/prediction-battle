@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 import { isAdmin } from '@/lib/config';
 import ViralReceipt from './ViralReceipt';
-import Modal from '@/components/ui/Modal';
 
 interface AdminBet {
     id: string;
@@ -54,7 +54,12 @@ interface AdminBetCardProps {
 
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
+import { useModal } from '@/providers/ModalProvider';
+// Remove import Modal from ... (will handle in next edit if strictly separate)
+
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
+    const { showModal, showConfirm, showAlert, closeModal } = useModal();
+    const router = useRouter();
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
@@ -64,26 +69,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Viral Receipt State
     const [showReceipt, setShowReceipt] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
-
-    // Modal State
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        description: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-        onConfirm?: () => void;
-    }>({
-        isOpen: false,
-        title: '',
-        description: '',
-        type: 'info'
-    });
-
-    const showModal = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', onConfirm?: () => void) => {
-        setModalConfig({ isOpen: true, title, description, type, onConfirm });
-    };
-
-    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
     // Calculate percentages
     const totalYes = bet.participants.yes.length;
@@ -162,7 +147,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     }
                 } catch (switchError) {
                     console.error('Failed to switch chain:', switchError);
-                    showModal('Wrong Network', `Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`, 'error');
+                    showAlert('Wrong Network', `Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`, 'error');
                     setIsSubmitting(false);
                     return;
                 }
@@ -247,96 +232,125 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / (yesPool + amount)) // Approximate simplified
                     : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / (noPool + amount));
 
+                // Detect Battle Mode
+                const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
+
+                // Determine choices for Battle
+                let finalChoice = choice === 'yes' ? 'YES' : 'NO';
+                let opponentName = '';
+                let opponentAvatar = '';
+                let myFighterAvatar = '';
+
+                if (isBattle) {
+                    if (choice === 'yes') {
+                        finalChoice = bet.optionA!.label;
+                        myFighterAvatar = bet.optionA!.imageUrl || '';
+                        opponentName = bet.optionB!.label;
+                        opponentAvatar = bet.optionB!.imageUrl || '';
+                    } else {
+                        finalChoice = bet.optionB!.label;
+                        myFighterAvatar = bet.optionB!.imageUrl || '';
+                        opponentName = bet.optionA!.label;
+                        opponentAvatar = bet.optionA!.imageUrl || '';
+                    }
+                }
+
                 setReceiptData({
-                    avatarUrl: bet.pfpUrl,
+                    avatarUrl: bet.pfpUrl, // For Battle, this might be unused or general
                     username: bet.username,
                     action: "JOINED BATTLE",
                     amount: amount,
                     potentialWin: amount * multiplier,
                     multiplier: parseFloat(multiplier.toFixed(2)),
-                    choice: choice === 'yes' ? 'YES' : 'NO',
-                    targetName: getBetTypeLabel()
+                    choice: finalChoice,
+                    targetName: getBetTypeLabel(),
+                    // Battle Props
+                    variant: isBattle ? 'battle' : 'standard',
+                    opponentName,
+                    opponentAvatar,
+                    myFighterAvatar
                 });
 
+                setShowReceipt(true);
                 closeModal(); // Close the Helper Modal (if any)
                 setIsBattleModalOpen(false); // Close the Battle Station
-                setShowReceipt(true); // TRIGGER RECEIPT
-                onBet(); // Refresh the list
+
+                // onBet(); // Removed immediate refresh to keep popup visible
             } else {
-                showModal('Partial Error', 'Payment confirmed, but backend registration failed. Please contact support with your TX Hash.', 'warning');
+                showAlert('Partial Error', 'Payment confirmed, but backend registration failed. Please contact support with your TX Hash.', 'warning');
             }
         } catch (error) {
             console.error('Error submitting bet:', error);
-            showModal('Action Failed', (error as Error).message || 'Unknown error occurred', 'error');
+            showAlert('Action Failed', (error as Error).message || 'Unknown error occurred', 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleSeedPool = async () => {
-        if (!confirm('🌱 Seed Pool: This will place $5 on YES and $5 on NO using your wallet to create initial liquidity. Confirm?')) return;
+        showConfirm('Seed Pool', 'This will place $5 on YES and $5 on NO using your wallet to create initial liquidity. Confirm?', async () => {
+            setIsSubmitting(true);
+            try {
+                // 1. Seed Logic: Simply place two bets sequentially
+                // We'll treat this as two separate bet flows for simplicity, or we could batch if contract supported it.
+                // For MVP, we will do two loops of the betting logic.
 
-        setIsSubmitting(true);
-        try {
-            // 1. Seed Logic: Simply place two bets sequentially
-            // We'll treat this as two separate bet flows for simplicity, or we could batch if contract supported it.
-            // For MVP, we will do two loops of the betting logic.
+                const seedAmount = 5; // $5 USD
+                const amountInWei = parseUnits(seedAmount.toString(), 6);
 
-            const seedAmount = 5; // $5 USD
-            const amountInWei = parseUnits(seedAmount.toString(), 6);
+                // Function to execute one side of the seed
+                const executeSeedSide = async (side: 'yes' | 'no') => {
+                    console.log(`Seeding ${side.toUpperCase()}...`);
+                    // Send USDC
+                    const hash = await writeContractAsync({
+                        address: USDC_ADDRESS as `0x${string}`,
+                        abi: [{
+                            name: 'transfer',
+                            type: 'function',
+                            stateMutability: 'nonpayable',
+                            inputs: [
+                                { name: 'to', type: 'address' },
+                                { name: 'amount', type: 'uint256' }
+                            ],
+                            outputs: [{ name: '', type: 'bool' }]
+                        }],
+                        functionName: 'transfer',
+                        args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
+                        gas: BigInt(200000),
+                    });
 
-            // Function to execute one side of the seed
-            const executeSeedSide = async (side: 'yes' | 'no') => {
-                console.log(`Seeding ${side.toUpperCase()}...`);
-                // Send USDC
-                const hash = await writeContractAsync({
-                    address: USDC_ADDRESS as `0x${string}`,
-                    abi: [{
-                        name: 'transfer',
-                        type: 'function',
-                        stateMutability: 'nonpayable',
-                        inputs: [
-                            { name: 'to', type: 'address' },
-                            { name: 'amount', type: 'uint256' }
-                        ],
-                        outputs: [{ name: '', type: 'bool' }]
-                    }],
-                    functionName: 'transfer',
-                    args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
-                    gas: BigInt(200000),
-                });
+                    if (publicClient) {
+                        await publicClient.waitForTransactionReceipt({ hash });
+                    }
 
-                await publicClient!.waitForTransactionReceipt({ hash });
+                    // Register
+                    await fetch('/api/predictions/bet', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            betId: bet.id,
+                            choice: side,
+                            amount: seedAmount,
+                            txHash: hash,
+                            userAddress: address
+                        }),
+                    });
+                };
 
-                // Register
-                await fetch('/api/predictions/bet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        betId: bet.id,
-                        choice: side,
-                        amount: seedAmount,
-                        txHash: hash,
-                        userAddress: address
-                    }),
-                });
-            };
+                // Execute both sides
+                await executeSeedSide('yes');
+                await executeSeedSide('no');
 
-            // Execute both sides
-            await executeSeedSide('yes');
-            await executeSeedSide('no');
+                showAlert('Success', 'Pool Seeded Successfully! Liquidity injected.', 'success');
+                onBet();
 
-            await executeSeedSide('yes');
-            await executeSeedSide('no');
-
-            showModal('Success', 'Pool Seeded Successfully! Liquidity injected.', 'success', onBet);
-
-        } catch (error) {
-            console.error('Seeding failed:', error);
-            showModal('Seed Failed', (error as Error).message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
+            } catch (error) {
+                console.error('Seeding failed:', error);
+                showAlert('Seed Failed', (error as Error).message, 'error');
+            } finally {
+                setIsSubmitting(false);
+            }
+        });
     };
 
     return (
@@ -812,7 +826,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             {/* Viral Receipt Integration */}
             <ViralReceipt
                 isOpen={showReceipt}
-                onClose={() => setShowReceipt(false)}
+                onClose={() => {
+                    setShowReceipt(false);
+                    onBet(); // Refresh only when closing receipt
+                }}
                 data={receiptData || { username: '', amount: 0, potentialWin: 0, multiplier: 0, choice: 'YES', targetName: '' }}
             />
 
@@ -858,14 +875,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 )
             }
             {/* Modal Portal */}
-            <Modal
-                isOpen={modalConfig.isOpen}
-                onClose={closeModal}
-                title={modalConfig.title}
-                description={modalConfig.description}
-                type={modalConfig.type}
-                onConfirm={modalConfig.onConfirm}
-            />
+
         </>
     );
 }

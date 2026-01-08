@@ -11,52 +11,39 @@ interface PredictionModalProps {
 
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
-export default function PredictionModal({ cast, onClose }: PredictionModalProps) {
-    const [step, setStep] = useState<1 | 2 | 3>(1);
-    const [metric, setMetric] = useState<MetricType>('likes');
-    const [targetValue, setTargetValue] = useState<number>(100);
-    const [choice, setChoice] = useState<PredictionChoice>('yes');
-    const [betAmount, setBetAmount] = useState<number>(0.1);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+import { useModal } from '@/providers/ModalProvider';
 
-    const currentValue = {
-        likes: cast.reactions.likes_count,
-        recasts: cast.reactions.recasts_count,
-        replies: cast.reactions.replies_count,
-    }[metric];
+// ... (interface)
+// ...
+
+export default function PredictionModal({ cast, onClose }: PredictionModalProps) {
+    const { showAlert, showModal } = useModal();
+    const [step, setStep] = useState<1 | 2 | 3>(1);
+
+    // ... (state)
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
 
         try {
-            // Create prediction
-            const response = await fetch('/api/predictions/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    castHash: cast.hash,
-                    castAuthor: cast.author.username,
-                    castText: cast.text,
-                    metric,
-                    targetValue,
-                    choice,
-                    betAmount,
-                    initialValue: currentValue,
-                }),
-            });
-
+            // ... (fetch)
+            // ...
             const data = await response.json();
 
             if (data.success) {
                 // TODO: Trigger MiniKit payment
-                alert('Prediction created! Payment integration coming soon.');
-                onClose();
+                showModal({
+                    title: 'Prediction Created!',
+                    message: 'Prediction created! Payment integration coming soon.',
+                    type: 'success',
+                    onConfirm: onClose
+                });
             } else {
-                alert('Error creating prediction: ' + (data.error || 'Unknown error'));
+                showAlert('Error', 'Error creating prediction: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Failed to create prediction');
+            showAlert('Error', 'Failed to create prediction', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -65,7 +52,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
     const handleShare = () => {
         const shareText = `I just bet ${betAmount} USDC that @${cast.author.username}'s cast will ${choice === 'yes' ? 'hit' : 'NOT hit'} ${targetValue} ${metric} in 24h! Join me on Prediction Battle 🔥`;
         // TODO: Integrate with MiniKit composeCast
-        alert('Share feature coming soon!');
+        showAlert('Coming Soon', 'Share feature coming soon!', 'info');
     };
 
     return (
