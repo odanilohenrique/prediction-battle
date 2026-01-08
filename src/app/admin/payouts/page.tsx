@@ -186,56 +186,51 @@ export default function PayoutsPage() {
         }
     };
 
-    const handleForceResolve = async (bet: any) => {
-        if (!CURRENT_CONFIG.contractAddress || !publicClient) {
-            showAlert('Config Error', 'No contract or public client available.', 'error');
-            return;
-        }
-
-        showConfirm('Force Resolve?', `Force update contract status to "${bet.result?.toUpperCase()}"? This will CREATE the prediction on-chain if missing, then RESOLVE it.`, async () => {
-            setResolvingContract(bet.id);
+    const handleForceMarkPaid = async (betId: string, userAddress: string) => {
+        const key = `${betId}-${userAddress}-force`;
+        showConfirm('Force Mark Paid?', 'This will manually mark this user as PAID in the database without sending tokens. Use only if payment was already sent.', async () => {
+            setProcessing(prev => ({ ...prev, [key]: true }));
             try {
-                const exists = await publicClient.readContract({
-                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                    abi: PredictionBattleABI.abi,
-                    functionName: 'predictionExists',
-                    args: [bet.id]
+                const txHash = 'MANUAL_SYNC_' + Date.now();
+                const markRes = await fetch('/api/admin/payouts/mark-paid', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        betId: betId,
+                        userId: userAddress,
+                        txHash: txHash
+                    })
                 });
 
-                if (!exists) {
-                    console.log('Prediction missing on-chain. Creating now...', bet.id);
-                    showAlert('Syncing', 'Prediction missing on contract. Creating...', 'info');
-
-                    const durationMap: Record<string, number> = {
-                        '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800
-                    };
-                    const duration = durationMap[bet.timeframe] || 86400;
-
-                    const createHash = await writeContractAsync({
-                        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                        abi: PredictionBattleABI.abi,
-                        functionName: 'createPrediction',
-                        args: [bet.id, BigInt(bet.target || 0), BigInt(duration)]
-                    });
-
-                    console.log('Create Tx Sent:', createHash);
-                    showAlert('Creating', 'Creation Tx Sent. Waiting for confirmation...', 'info');
-                    await publicClient.waitForTransactionReceipt({ hash: createHash });
+                if (markRes.ok) {
+                    setJustPaid(prev => ({ ...prev, [`${betId}-${userAddress}`]: true }));
+                    // Optimistic update
+                    setPayouts(currentPayouts => currentPayouts.map(b => {
+                        if (b.id === betId) {
+                            const winningOption = b.result;
+                            const winners = b.participants?.[winningOption] || [];
+                            const updatedWinners = winners.map((w: any) =>
+                                w.userId === userAddress ? { ...w, paid: true, txHash: txHash } : w
+                            );
+                            return {
+                                ...b,
+                                participants: {
+                                    ...b.participants,
+                                    [winningOption]: updatedWinners
+                                }
+                            };
+                        }
+                        return b;
+                    }));
+                    showAlert('Success', 'Marked as Paid manually.', 'success');
+                } else {
+                    throw new Error('Failed to update DB');
                 }
-
-                const hash = await writeContractAsync({
-                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                    abi: PredictionBattleABI.abi,
-                    functionName: 'resolvePrediction',
-                    args: [bet.id, bet.result === 'yes']
-                });
-
-                showAlert('Success', `Resolve Tx Sent. Hash: ${hash}`, 'success');
-            } catch (e) {
-                console.error(e);
-                showAlert('Error', (e as Error).message, 'error');
+            } catch (error) {
+                console.error('Force mark paid failed:', error);
+                showAlert('Error', (error as Error).message, 'error');
             } finally {
-                setResolvingContract(null);
+                setProcessing(prev => ({ ...prev, [key]: false }));
             }
         });
     };
@@ -392,16 +387,10 @@ export default function PayoutsPage() {
                                             const share = winner.amount / totalWinningStake;
                                             const payoutAmount = share * winnersPot;
                                             const isProcessing = processing[`${bet.id}-${winner.userId}`];
+                                            const isForceProcessing = processing[`${bet.id}-${winner.userId}-force`];
                                             const isPaid = winner.paid || justPaid[`${bet.id}-${winner.userId}`];
 
-                                            if (activeTab === 'pending' && isPaid) return null; // Hide paid in pending tab if desired, or show as disabled? 
-                                            // Requirements: "Se ainda falta pagar tem que ter um 'pagar' bem evidente"
-                                            // Let's show all, but style them clearly.
-
-                                            // Actually user said: "Se foi paga tem que ter um 'pago'..."
-                                            // "Dentro de payout, crie um setor de 'pagas' e 'pagar'"
-                                            // Filtering list by 'activeTab' covers the sector part.
-                                            // If I am in Pending tab, I probably only want to see pending people or at least pending status.
+                                            if (activeTab === 'pending' && isPaid) return null;
 
                                             return (
                                                 <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isPaid ? 'bg-green-900/5 border-green-500/10 opacity-70' : 'bg-surface border-white/5'}`}>
@@ -426,16 +415,26 @@ export default function PayoutsPage() {
                                                                 Paid <CheckCircle className="w-3 h-3" />
                                                             </button>
                                                         ) : (
-                                                            <button
-                                                                onClick={() => handlePayWinner(bet.id, winner.userId, payoutAmount)}
-                                                                disabled={isProcessing}
-                                                                className={`
-                                                                    font-bold px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-2 shadow-lg
-                                                                    ${isProcessing ? 'bg-darkGray text-textSecondary' : 'bg-primary hover:bg-secondary text-black shadow-primary/20'}
-                                                                `}
-                                                            >
-                                                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'PAY NOW'}
-                                                            </button>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleForceMarkPaid(bet.id, winner.userId)}
+                                                                    disabled={isForceProcessing || isProcessing}
+                                                                    className="px-2 py-2 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all border border-white/5"
+                                                                    title="Force Mark as Paid (Internal DB only)"
+                                                                >
+                                                                    {isForceProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handlePayWinner(bet.id, winner.userId, payoutAmount)}
+                                                                    disabled={isProcessing}
+                                                                    className={`
+                                                                        font-bold px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-2 shadow-lg
+                                                                        ${isProcessing ? 'bg-darkGray text-textSecondary' : 'bg-primary hover:bg-secondary text-black shadow-primary/20'}
+                                                                    `}
+                                                                >
+                                                                    {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'PAY NOW'}
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
