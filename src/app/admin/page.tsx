@@ -58,7 +58,20 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         fetchAdminData();
+        fetchPlayers();
     }, []);
+
+    async function fetchPlayers() {
+        try {
+            const res = await fetch('/api/admin/players');
+            const data = await res.json();
+            if (data.success && data.players) {
+                setPlayers(data.players);
+            }
+        } catch (e) {
+            console.error('Failed to load players:', e);
+        }
+    }
 
     const handleLoadTop100 = () => {
         const newPlayers = TOP_100_HANDLES.map(username => ({
