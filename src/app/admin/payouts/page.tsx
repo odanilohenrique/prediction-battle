@@ -144,6 +144,32 @@ export default function PayoutsPage() {
         }
     };
 
+    const handleForceResolve = async (bet: any) => {
+        if (!CURRENT_CONFIG.contractAddress) {
+            showAlert('Config Error', 'No contract address.', 'error');
+            return;
+        }
+
+        showConfirm('Force Resolve?', `Force update contract status to "${bet.result?.toUpperCase()}"? This is required if distribution is failing with "not resolved yet".`, async () => {
+            setResolvingContract(bet.id);
+            try {
+                const hash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'resolvePrediction',
+                    args: [bet.id, bet.result === 'yes']
+                });
+
+                showAlert('Success', `Resolve Tx Sent. Hash: ${hash}`, 'success');
+            } catch (e) {
+                console.error(e);
+                showAlert('Error', (e as Error).message, 'error');
+            } finally {
+                setResolvingContract(null);
+            }
+        });
+    };
+
     // ... (render)
 
     return (
