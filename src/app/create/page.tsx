@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 
-import { isAdmin } from '@/lib/config';
+import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // Extended bet types
 type BetType =
@@ -311,6 +312,34 @@ export default function CreateCommunityBet() {
             }
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
+
+            // 4. Create Prediction on Smart Contract
+            if (CURRENT_CONFIG.contractAddress && data.predictionId) {
+                try {
+                    console.log('[CREATE PAGE] Creating on-chain prediction...');
+                    const TIMEFRAME_SECONDS: Record<string, number> = {
+                        '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800, 'none': 31536000
+                    };
+                    const duration = TIMEFRAME_SECONDS[formData.timeframe] || 86400;
+                    const targetVal = formData.noTargetValue || formData.betType === 'custom_text' ? 0 : formData.targetValue;
+
+                    const contractHash = await writeContractAsync({
+                        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                        abi: PredictionBattleABI.abi,
+                        functionName: 'createPrediction',
+                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)]
+                    });
+                    console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
+
+                    if (publicClient) {
+                        await publicClient.waitForTransactionReceipt({ hash: contractHash });
+                        console.log('[CREATE PAGE] On-chain creation confirmed!');
+                    }
+                } catch (contractError) {
+                    console.error('[CREATE PAGE] Contract creation failed:', contractError);
+                    // Don't fail the whole flow, bet was created in DB
+                }
+            }
 
             // Final Success Modal with redirect callback
             showModal({
