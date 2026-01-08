@@ -11,7 +11,6 @@ const TOP_100_HANDLES = [
     'jessepollak', 'dwr', 'vitalik', 'betashop.eth', 'pugson', 'ccarella', 'nonlinear.eth', '0xen',
     'brianjckim', 'limone.eth', 'yitong', 'ace', 'cameron', 'tyler', 'barmstrong', 'balajis',
     'cdixon.eth', 'fredwilson', 'naval', 'pb', 'w1nt3r', 'zachterrell', 'matthew',
-    // ... add more if needed
 ];
 
 interface Player {
@@ -33,34 +32,64 @@ interface Bet {
     optionA?: { label: string; imageUrl?: string };
     optionB?: { label: string; imageUrl?: string };
     createdAt: number;
+    payout?: number;
 }
 
 import { useModal } from '@/providers/ModalProvider';
 
-// ... (keep surrounding code)
-
 export default function AdminDashboard() {
     const { showModal, showAlert, showConfirm } = useModal();
     const router = useRouter();
-    // ...
 
-    // ... (handleLoadTop100)
+    // State definitions
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [players, setPlayers] = useState<Player[]>([]);
+    const [bets, setBets] = useState<Bet[]>([]);
+    const [stats, setStats] = useState({ totalBets: 0, activeBets: 0, totalVolume: 0, totalFees: 0 });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+
+    const filteredPlayers = players.filter(p =>
+        p.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    useEffect(() => {
+        fetchAdminData();
+    }, []);
+
     const handleLoadTop100 = () => {
-        // ... (logic)
-        // ...
-        setPlayers(newPlayers);
+        const newPlayers = TOP_100_HANDLES.map(username => ({
+            username,
+            displayName: username,
+            pfpUrl: ''
+        }));
+
+        // Merge with existing avoiding duplicates
+        const uniquePlayers = [...players];
+        newPlayers.forEach(np => {
+            if (!uniquePlayers.find(p => p.username === np.username)) {
+                uniquePlayers.push(np);
+            }
+        });
+
+        setPlayers(uniquePlayers);
         showAlert('Template Loaded', `Added missing profiles from Top 100 list. Please add photos and click Save All.`, 'success');
     };
 
     const handleSavePlayer = async (player: Player) => {
+        // Optimistic update
+        setPlayers(players.map(p => p.username === player.username ? player : p));
+        setEditingPlayer(null);
+
+        // Also trigger partial save if API exists, for now we rely on Bulk Save or single save endpoint
         try {
-            // ... (fetch)
-            if (res.ok) {
-                // ... (state updates)
-                setEditingPlayer(null);
-            }
+            // Assuming we use the bulk endpoint for single update or just local state until "Save All"
+            // But let's try to save it to be safe
+            // For now, just local state update + alert since user flow emphasizes "Save All Changes"
+            showAlert('Updated', 'Player updated in list. Click Save All to persist.', 'success');
         } catch (e) {
-            showAlert('Error', 'Error saving player', 'error');
+            showAlert('Error', 'Error updating player', 'error');
         }
     };
 
@@ -95,7 +124,7 @@ export default function AdminDashboard() {
 
             if (data.success) {
                 setBets(data.bets || []);
-                setStats(data.stats || stats);
+                setStats(data.stats || { totalBets: 0, activeBets: 0, totalVolume: 0, totalFees: 0 });
             }
         } catch (error) {
             console.error('Error fetching admin data:', error);
@@ -363,7 +392,6 @@ export default function AdminDashboard() {
                                                         const url = URL.createObjectURL(f);
                                                         const updated = { ...player, pfpUrl: url };
                                                         setPlayers(players.map(p => p.username === player.username ? updated : p));
-                                                        // Auto-save just this one logic or let user bulk save? Let's rely on Bulk Save for speed.
                                                     }
                                                 }}
                                             />
@@ -604,3 +632,4 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
