@@ -58,8 +58,8 @@ contract PredictionBattleUSDC {
         usdcToken = IERC20(_usdcAddress);
     }
 
-    // 1. Create a Prediction Market
-    function createPrediction(string memory _id, uint256 _target, uint256 _duration) external onlyAdmin {
+    // 1. Create a Prediction Market (Anyone can create)
+    function createPrediction(string memory _id, uint256 _target, uint256 _duration) external {
         require(!predictionExists[_id], "Prediction ID already exists");
         
         Prediction storage p = predictions[_id];
