@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Shield, LogOut, AlertCircle } from 'lucide-react';
 import { isAdmin } from '@/lib/config';
 
+import { useModal } from '@/providers/ModalProvider';
+
+// ...
+
 export default function AdminLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const { showAlert } = useModal();
     const router = useRouter();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -43,6 +48,9 @@ export default function AdminLayout({
             setIsLoading(false);
         }
     }
+    // ...
+
+    // ...
 
     async function handleConnect() {
         try {
@@ -58,11 +66,11 @@ export default function AdminLayout({
                     if (isAdmin(address)) {
                         setIsAuthenticated(true);
                     } else {
-                        alert('⛔ Acesso Negado: Este endereço não é admin.');
+                        showAlert('Access Denied', 'Este endereço não é admin.', 'error');
                     }
                 }
             } else {
-                alert('Por favor, instale MetaMask ou Coinbase Wallet');
+                showAlert('Wallet Missing', 'Por favor, instale MetaMask ou Coinbase Wallet', 'warning');
             }
         } catch (error) {
             console.error('Error connecting:', error);

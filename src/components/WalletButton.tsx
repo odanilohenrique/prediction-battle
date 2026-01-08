@@ -8,7 +8,12 @@ interface WalletButtonProps {
     onConnect?: () => void;
 }
 
+import { useModal } from '@/providers/ModalProvider';
+
+// ... (interface)
+
 export default function WalletButton({ onConnect }: WalletButtonProps) {
+    const { showAlert } = useModal();
     const { isConnected, address } = useAccount();
     const { connect, connectors } = useConnect();
     const { disconnect } = useDisconnect();
@@ -24,7 +29,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
         const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
 
         if (!targetConnector) {
-            alert('No wallet found. Please install Rabby or MetaMask.');
+            showAlert('Wallet Not Found', 'Please install Rabby or MetaMask.', 'warning');
             return;
         }
 
@@ -34,7 +39,9 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
     const handleFarcasterLogin = async () => {
         // TODO: Integrate with Farcaster Auth
-        alert('Farcaster login will be implemented with MiniKit/OnchainKit');
+        showAlert('Coming Soon', 'Farcaster login will be implemented with MiniKit/OnchainKit', 'info');
+        // Removing demo toggle for now or keeping it? The user might use it for demo.
+        // I will keep the state update as it was, but just show the alert first.
         setFarcasterUser({
             username: 'demo_user',
             fid: 12345

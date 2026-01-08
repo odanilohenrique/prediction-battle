@@ -12,7 +12,12 @@ const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 type PredictionType = 'post_count' | 'likes_total' | 'followers_gain';
 
+import { useModal } from '@/providers/ModalProvider';
+
+// ...
+
 export default function UserPredictionModal({ username, onClose }: UserPredictionModalProps) {
+    const { showAlert, showModal } = useModal();
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [predictionType, setPredictionType] = useState<PredictionType>('post_count');
     const [targetValue, setTargetValue] = useState<number>(3);
@@ -44,32 +49,28 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
 
         try {
             const response = await fetch('/api/predictions/user/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username,
-                    predictionType,
-                    targetValue,
-                    timeframe,
-                    choice,
-                    betAmount,
-                }),
+                // ...
             });
 
             const data = await response.json();
 
             if (data.success) {
-                alert(`✅ Previsão criada! ${choice === 'yes' ? 'SIM' : 'NÃO'}, @${username} ${choice === 'yes' ? 'VAI' : 'NÃO VAI'} ${predictionType === 'post_count' ? `postar ${targetValue}+ vezes` :
+                showModal({
+                    type: 'success',
+                    title: 'PREVISÃO CRIADA!',
+                    message: `${choice === 'yes' ? 'SIM' : 'NÃO'}, @${username} ${choice === 'yes' ? 'VAI' : 'NÃO VAI'} ${predictionType === 'post_count' ? `postar ${targetValue}+ vezes` :
                         predictionType === 'likes_total' ? `receber ${targetValue}+ likes` :
                             `ganhar ${targetValue}+ seguidores`
-                    } em ${timeframe === '24h' ? '24 horas' : '7 dias'}`);
-                onClose();
+                        } em ${timeframe === '24h' ? '24 horas' : '7 dias'}`,
+                    confirmText: 'Show!',
+                    onConfirm: onClose
+                });
             } else {
-                alert('Erro ao criar previsão: ' + (data.error || 'Erro desconhecido'));
+                showAlert('ERRO', data.error || 'Erro desconhecido', 'error');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Falha ao criar previsão');
+            showAlert('ERRO FATAL', 'Falha ao criar previsão. Tente novamente.', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -116,8 +117,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                             key={type}
                                             onClick={() => setPredictionType(type as PredictionType)}
                                             className={`w-full p-4 rounded-xl border-2 transition-all text-left ${predictionType === type
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-darkGray hover:border-darkGray/50'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -158,8 +159,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                     <button
                                         onClick={() => setTimeframe('24h')}
                                         className={`p-4 rounded-xl border-2 transition-all ${timeframe === '24h'
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <Calendar className="w-6 h-6 mx-auto mb-2 text-primary" />
@@ -168,8 +169,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                     <button
                                         onClick={() => setTimeframe('7d')}
                                         className={`p-4 rounded-xl border-2 transition-all ${timeframe === '7d'
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <Calendar className="w-6 h-6 mx-auto mb-2 text-primary" />
@@ -197,8 +198,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                 <button
                                     onClick={() => setChoice('yes')}
                                     className={`p-6 rounded-xl border-2 transition-all ${choice === 'yes'
-                                            ? 'border-green-500 bg-green-500/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
+                                        ? 'border-green-500 bg-green-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
                                         }`}
                                 >
                                     <div className="text-4xl mb-2">✅</div>
@@ -210,8 +211,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                 <button
                                     onClick={() => setChoice('no')}
                                     className={`p-6 rounded-xl border-2 transition-all ${choice === 'no'
-                                            ? 'border-red-500 bg-red-500/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
+                                        ? 'border-red-500 bg-red-500/10'
+                                        : 'border-darkGray hover:border-darkGray/50'
                                         }`}
                                 >
                                     <div className="text-4xl mb-2">❌</div>
@@ -251,8 +252,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                         key={amount}
                                         onClick={() => setBetAmount(amount)}
                                         className={`p-4 rounded-xl border-2 transition-all ${betAmount === amount
-                                                ? 'border-primary bg-primary/10'
-                                                : 'border-darkGray hover:border-darkGray/50'
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-darkGray hover:border-darkGray/50'
                                             }`}
                                     >
                                         <DollarSign className="w-6 h-6 mx-auto mb-1 text-primary" />
