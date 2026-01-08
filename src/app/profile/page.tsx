@@ -39,7 +39,6 @@ export default function ProfilePage() {
         showAlert('Success', 'Profile updated!', 'success');
     };
 
-    // ... inside file change handler ...
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
