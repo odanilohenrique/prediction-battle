@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 import { TrendingUp, Wallet, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
@@ -16,6 +16,7 @@ export default function PayoutsPage() {
     const { address, chainId } = useAccount();
     const { switchChainAsync } = useSwitchChain();
     const { writeContractAsync } = useWriteContract();
+    const publicClient = usePublicClient();
 
     const [payouts, setPayouts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
