@@ -25,33 +25,35 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { isMiniApp, user: miniAppUser } = useFarcasterMiniApp();
 
     // Farcaster Auth Kit Hooks
-    const { signIn, signOut } = useSignIn({});
-    const { isAuthenticated, profile } = useProfile();
-
-    const handleConnectWallet = () => {
-        // Priority: Rabby (injected) > MetaMask > Coinbase
-        const rabbyConnector = connectors.find((c) => c.id === 'io.rabby');
-        const injectedConnector = connectors.find((c) => c.id === 'injected');
-        const metaMaskConnector = connectors.find((c) => c.id === 'metaMask');
-        const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
-
-        const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
-
-        if (!targetConnector) {
-            showAlert('Wallet Not Found', 'Please install Rabby or MetaMask.', 'warning');
-            return;
+    const { signIn, signOut, connect, reconnect, isSuccess, isError, error } = useSignIn({
+        onSuccess: (res) => {
+            console.log("Farcaster Login Success", res);
+        },
+        onError: (err) => {
+            console.error("Farcaster Login Hook Error", err);
+            showAlert('Login Error', String(err?.message || err), 'error');
         }
+    });
 
-        connect({ connector: targetConnector });
-        onConnect?.();
-    };
+    // Extract connect function specifically if signIn is not working as expected, 
+    // though signIn is usually the wrapper. 
+    // Note: AuthKit v0.3+ exposes `connect` which might be the actual trigger needed if signIn is just state management.
+    // Let's stick to signIn for now but log the hook state.
+
+    const { isAuthenticated, profile } = useProfile();
 
     const handleFarcasterLogin = async () => {
         console.log("Attempting Farcaster Web Login...");
+
+        // Debug hook state
+        if (isError) console.error("Hook is already in error state:", error);
+
         try {
+            // Some versions of AuthKit require calling connect() instead of signIn()
+            // We'll try signIn first as per docs
             await signIn();
         } catch (error) {
-            console.error("Login failed:", error);
+            console.error("Login trigger failed:", error);
             showAlert('Login Error', `Failed to login: ${error}`, 'error');
         }
     };
@@ -127,6 +129,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
             {/* Only show Farcaster Login if NOT in Mini App context (because Mini App auto-logs in) */}
             {!isMiniApp && (
                 <button
+                    type="button"
                     onClick={handleFarcasterLogin}
                     className="relative z-10 flex items-center gap-1.5 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2 whitespace-nowrap"
                 >

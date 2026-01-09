@@ -5,8 +5,8 @@ import '@farcaster/auth-kit/styles.css';
 
 const config = {
     rpcUrl: 'https://mainnet.optimism.io',
-    domain: 'predictionbattle.xyz',
-    siweUri: 'https://predictionbattle.xyz/login',
+    domain: process.env.NEXT_PUBLIC_URL ? new URL(process.env.NEXT_PUBLIC_URL).host : 'predictionbattle.xyz',
+    siweUri: process.env.NEXT_PUBLIC_URL ? `${process.env.NEXT_PUBLIC_URL}/login` : 'https://predictionbattle.xyz/login',
     relay: 'https://relay.farcaster.xyz',
 };
 
