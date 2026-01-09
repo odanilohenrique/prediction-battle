@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
     title: "Prediction Battle - Bet on Farcaster Casts",
     description: "Bet USDC on whether Farcaster casts will hit engagement targets. Win big if you're right!",
+    manifest: '/manifest.json',
     other: {
         "fc:frame": "vNext",
         "fc:frame:image": "https://prediction-battle.vercel.app/og-image.png",

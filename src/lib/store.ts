@@ -141,6 +141,17 @@ export const store = {
         }
     },
 
+    // Nuke all bets (Phase 3 Reset)
+    async deleteAllBets(): Promise<void> {
+        try {
+            await kv.del(BETS_KEY);
+            console.log('[STORE] All bets deleted (Nuked).');
+        } catch (error) {
+            console.error('Redis Error (deleteAllBets):', error);
+            throw error;
+        }
+    },
+
     // --- PLAYER METHODS ---
 
     async getPlayers(): Promise<Player[]> {

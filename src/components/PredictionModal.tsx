@@ -12,6 +12,11 @@ interface PredictionModalProps {
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 import { useModal } from '@/providers/ModalProvider';
+import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
+import { parseUnits } from 'viem';
+import { CURRENT_CONFIG } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import ViralReceipt from './ViralReceipt';
 
 // ... (interface)
 // ...
@@ -20,39 +25,206 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
     const { showAlert, showModal } = useModal();
     const [step, setStep] = useState<1 | 2 | 3>(1);
 
-    // ... (state)
+    const [metric, setMetric] = useState<MetricType>('likes');
+    const [targetValue, setTargetValue] = useState<number>(0);
+    const [choice, setChoice] = useState<PredictionChoice>('yes');
+    const [betAmount, setBetAmount] = useState<number>(0.1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showReceipt, setShowReceipt] = useState(false);
+    const [receiptData, setReceiptData] = useState<any>(null);
+
+    // Calculate current value based on metric
+    const currentValue = (() => {
+        switch (metric) {
+            case 'likes': return cast.reactions.likes_count;
+            case 'recasts': return cast.reactions.recasts_count;
+            case 'replies': return cast.reactions.replies_count;
+            default: return 0;
+        }
+    })();
+
+    // Initialize target value when metric changes or on load
+    if (targetValue === 0 && currentValue > 0) {
+        setTargetValue(Math.ceil(currentValue * 1.5));
+    }
+
+    // Wagmi hooks
+    const { address, isConnected, chainId } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+    const { switchChainAsync } = useSwitchChain();
+    const publicClient = usePublicClient();
+
+    // Config
+    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532;
+    const USDC_ADDRESS = IS_MAINNET
+        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+        : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
     const handleSubmit = async () => {
+        if (!isConnected || !address) {
+            showAlert('Wallet Required', 'Please connect your wallet first.', 'warning');
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            // ... (fetch)
-            // ...
+            // 0. Verify Network
+            if (chainId !== EXPECTED_CHAIN_ID) {
+                try {
+                    if (switchChainAsync) {
+                        await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                    }
+                } catch (error) {
+                    showAlert('Wrong Network', 'Please switch to Base.', 'error');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            // 1. Create Prediction on Backend first to get ID
+            // Note: We do this before payment to ensure we have a valid ID to bet on
+            const response = await fetch('/api/predictions/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    betAmount: betAmount,
+                    userAddress: address,
+                    initialValue: currentValue,
+                    maxEntrySize: 100, // Default max
+                    minBet: 0.1,
+                    displayName: cast.author.displayName,
+                    pfpUrl: cast.author.pfp.url,
+                    timeframe: '24h',
+                    castHash: cast.hash,
+                    castAuthor: cast.author.username,
+                    castText: cast.text,
+                    metric: metric,
+                    targetValue: targetValue,
+                    choice: choice,
+                    isVersus: false,
+                    castUrl: `https://warpcast.com/${cast.author.username}/${cast.hash}`,
+                }),
+            });
+
             const data = await response.json();
 
-            if (data.success) {
-                // TODO: Trigger MiniKit payment
-                showModal({
-                    title: 'Prediction Created!',
-                    message: 'Prediction created! Payment integration coming soon.',
-                    type: 'success',
-                    onConfirm: onClose
-                });
-            } else {
-                showAlert('Error', 'Error creating prediction: ' + (data.error || 'Unknown error'), 'error');
+            if (!data.success || !data.predictionId) {
+                throw new Error(data.error || 'Failed to create prediction record');
             }
-        } catch (error) {
+
+            const predictionId = data.predictionId;
+
+            // 2. Create on Chain
+            console.log('Creating prediction on-chain:', predictionId);
+            if (CURRENT_CONFIG.contractAddress) {
+                try {
+                    const duration = 86400; // 24h
+                    const createHash = await writeContractAsync({
+                        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                        abi: PredictionBattleABI.abi,
+                        functionName: 'createPrediction',
+                        args: [predictionId, BigInt(targetValue), BigInt(duration)],
+                        gas: BigInt(500000),
+                    });
+
+                    if (publicClient) {
+                        await publicClient.waitForTransactionReceipt({ hash: createHash });
+                    }
+                    console.log('On-chain creation confirmed');
+                } catch (e) {
+                    console.error('Contract creation failed:', e);
+                    // We might continue if checking for existence isn't strict, but usually we should stop.
+                    // However, letting it fail for now if contract is optional in dev.
+                    if (IS_MAINNET) throw e;
+                }
+            }
+
+            // 3. Approve USDC
+            console.log('Approving USDC...');
+            const amountInWei = parseUnits(betAmount.toString(), 6);
+            const approveHash = await writeContractAsync({
+                address: USDC_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'approve',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                    outputs: [{ name: '', type: 'bool' }]
+                }],
+                functionName: 'approve',
+                args: [CURRENT_CONFIG.contractAddress as `0x${string}`, amountInWei],
+            });
+
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash: approveHash });
+            }
+
+            // 4. Place Bet
+            console.log('Placing bet...');
+            const betHash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'placeBet',
+                args: [predictionId, choice === 'yes', amountInWei],
+                gas: BigInt(300000),
+            });
+
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash: betHash });
+            }
+
+            // 5. Update Backend with TxHash (Bet Registration)
+            await fetch('/api/predictions/bet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    betId: predictionId,
+                    choice,
+                    amount: betAmount,
+                    txHash: betHash,
+                    userAddress: address
+                }),
+            });
+
+            setReceiptData({
+                predictionId: predictionId,
+                avatarUrl: cast.author.pfp.url,
+                username: cast.author.username,
+                action: "INITIATED BATTLE", // Different action text for creator
+                amount: betAmount,
+                potentialWin: betAmount * 2, // Creator creates the market, usually 2x if matched
+                multiplier: 2.0,
+                choice: choice === 'yes' ? 'YES' : 'NO',
+                targetName: `hit ${targetValue} ${metric}`,
+                variant: 'standard' // PredictionModal creates standard predictions mostly
+            });
+
+            setShowReceipt(true);
+
+        } catch (error: any) {
             console.error('Error:', error);
-            showAlert('Error', 'Failed to create prediction', 'error');
+            const msg = error.shortMessage || error.message || 'Failed to create prediction';
+            showAlert('Error', msg, 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const handleReceiptClose = () => {
+        setShowReceipt(false);
+        onClose(); // Close the modal when receipt is closed
+    };
+
+    if (showReceipt && receiptData) {
+        return <ViralReceipt isOpen={true} onClose={handleReceiptClose} data={receiptData} />;
+    }
+
     const handleShare = () => {
         const shareText = `I just bet ${betAmount} USDC that @${cast.author.username}'s cast will ${choice === 'yes' ? 'hit' : 'NOT hit'} ${targetValue} ${metric} in 24h! Join me on Prediction Battle 🔥`;
-        // TODO: Integrate with MiniKit composeCast
-        showAlert('Coming Soon', 'Share feature coming soon!', 'info');
+        const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent('https://prediction-battle.vercel.app')}`;
+        window.open(url, '_blank');
     };
 
     return (
