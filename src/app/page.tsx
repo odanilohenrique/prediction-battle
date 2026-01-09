@@ -87,22 +87,21 @@ export default function Home() {
                 <div className="max-w-2xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
-                                <Image
-                                    src="/icon.png"
-                                    alt="Logo"
-                                    width={40}
-                                    height={40}
-                                    className="object-cover"
-                                />
-                            </div>
-                            <div>
-                                <h1 className="text-lg md:text-xl font-black text-white italic tracking-wide uppercase">
-                                    BATTLE ARENA
-                                </h1>
-                                <p className="text-[10px] md:text-xs text-primary font-bold tracking-widest uppercase">
-                                    Live War Room
-                                </p>
+                            <div className="flex flex-col items-center gap-1">
+                                <div className="w-12 h-12 md:w-12 md:h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
+                                    <Image
+                                        src="/icon.png"
+                                        alt="Logo"
+                                        width={48}
+                                        height={48}
+                                        className="object-cover"
+                                    />
+                                </div>
+                                <div className="text-center">
+                                    <h1 className="text-[10px] font-black text-white italic tracking-wide uppercase leading-none">
+                                        BATTLE ARENA
+                                    </h1>
+                                </div>
                             </div>
                         </div>
                         <WalletButton />
@@ -114,42 +113,43 @@ export default function Home() {
             <div className="max-w-2xl mx-auto px-4 py-8">
 
                 {/* Tabs */}
-                <div className="flex p-1 bg-white/5 rounded-xl mb-8 border border-white/5">
+                {/* Tabs */}
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                     <button
                         onClick={() => setActiveTab('official')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'official'
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                        className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${activeTab === 'official'
+                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                            : 'bg-white/5 text-white/40 border-white/5 hover:text-white hover:bg-white/10'
                             }`}
                     >
-                        <Crown className="w-4 h-4" />
-                        Official Battles
-                        <span className="bg-black/20 px-2 py-0.5 rounded-full text-xs">
+                        <Crown className="w-3.5 h-3.5" />
+                        <span>Official</span>
+                        <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[10px]">
                             {officialBattles.filter(b => Date.now() < b.expiresAt).length}
                         </span>
                     </button>
                     <button
                         onClick={() => setActiveTab('community')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'community'
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                        className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${activeTab === 'community'
+                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                            : 'bg-white/5 text-white/40 border-white/5 hover:text-white hover:bg-white/10'
                             }`}
                     >
-                        <Users className="w-4 h-4" />
-                        Community
-                        <span className="bg-black/20 px-2 py-0.5 rounded-full text-xs">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Community</span>
+                        <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[10px]">
                             {communityBattles.filter(b => Date.now() < b.expiresAt).length}
                         </span>
                     </button>
                     <button
                         onClick={() => setActiveTab('expired')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'expired'
-                            ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
-                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                        className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${activeTab === 'expired'
+                            ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
+                            : 'bg-white/5 text-white/40 border-white/5 hover:text-white hover:bg-white/10'
                             }`}
                     >
-                        <Clock className="w-4 h-4" />
-                        Expired
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Expired</span>
                     </button>
                 </div>
 

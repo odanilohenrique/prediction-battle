@@ -88,21 +88,21 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     }
 
     return (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
             <button
                 onClick={handleConnectWallet}
-                className="flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-4 py-2 rounded-xl transition-all"
+                className="flex items-center gap-1.5 bg-primary hover:bg-secondary text-background font-bold px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2"
             >
-                <Wallet className="w-5 h-5" />
-                <span>Connect Wallet</span>
+                <Wallet className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>Wallet</span>
             </button>
 
             <button
                 onClick={handleFarcasterLogin}
-                className="flex items-center gap-2 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-4 py-2 rounded-xl transition-all"
+                className="flex items-center gap-1.5 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2"
             >
-                <LogIn className="w-5 h-5" />
-                <span className="font-medium">Farcaster Login</span>
+                <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>FC Login</span>
             </button>
         </div>
     );
