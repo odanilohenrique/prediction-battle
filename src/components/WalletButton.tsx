@@ -24,8 +24,9 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     // 1. Mini App Context (Auto-Login)
     const { isMiniApp, user: miniAppUser } = useFarcasterMiniApp();
 
-    // Farcaster Auth Kit Hooks
-    const { signIn, signOut, connect, reconnect, isSuccess, isError, error } = useSignIn({
+    // 2. Web Auth Kit (Fallback)
+    // Rename 'connect' to 'farcasterConnect' to avoid collision
+    const { signIn, signOut, connect: farcasterConnect, reconnect, isSuccess, isError, error } = useSignIn({
         onSuccess: (res) => {
             console.log("Farcaster Login Success", res);
         },
@@ -35,12 +36,25 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
         }
     });
 
-    // Extract connect function specifically if signIn is not working as expected, 
-    // though signIn is usually the wrapper. 
-    // Note: AuthKit v0.3+ exposes `connect` which might be the actual trigger needed if signIn is just state management.
-    // Let's stick to signIn for now but log the hook state.
-
     const { isAuthenticated, profile } = useProfile();
+
+    const handleConnectWallet = () => {
+        // Priority: Rabby (injected) > MetaMask > Coinbase
+        const rabbyConnector = connectors.find((c) => c.id === 'io.rabby');
+        const injectedConnector = connectors.find((c) => c.id === 'injected');
+        const metaMaskConnector = connectors.find((c) => c.id === 'metaMask');
+        const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
+
+        const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
+
+        if (!targetConnector) {
+            showAlert('Wallet Not Found', 'Please install Rabby or MetaMask.', 'warning');
+            return;
+        }
+
+        connect({ connector: targetConnector });
+        onConnect?.();
+    };
 
     const handleFarcasterLogin = async () => {
         console.log("Attempting Farcaster Web Login...");
