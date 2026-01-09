@@ -5,8 +5,8 @@ import '@farcaster/auth-kit/styles.css';
 
 const config = {
     rpcUrl: 'https://mainnet.optimism.io',
-    domain: 'prediction-battle.vercel.app',
-    siweUri: 'https://prediction-battle.vercel.app/login',
+    domain: 'predictionbattle.xyz',
+    siweUri: 'https://predictionbattle.xyz/login',
     relay: 'https://relay.farcaster.xyz',
 };
 

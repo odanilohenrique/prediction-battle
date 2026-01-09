@@ -277,6 +277,26 @@ export default function AdminDashboard() {
         });
     };
 
+    const handleDeleteBet = async (betId: string) => {
+        showConfirm('Delete Bet?', 'Are you sure you want to delete this bet? This cannot be undone.', async () => {
+            try {
+                const res = await fetch('/api/admin/bets/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ betId })
+                });
+                if (res.ok) {
+                    showAlert('Deleted', 'Bet deleted successfully.', 'success');
+                    fetchAdminData();
+                } else {
+                    showAlert('Error', 'Failed to delete bet.', 'error');
+                }
+            } catch (e) {
+                showAlert('Error', 'Request failed', 'error');
+            }
+        });
+    };
+
     const formatTimeRemaining = (expiresAt: number) => {
         const remaining = expiresAt - Date.now();
         const hours = Math.floor(remaining / (1000 * 60 * 60));
@@ -654,23 +674,34 @@ export default function AdminDashboard() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex flex-col gap-2">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.status === 'active'
-                                                            ? 'bg-primary/10 text-primary border border-primary/30'
-                                                            : 'bg-green-500/10 text-green-500 border border-green-500/30'
-                                                            }`}>
-                                                            {bet.status === 'active' ? 'Active' : 'Finished'}
-                                                        </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.status === 'active'
+                                                                ? 'bg-primary/10 text-primary border border-primary/30'
+                                                                : 'bg-green-500/10 text-green-500 border border-green-500/30'
+                                                                }`}>
+                                                                {bet.status === 'active' ? 'Active' : 'Finished'}
+                                                            </span>
 
-                                                        {/* Resolution Button for Active but Expired Bets */}
-                                                        {(bet.status === 'active') && (
-                                                            <button
-                                                                onClick={() => handleOpenResolveModal(bet)}
-                                                                className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
-                                                            >
-                                                                ⚖️ Resolve
-                                                            </button>
-                                                        )}
+                                                            {/* Resolution Button for Active but Expired Bets */}
+                                                            {(bet.status === 'active') && (
+                                                                <button
+                                                                    onClick={() => handleOpenResolveModal(bet)}
+                                                                    className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
+                                                                >
+                                                                    ⚖️ Resolve
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Individual Delete Button */}
+                                                        <button
+                                                            onClick={() => handleDeleteBet(bet.id)}
+                                                            className="p-2 hover:bg-red-500/10 rounded-lg text-red-500/50 hover:text-red-500 transition-colors"
+                                                            title="Delete Bet"
+                                                        >
+                                                            <Trash2 className="w-5 h-5" />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
