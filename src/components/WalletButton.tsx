@@ -109,15 +109,45 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
             {/* Official Farcaster SignInButton - Only show on Web, not Mini App */}
             {!isMiniApp && (
-                <SignInButton
-                    onSuccess={({ fid, username }) => {
-                        console.log('Farcaster auth success:', { fid, username });
-                    }}
-                    onError={(error) => {
-                        console.error('Farcaster auth error:', error);
-                        showAlert('Login Error', String(error), 'error');
-                    }}
-                />
+                <div className="login-button-wrapper">
+                    <SignInButton
+                        onSuccess={({ fid, username }) => {
+                            console.log('Farcaster auth success:', { fid, username });
+                        }}
+                        onError={(error) => {
+                            console.error('Farcaster auth error:', error);
+                            showAlert('Login Error', String(error), 'error');
+                        }}
+                    />
+                    <style jsx global>{`
+                        .login-button-wrapper button {
+                            background-color: rgb(var(--surface)) !important;
+                            border: 1px solid rgb(var(--primary)) !important;
+                            color: rgb(var(--primary)) !important;
+                            font-size: 0.75rem !important; /* text-xs */
+                            padding: 6px 12px !important;
+                            border-radius: 0.5rem !important; /* rounded-lg */
+                            height: auto !important;
+                            min-height: 0 !important;
+                            font-weight: 500 !important;
+                            transition: all 0.2s !important;
+                        }
+                        .login-button-wrapper button:hover {
+                            border-color: rgb(var(--secondary)) !important;
+                            color: rgb(var(--secondary)) !important;
+                        }
+                        @media (min-width: 768px) {
+                            .login-button-wrapper button {
+                                font-size: 0.875rem !important; /* text-sm */
+                                padding: 8px 16px !important;
+                            }
+                        }
+                        .login-button-wrapper button .fc-auth-button-icon {
+                            width: 14px !important;
+                            height: 14px !important;
+                        }
+                    `}</style>
+                </div>
             )}
         </div>
     );
