@@ -1,0 +1,29 @@
+{
+    "name": "Prediction Battle",
+    "short_name": "PredBattle",
+    "description": "Bet on Farcaster Casts instantly. The ultimate engagement prediction market.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#09090b",
+    "theme_color": "#f97316",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/icon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "finance",
+        "social",
+        "games"
+    ]
+}

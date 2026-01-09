@@ -51,10 +51,12 @@ export default function AdminDashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
 
-    const filteredPlayers = players.filter(p =>
-        p.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredPlayers = players
+        .filter(p =>
+            p.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => a.username.localeCompare(b.username));
 
     useEffect(() => {
         fetchAdminData();
@@ -94,17 +96,32 @@ export default function AdminDashboard() {
 
     const handleSavePlayer = async (player: Player) => {
         // Optimistic update
-        setPlayers(players.map(p => p.username === player.username ? player : p));
+        const exists = players.find(p => p.username === player.username);
+        let newPlayers;
+        if (exists) {
+            newPlayers = players.map(p => p.username === player.username ? player : p);
+        } else {
+            newPlayers = [...players, player];
+        }
+        setPlayers(newPlayers);
         setEditingPlayer(null);
 
-        // Also trigger partial save if API exists, for now we rely on Bulk Save or single save endpoint
+        // Persist immediately
         try {
-            // Assuming we use the bulk endpoint for single update or just local state until "Save All"
-            // But let's try to save it to be safe
-            // For now, just local state update + alert since user flow emphasizes "Save All Changes"
-            showAlert('Updated', 'Player updated in list. Click Save All to persist.', 'success');
+            const res = await fetch('/api/admin/players', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(player)
+            });
+
+            if (res.ok) {
+                showAlert('Saved', 'Player saved successfully!', 'success');
+            } else {
+                throw new Error('Save failed');
+            }
         } catch (e) {
-            showAlert('Error', 'Error updating player', 'error');
+            showAlert('Error', 'Error saving to database', 'error');
+            // Revert on error? For now, we keep optimistic state but warn.
         }
     };
 
@@ -124,8 +141,21 @@ export default function AdminDashboard() {
     };
 
     const handleDeletePlayer = (username: string) => {
-        showConfirm('Delete Player?', 'Remove this player from the list? (Requires Save to persist)', () => {
-            setPlayers(players.filter(p => p.username !== username));
+        showConfirm('Delete Player?', 'Remove this player from the list? This creates a save point immediately.', async () => {
+            const newPlayers = players.filter(p => p.username !== username);
+            setPlayers(newPlayers);
+
+            try {
+                // We use bulk save for deletion to override the set
+                const res = await fetch('/api/admin/players', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ players: newPlayers })
+                });
+                if (res.ok) showAlert('Deleted', 'Player removed and list saved.', 'success');
+            } catch (e) {
+                showAlert('Error', 'Error saving deletion', 'error');
+            }
         });
     };
 
@@ -305,6 +335,27 @@ export default function AdminDashboard() {
                             className="hidden md:flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-medium px-4 py-3 rounded-xl transition-all border border-yellow-500/30"
                         >
                             ⚡ Force Cron
+                        </button>
+
+                        <button
+                            onClick={async () => {
+                                showConfirm('Delete ALL Bets?', 'DANGER: This will wipe all bets from the database. This is irreversible (Phase 3 Reset). Continue?', async () => {
+                                    try {
+                                        const res = await fetch('/api/admin/bets/delete-all', { method: 'POST', body: JSON.stringify({}) });
+                                        if (res.ok) {
+                                            showAlert('NUKED', 'All bets deleted.', 'success');
+                                            fetchAdminData();
+                                        } else {
+                                            showAlert('Error', 'Failed to delete.', 'error');
+                                        }
+                                    } catch (e) {
+                                        showAlert('Error', 'Request failed', 'error');
+                                    }
+                                });
+                            }}
+                            className="hidden md:flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-medium px-4 py-3 rounded-xl transition-all border border-red-500/30"
+                        >
+                            ☢️ NUKE ALL
                         </button>
 
                         <button

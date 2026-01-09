@@ -12,12 +12,17 @@ import { useModal } from '@/providers/ModalProvider';
 
 // ... (interface)
 
+import { useSignIn, useProfile } from '@farcaster/auth-kit';
+
 export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { showAlert } = useModal();
     const { isConnected, address } = useAccount();
     const { connect, connectors } = useConnect();
     const { disconnect } = useDisconnect();
-    const [farcasterUser, setFarcasterUser] = useState<{ username: string; fid: number } | null>(null);
+
+    // Farcaster Auth Kit Hooks
+    const { signIn, signOut } = useSignIn({});
+    const { isAuthenticated, profile } = useProfile();
 
     const handleConnectWallet = () => {
         // Priority: Rabby (injected) > MetaMask > Coinbase
@@ -37,27 +42,20 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
         onConnect?.();
     };
 
-    const handleFarcasterLogin = async () => {
-        // TODO: Integrate with Farcaster Auth
-        showAlert('Coming Soon', 'Farcaster login will be implemented with MiniKit/OnchainKit', 'info');
-        // Removing demo toggle for now or keeping it? The user might use it for demo.
-        // I will keep the state update as it was, but just show the alert first.
-        setFarcasterUser({
-            username: 'demo_user',
-            fid: 12345
-        });
+    const handleFarcasterLogin = () => {
+        signIn();
     };
 
     const handleDisconnect = () => {
-        disconnect();
-        setFarcasterUser(null);
+        if (isConnected) disconnect();
+        if (isAuthenticated) signOut();
     };
 
     const formatAddress = (addr: string) => {
         return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
     };
 
-    if (isConnected || farcasterUser) {
+    if (isConnected || isAuthenticated) {
         return (
             <div className="flex items-center gap-2">
                 {/* Profile Link */}
@@ -69,11 +67,11 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                     <span className="text-sm font-medium hidden sm:inline">Profile</span>
                 </a>
 
-                {/* Wallet Address */}
+                {/* Wallet or Farcaster User */}
                 <div className="flex items-center gap-2 bg-surface border border-darkGray rounded-xl px-3 py-2">
                     <Wallet className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium text-textPrimary">
-                        {farcasterUser ? `@${farcasterUser.username}` : (address && formatAddress(address))}
+                        {isAuthenticated && profile?.username ? `@${profile.username}` : (address && formatAddress(address))}
                     </span>
                 </div>
 
