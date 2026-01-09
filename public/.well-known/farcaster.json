@@ -1,18 +1,36 @@
 {
-    "accountAssociation": {
-        "header": "eyJmaW...",
-        "payload": "eyJkb2...",
-        "signature": "MHhl..."
-    },
     "frame": {
-        "version": "1",
         "name": "Prediction Battle",
+        "version": "1",
         "iconUrl": "https://predictionbattle.xyz/icon.png",
         "homeUrl": "https://predictionbattle.xyz",
+        "description": "Predict on Farcaster Casts instantly. The ultimate engagement prediction market. Win big if you're right!",
+        "subtitle": "Predict on Farcaster Casts instantly",
+        "primaryCategory": "social",
+        "screenshotUrls": [
+            "https://predictionbattle.xyz/splash.png"
+        ],
         "imageUrl": "https://predictionbattle.xyz/og-image.png",
-        "buttonTitle": "Launch App",
+        "heroImageUrl": "https://predictionbattle.xyz/og-image.png",
         "splashImageUrl": "https://predictionbattle.xyz/splash.png",
         "splashBackgroundColor": "#09090b",
-        "webhookUrl": "https://predictionbattle.xyz/api/webhook"
+        "tags": [
+            "prediction",
+            "betting",
+            "usdc",
+            "farcaster",
+            "crypto"
+        ],
+        "tagline": "Predict. Bet. Win.",
+        "buttonTitle": "Launch App",
+        "ogTitle": "Predict on Casts",
+        "ogDescription": "Predict USDC on whether Farcaster casts will hit engagement targets.",
+        "ogImageUrl": "https://predictionbattle.xyz/og-image.png",
+        "castShareUrl": "https://warpcast.com/~/compose?text=Check+out+Prediction+Battle!&embeds[]=https://predictionbattle.xyz"
+    },
+    "accountAssociation": {
+        "header": "eyJmaWQiOjYyODYyNywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDJDZDA5MzRBQzMxODg4ODI3QzM3MTE1MjdlYjJlMDI3NmYzQjY2YjQifQ",
+        "payload": "eyJkb21haW4iOiIifQ",
+        "signature": "/MUDCwsFWKkhNSnSXqmOfOCII65d9gjqVAHSkghmwdhnVBaKhjnk0f2psXxHGsxa67nV72MoPRZhbRhCgiIHGhw="
     }
 }
