@@ -13,12 +13,16 @@ import { useModal } from '@/providers/ModalProvider';
 // ... (interface)
 
 import { useSignIn, useProfile } from '@farcaster/auth-kit';
+import { useFarcasterMiniApp } from '@/providers/FarcasterMiniAppProvider';
 
 export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { showAlert } = useModal();
     const { isConnected, address } = useAccount();
     const { connect, connectors } = useConnect();
     const { disconnect } = useDisconnect();
+
+    // 1. Mini App Context (Auto-Login)
+    const { isMiniApp, user: miniAppUser } = useFarcasterMiniApp();
 
     // Farcaster Auth Kit Hooks
     const { signIn, signOut } = useSignIn({});
