@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2 } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import { parseUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
@@ -28,8 +28,8 @@ interface AdminBet {
         no: any[];
     };
     rules?: string;
-    optionA?: { label: string; imageUrl?: string };
-    optionB?: { label: string; imageUrl?: string };
+    optionA?: { label: string; imageUrl?: string; referenceUrl?: string };
+    optionB?: { label: string; imageUrl?: string; referenceUrl?: string };
     castHash?: string;
     castUrl?: string;
     castText?: string;
@@ -494,6 +494,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             <div className="text-sm md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors">
                                                 {bet.optionA.label}
                                             </div>
+                                            {bet.optionA?.referenceUrl && (
+                                                <a
+                                                    href={bet.optionA.referenceUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] font-bold text-green-400 hover:bg-green-500/20 hover:text-green-300 transition-colors"
+                                                >
+                                                    <ExternalLink className="w-3 h-3" />
+                                                    CONTEXT
+                                                </a>
+                                            )}
                                         </div>
                                     </a>
                                 </div>
@@ -519,6 +531,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             <div className="text-sm md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors">
                                                 {bet.optionB.label}
                                             </div>
+                                            {bet.optionB?.referenceUrl && (
+                                                <a
+                                                    href={bet.optionB.referenceUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                                                >
+                                                    <ExternalLink className="w-3 h-3" />
+                                                    CONTEXT
+                                                </a>
+                                            )}
                                         </div>
                                     </a>
                                 </div>
