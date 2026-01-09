@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 
-import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
+import { CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // Extended bet types
@@ -89,9 +89,11 @@ export default function CreateCommunityBet() {
     const router = useRouter();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('prediction');
+    const [creationMode, setCreationMode] = useState<'prediction' | 'battle'>('battle');
     const [savedPlayers, setSavedPlayers] = useState<any[]>(POPULAR_PLAYERS);
     const [showAllPlayers, setShowAllPlayers] = useState(false);
+    const [showAllPlayersA, setShowAllPlayersA] = useState(false);
+    const [showAllPlayersB, setShowAllPlayersB] = useState(false);
 
     // Wagmi hooks - FIXED ReferenceError
     const { address, isConnected, chainId } = useAccount();
@@ -394,32 +396,8 @@ export default function CreateCommunityBet() {
                 </p>
             </div>
 
-            <div className="flex p-1 bg-white/5 rounded-xl mb-8 border border-white/5">
-                {address && isAdmin(address) && (
-                    <button
-                        type="button"
-                        onClick={() => setCreationMode('prediction')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${creationMode === 'prediction'
-                            ? 'bg-primary text-black shadow-lg shadow-primary/20'
-                            : 'text-white/40 hover:text-white hover:bg-white/5'
-                            }`}
-                    >
-                        <Target className="w-4 h-4" />
-                        Prediction
-                    </button>
-                )}
-                <button
-                    type="button"
-                    onClick={() => setCreationMode('battle')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${creationMode === 'battle'
-                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/20'
-                        : 'text-white/40 hover:text-white hover:bg-white/5'
-                        }`}
-                >
-                    <Sword className="w-4 h-4" />
-                    Battle
-                </button>
-            </div>
+            {/* Mode Switcher Removed - Defaulting to Battle Mode for Public Page */}
+            {/* <div className="flex p-1 bg-white/5 rounded-xl mb-8 border border-white/5">...</div> */}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -456,7 +434,7 @@ export default function CreateCommunityBet() {
                                     <div>
                                         <label className="text-xs text-white/60 mb-1 block">Quick Select</label>
                                         <div className="flex flex-wrap gap-2">
-                                            {savedPlayers.map((player) => (
+                                            {(showAllPlayersA ? savedPlayers : savedPlayers.slice(0, 3)).map((player) => (
                                                 <button
                                                     key={player.username}
                                                     type="button"
@@ -480,6 +458,13 @@ export default function CreateCommunityBet() {
                                                     <span className="text-white/80">{player.username}</span>
                                                 </button>
                                             ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAllPlayersA(!showAllPlayersA)}
+                                                className="px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-xs text-textSecondary hover:bg-white/10 transition-all"
+                                            >
+                                                {showAllPlayersA ? 'Show Less' : 'Others...'}
+                                            </button>
 
                                         </div>
                                     </div>
@@ -566,7 +551,7 @@ export default function CreateCommunityBet() {
                                     <div>
                                         <label className="text-xs text-white/60 mb-1 block">Quick Select</label>
                                         <div className="flex flex-wrap gap-2">
-                                            {savedPlayers.map((player) => (
+                                            {(showAllPlayersB ? savedPlayers : savedPlayers.slice(0, 3)).map((player) => (
                                                 <button
                                                     key={player.username}
                                                     type="button"
@@ -590,6 +575,13 @@ export default function CreateCommunityBet() {
                                                     <span className="text-white/80">{player.username}</span>
                                                 </button>
                                             ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAllPlayersB(!showAllPlayersB)}
+                                                className="px-2 py-1 rounded-lg border border-white/10 bg-white/5 text-xs text-textSecondary hover:bg-white/10 transition-all"
+                                            >
+                                                {showAllPlayersB ? 'Show Less' : 'Others...'}
+                                            </button>
 
                                         </div>
                                     </div>
