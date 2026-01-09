@@ -5,14 +5,14 @@
         "signature": "MHhl..."
     },
     "frame": {
-        "version": "0.0.1",
+        "version": "1",
         "name": "Prediction Battle",
-        "iconUrl": "https://prediction-battle.vercel.app/icon.png",
-        "homeUrl": "https://prediction-battle.vercel.app",
-        "imageUrl": "https://prediction-battle.vercel.app/og-image.png",
-        "buttonTitle": "Predict Now",
-        "splashImageUrl": "https://prediction-battle.vercel.app/splash.png",
-        "splashBackgroundColor": "#0F0F0F",
-        "webhookUrl": "https://prediction-battle.vercel.app/api/webhook"
+        "iconUrl": "https://predictionbattle.xyz/icon.png",
+        "homeUrl": "https://predictionbattle.xyz",
+        "imageUrl": "https://predictionbattle.xyz/og-image.png",
+        "buttonTitle": "Launch App",
+        "splashImageUrl": "https://predictionbattle.xyz/splash.png",
+        "splashBackgroundColor": "#09090b",
+        "webhookUrl": "https://predictionbattle.xyz/api/webhook"
     }
 }
