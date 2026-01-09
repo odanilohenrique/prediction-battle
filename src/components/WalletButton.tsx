@@ -1,19 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Wallet, LogIn, LogOut, User } from 'lucide-react';
+import { Wallet, LogOut, User } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useModal } from '@/providers/ModalProvider';
+import { SignInButton, useProfile } from '@farcaster/auth-kit';
+import { useFarcasterMiniApp } from '@/providers/FarcasterMiniAppProvider';
 
 interface WalletButtonProps {
     onConnect?: () => void;
 }
-
-import { useModal } from '@/providers/ModalProvider';
-
-// ... (interface)
-
-import { useSignIn, useProfile } from '@farcaster/auth-kit';
-import { useFarcasterMiniApp } from '@/providers/FarcasterMiniAppProvider';
 
 export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { showAlert } = useModal();
@@ -24,22 +19,10 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     // 1. Mini App Context (Auto-Login)
     const { isMiniApp, user: miniAppUser } = useFarcasterMiniApp();
 
-    // 2. Web Auth Kit (Fallback)
-    // Rename 'connect' to 'farcasterConnect' to avoid collision
-    const { signIn, signOut, connect: farcasterConnect, reconnect, isSuccess, isError, error } = useSignIn({
-        onSuccess: (res) => {
-            console.log("Farcaster Login Success", res);
-        },
-        onError: (err) => {
-            console.error("Farcaster Login Hook Error", err);
-            showAlert('Login Error', String(err?.message || err), 'error');
-        }
-    });
-
+    // 2. Web Auth Kit - useProfile to check auth state
     const { isAuthenticated, profile } = useProfile();
 
     const handleConnectWallet = () => {
-        // Priority: Rabby (injected) > MetaMask > Coinbase
         const rabbyConnector = connectors.find((c) => c.id === 'io.rabby');
         const injectedConnector = connectors.find((c) => c.id === 'injected');
         const metaMaskConnector = connectors.find((c) => c.id === 'metaMask');
@@ -56,26 +39,9 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
         onConnect?.();
     };
 
-    const handleFarcasterLogin = async () => {
-        console.log("Attempting Farcaster Web Login...");
-
-        // Debug hook state
-        if (isError) console.error("Hook is already in error state:", error);
-
-        try {
-            // Some versions of AuthKit require calling connect() instead of signIn()
-            // We'll try signIn first as per docs
-            await signIn();
-        } catch (error) {
-            console.error("Login trigger failed:", error);
-            showAlert('Login Error', `Failed to login: ${error}`, 'error');
-        }
-    };
-
     const handleDisconnect = () => {
         if (isConnected) disconnect();
-        if (isAuthenticated) signOut();
-        // Note: Cannot "logout" of Mini App context easily as it's provided by the frame
+        // Note: SignInButton handles its own sign-out state
     };
 
     const formatAddress = (addr: string) => {
@@ -97,7 +63,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     if (isLoggedIn) {
         return (
             <div className="flex items-center gap-2">
-                {/* Profile Link (Unified) */}
+                {/* Profile Link */}
                 <a
                     href="/profile"
                     className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3 py-2 rounded-xl transition-colors"
@@ -116,7 +82,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                     </span>
                 </div>
 
-                {/* Logout (Only show if Web Auth or Wallet - Hiding for Mini App as it's native) */}
+                {/* Logout - Only for wallet/web auth, not Mini App */}
                 {(!isMiniAppAuthenticated) && (
                     <button
                         onClick={handleDisconnect}
@@ -132,6 +98,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
     return (
         <div className="flex items-center gap-2">
+            {/* Wallet Connect Button */}
             <button
                 onClick={handleConnectWallet}
                 className="flex items-center gap-1.5 bg-primary hover:bg-secondary text-background font-bold px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2"
@@ -140,17 +107,19 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
                 <span>Wallet</span>
             </button>
 
-            {/* Only show Farcaster Login if NOT in Mini App context (because Mini App auto-logs in) */}
+            {/* Official Farcaster SignInButton - Only show on Web, not Mini App */}
             {!isMiniApp && (
-                <button
-                    type="button"
-                    onClick={handleFarcasterLogin}
-                    className="relative z-10 flex items-center gap-1.5 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2 whitespace-nowrap"
-                >
-                    <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    <span>Farcaster Login</span>
-                </button>
+                <SignInButton
+                    onSuccess={({ fid, username }) => {
+                        console.log('Farcaster auth success:', { fid, username });
+                    }}
+                    onError={(error) => {
+                        console.error('Farcaster auth error:', error);
+                        showAlert('Login Error', String(error), 'error');
+                    }}
+                />
             )}
         </div>
     );
 }
+
