@@ -56,3 +56,17 @@
 .animate-rain {
   animation: rain 1.5s linear infinite;
 }
+
+/* Force Farcaster Auth Modal to top */
+div[class*="fc-auth"],
+.fc-auth-modal,
+#farcaster-auth-modal {
+  z-index: 2147483647 !important;
+  position: relative;
+  /* Ensure z-index applies if not fixed */
+}
+
+/* Ensure body doesn't clip absolute modals */
+body.fc-modal-open {
+  overflow: hidden !important;
+}
