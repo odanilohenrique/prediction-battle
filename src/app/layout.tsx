@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import OnchainProviders from "@/components/OnchainProviders";
-import FarcasterLifecycle from "@/components/FarcasterLifecycle";
+import FarcasterMiniAppProvider from "@/providers/FarcasterMiniAppProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,12 +31,13 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={inter.className}>
-                <FarcasterLifecycle />
-                <OnchainProviders>
-                    <ModalProvider>
-                        {children}
-                    </ModalProvider>
-                </OnchainProviders>
+                <FarcasterMiniAppProvider>
+                    <OnchainProviders>
+                        <ModalProvider>
+                            {children}
+                        </ModalProvider>
+                    </OnchainProviders>
+                </FarcasterMiniAppProvider>
             </body>
         </html>
     );
