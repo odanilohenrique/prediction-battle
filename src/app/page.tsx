@@ -87,7 +87,7 @@ export default function Home() {
                 <div className="max-w-2xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
                                 <Image
                                     src="/icon.png"
                                     alt="Logo"
@@ -97,10 +97,10 @@ export default function Home() {
                                 />
                             </div>
                             <div>
-                                <h1 className="text-xl font-black text-white italic tracking-wide uppercase">
+                                <h1 className="text-lg md:text-xl font-black text-white italic tracking-wide uppercase">
                                     BATTLE ARENA
                                 </h1>
-                                <p className="text-xs text-primary font-bold tracking-widest uppercase">
+                                <p className="text-[10px] md:text-xs text-primary font-bold tracking-widest uppercase">
                                     Live War Room
                                 </p>
                             </div>

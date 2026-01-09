@@ -481,17 +481,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {/* Player A */}
                                 <div className="flex flex-col items-center">
                                     <a href={`https://warpcast.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player">
-                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
                                             {bet.optionA.imageUrl ? (
                                                 <img src={bet.optionA.imageUrl} alt={bet.optionA.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
                                             ) : (
-                                                <div className="w-full h-full bg-green-500/20 flex items-center justify-center text-green-500 text-3xl font-black">
+                                                <div className="w-full h-full bg-green-500/20 flex items-center justify-center text-green-500 text-xl md:text-3xl font-black">
                                                     {bet.optionA.label.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="mt-2 text-center">
-                                            <div className="text-lg md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors">
+                                            <div className="text-sm md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors">
                                                 {bet.optionA.label}
                                             </div>
                                         </div>
@@ -499,24 +499,24 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </div>
 
                                 {/* VS */}
-                                <div className="text-4xl md:text-5xl font-black text-white/20 italic px-2">
+                                <div className="text-2xl md:text-5xl font-black text-white/20 italic px-2">
                                     VS
                                 </div>
 
                                 {/* Player B */}
                                 <div className="flex flex-col items-center">
                                     <a href={`https://warpcast.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player">
-                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
                                             {bet.optionB.imageUrl ? (
                                                 <img src={bet.optionB.imageUrl} alt={bet.optionB.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
                                             ) : (
-                                                <div className="w-full h-full bg-red-500/20 flex items-center justify-center text-red-500 text-3xl font-black">
+                                                <div className="w-full h-full bg-red-500/20 flex items-center justify-center text-red-500 text-xl md:text-3xl font-black">
                                                     {bet.optionB.label.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="mt-2 text-center">
-                                            <div className="text-lg md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors">
+                                            <div className="text-sm md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors">
                                                 {bet.optionB.label}
                                             </div>
                                         </div>
@@ -538,22 +538,22 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {/* Avatar */}
                                 {bet.pfpUrl ? (
                                     <div className="relative">
-                                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors">
+                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors">
                                             <img src={bet.pfpUrl} alt={bet.username} className="w-full h-full object-cover" />
                                         </div>
-                                        <div className="absolute -bottom-2 -right-2 bg-primary text-black text-xs font-black px-2 py-0.5 rounded shadow-lg">
+                                        <div className="absolute -bottom-2 -right-2 bg-primary text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded shadow-lg">
                                             OP
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl bg-primary/20 flex items-center justify-center border-2 border-primary/30">
-                                        <Swords className="w-12 h-12 text-primary" />
+                                    <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl bg-primary/20 flex items-center justify-center border-2 border-primary/30">
+                                        <Swords className="w-8 h-8 md:w-12 md:h-12 text-primary" />
                                     </div>
                                 )}
 
                                 {/* Prediction Info */}
                                 <div>
-                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none mb-1">
+                                    <h3 className="text-xl md:text-3xl font-black text-white leading-none mb-1">
                                         <a href={`https://warpcast.com/${bet.username}`} target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">
                                             @{bet.username}
                                         </a>
