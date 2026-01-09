@@ -231,7 +231,10 @@ export default function CreateCommunityBet() {
             // alert('⏳ Transaction sent! Waiting for confirmation...');
 
             if (!publicClient) throw new Error("Public Client missing");
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            const receipt = await publicClient.waitForTransactionReceipt({
+                hash,
+                timeout: 60000
+            });
 
             if (receipt.status !== 'success') {
                 throw new Error('Transaction failed on-chain.');
