@@ -223,7 +223,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
 
     const handleShare = () => {
         const shareText = `I just bet ${betAmount} USDC that @${cast.author.username}'s cast will ${choice === 'yes' ? 'hit' : 'NOT hit'} ${targetValue} ${metric} in 24h! Join me on Prediction Battle 🔥`;
-        const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent('https://prediction-battle.vercel.app')}`;
+        const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent('https://predictionbattle.xyz')}`;
         window.open(url, '_blank');
     };
 

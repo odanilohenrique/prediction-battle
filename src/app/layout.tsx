@@ -11,10 +11,10 @@ export const metadata: Metadata = {
     manifest: '/manifest.json',
     other: {
         "fc:frame": "vNext",
-        "fc:frame:image": "https://prediction-battle.vercel.app/og-image.png",
+        "fc:frame:image": "https://predictionbattle.xyz/og-image.png",
         "fc:frame:button:1": "Launch App",
         "fc:frame:button:1:action": "link",
-        "fc:frame:button:1:target": "https://prediction-battle.vercel.app"
+        "fc:frame:button:1:target": "https://predictionbattle.xyz"
     }
 };
 

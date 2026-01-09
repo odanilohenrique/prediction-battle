@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
-    const baseUrl = process.env.NEXT_PUBLIC_URL || 'https://prediction-battle.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_URL || 'https://predictionbattle.xyz';
 
     const metadata = {
         name: "Predict This", // "Bet" prohibited
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         const authorFid = untrustedData?.castId?.fid;
 
         // Construct URL for the "Create Battle" form
-        const baseUrl = process.env.NEXT_PUBLIC_URL || 'https://prediction-battle.vercel.app';
+        const baseUrl = process.env.NEXT_PUBLIC_URL || 'https://predictionbattle.xyz';
 
         // We'll pass the Cast Hash to the frontend, which will fetch details
         const redirectUrl = `${baseUrl}/create?castHash=${castId}&action=create-battle`;
