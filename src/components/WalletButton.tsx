@@ -42,8 +42,14 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
         onConnect?.();
     };
 
-    const handleFarcasterLogin = () => {
-        signIn();
+    const handleFarcasterLogin = async () => {
+        console.log("Attempting Farcaster Login...");
+        try {
+            await signIn();
+        } catch (error) {
+            console.error("Login failed:", error);
+            showAlert('Login Error', 'Failed to initiate Farcaster login. Please try again.', 'error');
+        }
     };
 
     const handleDisconnect = () => {
@@ -99,10 +105,10 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
             <button
                 onClick={handleFarcasterLogin}
-                className="flex items-center gap-1.5 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2"
+                className="relative z-10 flex items-center gap-1.5 bg-surface border border-primary hover:border-secondary text-primary hover:text-secondary px-3 py-1.5 rounded-lg transition-all text-xs md:text-sm md:px-4 md:py-2 whitespace-nowrap"
             >
                 <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                <span>FC Login</span>
+                <span>Farcaster Login</span>
             </button>
         </div>
     );
