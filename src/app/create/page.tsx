@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 
-import { CURRENT_CONFIG } from '@/lib/config';
+import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // Extended bet types
@@ -236,7 +236,10 @@ export default function CreateCommunityBet() {
             });
 
             if (!publicClient) throw new Error("Public Client missing");
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            const receipt = await publicClient.waitForTransactionReceipt({
+                hash,
+                timeout: 60000 // 60s timeout to prevent viem errors
+            });
 
             if (receipt.status !== 'success') {
                 throw new Error('Transaction failed on-chain.');
@@ -338,7 +341,10 @@ export default function CreateCommunityBet() {
                     console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
 
                     if (publicClient) {
-                        const receipt = await publicClient.waitForTransactionReceipt({ hash: contractHash });
+                        const receipt = await publicClient.waitForTransactionReceipt({
+                            hash: contractHash,
+                            timeout: 60000
+                        });
                         if (receipt.status !== 'success') {
                             throw new Error('Contract transaction reverted');
                         }
