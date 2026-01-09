@@ -43,11 +43,22 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     };
 
     const handleFarcasterLogin = async () => {
-        console.log("Attempting Farcaster Login...");
+        // DEBUG: Temporary alert to verify click functionality
+        alert("DEBUG: Click received. Attempting login...");
+
+        console.log("Attempting Farcaster Login...", { signIn });
+
+        if (!signIn) {
+            alert("CRITICAL ERROR: signIn function is undefined. AuthKit may not be initialized.");
+            return;
+        }
+
         try {
             await signIn();
         } catch (error) {
             console.error("Login failed:", error);
+            // Show the actual error message in the alert
+            alert(`Login Failed: ${error instanceof Error ? error.message : String(error)}`);
             showAlert('Login Error', 'Failed to initiate Farcaster login. Please try again.', 'error');
         }
     };
