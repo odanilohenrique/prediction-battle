@@ -1,10 +1,10 @@
 {
-    "miniapp": {
+    "frame": {
         "name": "Prediction Battle",
         "version": "1",
         "iconUrl": "https://predictionbattle.xyz/icon.png",
         "homeUrl": "https://predictionbattle.xyz",
-        "imageUrl": "https://predictionbattle.xyz/image.png",
+        "imageUrl": "https://predictionbattle.xyz/og-image.png",
         "buttonTitle": "Launch App",
         "splashImageUrl": "https://predictionbattle.xyz/splash.png",
         "splashBackgroundColor": "#09090b",
@@ -18,8 +18,8 @@
         "heroImageUrl": "https://predictionbattle.xyz/og-image.png",
         "tags": [
             "prediction",
-            "betting",
-            "usdc",
+            "social",
+            "base",
             "farcaster",
             "crypto"
         ],
