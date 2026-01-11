@@ -32,7 +32,7 @@ export async function generateMetadata(
 
     const description = bet.castText || `Join the prediction market on specific outcomes! Pot: $${bet.totalPot}`;
 
-    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=12`;
+    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=13`;
 
     return {
         title: title + ' | Prediction Battle',
