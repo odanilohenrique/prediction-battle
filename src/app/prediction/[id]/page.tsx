@@ -32,17 +32,28 @@ export async function generateMetadata(
 
     const description = bet.castText || `Join the prediction market on specific outcomes! Pot: $${bet.totalPot}`;
 
+    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=12`;
+
     return {
         title: title + ' | Prediction Battle',
         description: description,
         openGraph: {
             title: title,
             description: description,
-            images: [`/prediction/${id}/opengraph-image?v=12`], // Dynamic Image Route
+            images: [imageUrl],
+            type: 'website',
+            siteName: 'Prediction Battle',
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: title,
+            description: description,
+            images: [imageUrl],
+            site: '@predictionbattle',
         },
         other: {
             'fc:frame': 'vNext',
-            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=12`,
+            'fc:frame:image': imageUrl,
             'fc:frame:button:1': '🥊 Enter Arena',
             'fc:frame:button:1:action': 'link',
             'fc:frame:button:1:target': `https://predictionbattle.xyz/prediction/${id}`,
