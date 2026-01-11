@@ -38,11 +38,11 @@ export async function generateMetadata(
         openGraph: {
             title: title,
             description: description,
-            images: [`/prediction/${id}/opengraph-image?v=5`], // Dynamic Image Route
+            images: [`/prediction/${id}/opengraph-image?v=6`], // Dynamic Image Route
         },
         other: {
             'fc:frame': 'vNext',
-            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=5`,
+            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=6`,
             'fc:frame:button:1': '🥊 Enter Arena',
             'fc:frame:button:1:action': 'link',
             'fc:frame:button:1:target': `https://predictionbattle.xyz/prediction/${id}`,
