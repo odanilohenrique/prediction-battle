@@ -1,6 +1,6 @@
 
 import { ImageResponse } from 'next/og';
-import { db } from '@vercel/kv'; // We need direct KV access or fetch api if store is not edge compatible
+// import { db } from '@vercel/kv'; // Removed to prevent build error
 // store.ts uses 'no-store' which might be issue in edge. Let's see. 
 // Standard fetch might be safer for Edge functions if store logic is heavy. 
 // But ImageResponse runs on Edge. We'll try fetching data from API or direct KV rest.

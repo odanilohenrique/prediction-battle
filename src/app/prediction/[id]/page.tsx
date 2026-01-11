@@ -4,6 +4,7 @@ import { store } from '@/lib/store';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Zap } from 'lucide-react';
 import AdminBetCard from '@/components/AdminBetCard';
+import ClientCardWrapper from './ClientCardWrapper';
 
 type Props = {
     params: { id: string }
@@ -68,6 +69,8 @@ export default async function PredictionPage({ params }: Props) {
     // However, AdminBetCard expects `onBet` callback. We can pass a dummy or redirect.
     // For a cleaner landing, we might want to just show the card and a "Launch App" button if not logged in.
 
+    // Client Wrapper to handle interactions cleanly
+    // Moved to top
     return (
         <div className="min-h-screen bg-background bg-[url('/grid.svg')] text-textPrimary py-12 px-4">
             <div className="max-w-md mx-auto">
@@ -88,12 +91,6 @@ export default async function PredictionPage({ params }: Props) {
 
                 {/* Main Card Area */}
                 <div className="mb-8">
-                    {/* We use a simplified view or the full card. 
-                         For now, let's supply a no-op handler for interactions since this is just a landing page.
-                         Real interaction happens on the main app, or we can enable it if wallet connects here.
-                      */}
-                    {/* Client Wrapper needed if passing functions? AdminBetCard is 'use client' so it's fine */}
-                    {/* @ts-ignore - AdminBetCard prop mismatch workaround for server component usage if needed, but here we just pass props */}
                     <ClientCardWrapper bet={bet} />
                 </div>
 
@@ -114,6 +111,3 @@ export default async function PredictionPage({ params }: Props) {
         </div>
     );
 }
-
-// Client Wrapper to handle interactions cleanly
-import ClientCardWrapper from './ClientCardWrapper';
