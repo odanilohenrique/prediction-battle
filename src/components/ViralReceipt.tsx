@@ -53,6 +53,17 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
         window.open(url, '_blank');
     };
 
+    const handleShareX = () => {
+        const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
+
+        const text = isBattle
+            ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\n${data.choice} vs ${data.opponentName}\nStaked: $${data.amount} | Potential Win: $${data.potentialWin.toFixed(2)}\n\nJoin the fight!`
+            : `⚔️ I just entered the Battle Arena!\n\nStaked: $${data.amount} on ${data.choice}\nPotential Win: $${data.potentialWin.toFixed(2)}\n\nTarget: ${data.targetName}\n\nJoin the fight!`;
+
+        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+        window.open(url, '_blank');
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="relative w-full max-w-sm" ref={modalRef}>
@@ -236,13 +247,25 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
                         Back to Arena
                     </button>
 
-                    <button
-                        onClick={handleShare}
-                        className="w-full bg-[#FF5F1F]/10 hover:bg-[#FF5F1F]/20 text-[#FF5F1F] font-bold py-3 uppercase tracking-wider flex items-center justify-center gap-2 text-sm transition-all rounded-xl border border-[#FF5F1F]/20"
-                    >
-                        <Share2 className="w-4 h-4" />
-                        Share on Farcaster
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleShare}
+                            className="flex-1 bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 text-[#8B5CF6] font-bold py-3 uppercase tracking-wider flex items-center justify-center gap-2 text-sm transition-all rounded-xl border border-[#8B5CF6]/20"
+                        >
+                            <Share2 className="w-4 h-4" />
+                            Farcaster
+                        </button>
+
+                        <button
+                            onClick={handleShareX}
+                            className="flex-1 bg-black hover:bg-gray-900 text-white font-bold py-3 uppercase tracking-wider flex items-center justify-center gap-2 text-sm transition-all rounded-xl border border-white/10"
+                        >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                            </svg>
+                            Share on X
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
