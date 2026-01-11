@@ -32,12 +32,8 @@ export async function generateMetadata(
 
     const description = bet.castText || `Join the prediction market on specific outcomes! Pot: $${bet.totalPot}`;
 
-    // Try captured ticket image first, with fallback to dynamic generation
-    const capturedImageUrl = `https://predictionbattle.xyz/api/ticket-image/${id}`;
-    const fallbackImageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=14`;
-
-    // Use captured image as primary (if user has seen receipt, it will exist)
-    const imageUrl = capturedImageUrl;
+    // Use dynamically generated OG image
+    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=15`;
 
     return {
         title: title + ' | Prediction Battle',
@@ -45,7 +41,7 @@ export async function generateMetadata(
         openGraph: {
             title: title,
             description: description,
-            images: [imageUrl, fallbackImageUrl], // Fallback if captured doesn't exist
+            images: [imageUrl],
             type: 'website',
             siteName: 'Prediction Battle',
         },
