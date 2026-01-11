@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store } from '@/lib/store';
 import { getCastStats, getUserStats, getUserRecentCasts, getUserByUsername } from '@/lib/neynar';
+import { resolvePredictionOnChain, distributeWinningsOnChain } from '@/lib/contracts';
 
 export const dynamic = 'force-dynamic'; // Prevent caching
 
@@ -88,47 +89,51 @@ export async function GET(req: NextRequest) {
                     }
                 }
 
-                // 4. Resolve if Verified (YES)
+                let finalResult: boolean | null = null;
+                const expired = Date.now() > bet.expiresAt;
+
                 if (verified) {
-                    // Call the RESOLVE API (Internal call)
-                    // Or simulate resolution here.
-                    // Simulating resolution to ensure atomic update
+                    finalResult = true; // YES won
+                } else if (expired) {
+                    finalResult = false; // NO won (Target not met in time)
+                }
 
-                    bet.result = 'yes';
+                // 4. Resolve On-Chain if decided
+                if (finalResult !== null) {
+                    // Update Local State FIRST (Optimistic or Locking)
+                    // But if on-chain fails, we might want to retry later.
+                    // Best practice: Try on-chain, if success, update DB.
+
+                    console.log(`[CRON] Resolving Bet ${bet.id} -> ${finalResult ? 'YES' : 'NO'}`);
+
+                    // 4.1 Call Smart Contract Resolve
+                    await resolvePredictionOnChain(bet.id, finalResult);
+
+                    // 4.2 Wait a bit? Block time logic handled by `waitForTransactionReceipt` inside helper.
+
+                    // 4.3 Trigger Payout (Distribute Winnings) immediately
+                    // Note: If pool is huge, might need multiple batches. Cron can run 50 at a time.
+                    await distributeWinningsOnChain(bet.id, 50);
+
+                    // 4.4 Update DB
+                    bet.result = finalResult ? 'yes' : 'no';
                     bet.status = 'completed';
 
-                    // Fee Logic (Copied from resolve/route.ts)
+                    // Update fees in DB for record keeping (though contract handled money)
                     const totalFeePercentage = 0.20;
                     bet.feeAmount = bet.totalPot * totalFeePercentage;
                     bet.winnerPool = bet.totalPot - bet.feeAmount;
-
-                    // Protocol Fee (assuming User created for auto-verified bets?)
-                    // If created by Admin, full fee.
                     bet.protocolFeeAmount = bet.feeAmount;
-                    bet.creatorFeeAmount = 0;
+                    bet.creatorFeeAmount = 0; // Automation assumes standard fee for now
 
                     await store.saveBet(bet);
-                    results.push({ id: bet.id, result: 'RESOLVED_YES', reason: `Target met: ${currentVal} >= ${target}` });
-                } else if (Date.now() > bet.expiresAt) {
-                    // 5. Expired and NOT met -> Resolve NO
-                    bet.result = 'no';
-                    bet.status = 'completed';
-
-                    // Fee Logic
-                    const totalFeePercentage = 0.20;
-                    bet.feeAmount = bet.totalPot * totalFeePercentage;
-                    bet.winnerPool = bet.totalPot - bet.feeAmount;
-                    bet.protocolFeeAmount = bet.feeAmount;
-                    bet.creatorFeeAmount = 0;
-
-                    await store.saveBet(bet);
-                    results.push({ id: bet.id, result: 'RESOLVED_NO', reason: 'Time expired and target not met.' });
+                    results.push({ id: bet.id, result: finalResult ? 'RESOLVED_YES' : 'RESOLVED_NO', tx: 'OnChain Success' });
                 } else {
                     results.push({ id: bet.id, result: 'PENDING', current: currentVal });
                 }
 
             } catch (err) {
-                console.error(`Failed to verify bet ${bet.id}:`, err);
+                console.error(`Failed to verify/resolve bet ${bet.id}:`, err);
                 results.push({ id: bet.id, error: String(err) });
             }
         }
