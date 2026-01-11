@@ -10,42 +10,31 @@ export const size = {
 
 export const contentType = 'image/png';
 
-// Helper to fetch bet data directly via REST API (Edge-compatible)
+// Helper to fetch bet data directly via REST API
 async function fetchBet(id: string) {
     const KV_URL = process.env.KV_REST_API_URL;
     const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 
-    if (!KV_URL || !KV_TOKEN) {
-        console.error('[OG] Missing KV credentials');
-        return null;
-    }
+    if (!KV_URL || !KV_TOKEN) return null;
 
     try {
         const response = await fetch(`${KV_URL}/hget/prediction_bets/${id}`, {
-            headers: {
-                Authorization: `Bearer ${KV_TOKEN}`,
-            },
+            headers: { Authorization: `Bearer ${KV_TOKEN}` },
             cache: 'no-store',
         });
 
-        if (!response.ok) {
-            console.error('[OG] KV response not OK:', response.status);
-            return null;
-        }
+        if (!response.ok) return null;
 
         const data = await response.json();
-
         if (data.result) {
             return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
         }
         return null;
-    } catch (error) {
-        console.error('[OG] Fetch error:', error);
+    } catch {
         return null;
     }
 }
 
-// Helper to format bet type into readable text
 function getBetTypeLabel(bet: any): string {
     const labels: Record<string, string> = {
         post_count: `post ${bet.target}+ times`,
@@ -60,39 +49,22 @@ function getBetTypeLabel(bet: any): string {
 export default async function Image({ params }: { params: { id: string } }) {
     const bet = await fetchBet(params.id);
 
-    // ===== FALLBACK =====
+    // FALLBACK
     if (!bet) {
         return new ImageResponse(
             (
-                <div
-                    style={{
-                        height: '100%',
-                        width: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#0a0a0a',
-                    }}
-                >
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '40px 80px',
-                            backgroundColor: '#111',
-                            borderRadius: '24px',
-                            border: '2px solid #333',
-                        }}
-                    >
-                        <div style={{ fontSize: 72, marginBottom: 20 }}>🥊</div>
-                        <div style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>
-                            PREDICTION BATTLE
-                        </div>
-                        <div style={{ fontSize: 24, color: '#888', marginTop: 16 }}>
-                            Join the Arena
-                        </div>
+                <div style={{
+                    height: '100%',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#0a0a0a',
+                }}>
+                    <div style={{ fontSize: 72, marginBottom: 20 }}>🥊</div>
+                    <div style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>
+                        PREDICTION BATTLE
                     </div>
                 </div>
             ),
@@ -103,165 +75,103 @@ export default async function Image({ params }: { params: { id: string } }) {
     const isVersus = !!(bet.optionA?.label && bet.optionB?.label);
     const potDisplay = `$${(bet.totalPot || 0).toFixed(2)}`;
     const targetLabel = getBetTypeLabel(bet);
-    const timestamp = new Date().toLocaleString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    });
-    const battleId = bet.id?.split('_')[1]?.toUpperCase() || 'UNKNOWN';
+    const battleId = (bet.id?.split('_')[1] || 'UNKNOWN').toUpperCase();
 
-    // ===== BATTLE TICKET (VS Mode) =====
+    // VERSUS / BATTLE MODE
     if (isVersus) {
         return new ImageResponse(
             (
-                <div
-                    style={{
-                        height: '100%',
-                        width: '100%',
+                <div style={{
+                    height: '100%',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#0a0a0a',
+                }}>
+                    <div style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#0a0a0a',
-                    }}
-                >
-                    {/* Receipt Card */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            width: '600px',
-                            backgroundColor: '#fff',
-                            position: 'relative',
-                        }}
-                    >
-                        {/* Jagged Top Edge */}
-                        <div
-                            style={{
-                                position: 'absolute',
-                                top: '-15px',
-                                left: 0,
-                                right: 0,
-                                height: '30px',
-                                background: 'linear-gradient(135deg, #0a0a0a 25%, transparent 25%) -20px 0, linear-gradient(225deg, #0a0a0a 25%, transparent 25%) -20px 0, linear-gradient(315deg, #0a0a0a 25%, transparent 25%), linear-gradient(45deg, #0a0a0a 25%, transparent 25%)',
-                                backgroundSize: '40px 40px',
-                                backgroundPosition: 'top',
-                            }}
-                        />
-
+                        flexDirection: 'column',
+                        width: '800px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '24px',
+                        overflow: 'hidden',
+                    }}>
                         {/* Header */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                padding: '50px 40px 30px',
-                                borderBottom: '3px dashed #ddd',
-                            }}
-                        >
-                            <span style={{ fontSize: 42, fontWeight: 900, color: '#111', letterSpacing: '-1px', fontFamily: 'monospace' }}>
-                                FIGHT TICKET
-                            </span>
-                            <span style={{ fontSize: 16, color: '#888', letterSpacing: '4px', marginTop: 8, fontFamily: 'monospace' }}>
-                                OFFICIAL ENTRY
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '30px',
+                            backgroundColor: '#111111',
+                        }}>
+                            <span style={{ fontSize: 40, fontWeight: 900, color: '#ffffff' }}>
+                                ⚔️ FIGHT TICKET ⚔️
                             </span>
                         </div>
 
                         {/* VS Section */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '30px',
-                                gap: '30px',
-                            }}
-                        >
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '40px',
+                            gap: '40px',
+                        }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <div
-                                    style={{
-                                        width: 100,
-                                        height: 100,
-                                        backgroundColor: '#f0f0f0',
-                                        borderRadius: '16px',
-                                        border: '3px solid #22c55e',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: 48,
-                                    }}
-                                >
-                                    🟢
-                                </div>
-                                <span style={{ fontSize: 20, fontWeight: 700, color: '#22c55e', marginTop: 10, fontFamily: 'monospace' }}>
+                                <div style={{
+                                    width: 120,
+                                    height: 120,
+                                    backgroundColor: '#e8f5e9',
+                                    borderRadius: '20px',
+                                    border: '4px solid #22c55e',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 60,
+                                }}>🟢</div>
+                                <span style={{ fontSize: 24, fontWeight: 900, color: '#22c55e', marginTop: 12 }}>
                                     {bet.optionA?.label || 'A'}
                                 </span>
                             </div>
 
-                            <span style={{ fontSize: 40, fontWeight: 900, color: '#ddd', fontStyle: 'italic' }}>VS</span>
+                            <span style={{ fontSize: 60, fontWeight: 900, color: '#cccccc' }}>VS</span>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <div
-                                    style={{
-                                        width: 100,
-                                        height: 100,
-                                        backgroundColor: '#f0f0f0',
-                                        borderRadius: '16px',
-                                        border: '3px solid #ef4444',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: 48,
-                                    }}
-                                >
-                                    🔴
-                                </div>
-                                <span style={{ fontSize: 20, fontWeight: 700, color: '#ef4444', marginTop: 10, fontFamily: 'monospace' }}>
+                                <div style={{
+                                    width: 120,
+                                    height: 120,
+                                    backgroundColor: '#ffebee',
+                                    borderRadius: '20px',
+                                    border: '4px solid #ef4444',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 60,
+                                }}>🔴</div>
+                                <span style={{ fontSize: 24, fontWeight: 900, color: '#ef4444', marginTop: 12 }}>
                                     {bet.optionB?.label || 'B'}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Details */}
-                        <div style={{ display: 'flex', flexDirection: 'column', padding: '0 40px 30px', gap: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>TOTAL POT</span>
-                                <span style={{ fontSize: 32, fontWeight: 900, color: '#FF5F1F', fontFamily: 'monospace' }}>{potDisplay}</span>
+                        {/* Stats */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '60px',
+                            padding: '30px',
+                            borderTop: '2px solid #eeeeee',
+                        }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <span style={{ fontSize: 16, color: '#888888' }}>TOTAL POT</span>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#22c55e' }}>{potDisplay}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>PREDICTORS</span>
-                                <span style={{ fontSize: 24, fontWeight: 700, color: '#111', fontFamily: 'monospace' }}>{bet.participantCount || 0}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <span style={{ fontSize: 16, color: '#888888' }}>PREDICTORS</span>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#111111' }}>{bet.participantCount || 0}</span>
                             </div>
                         </div>
-
-                        {/* Footer */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                padding: '20px',
-                                backgroundColor: '#111',
-                            }}
-                        >
-                            <span style={{ fontSize: 12, color: '#666', fontFamily: 'monospace' }}>BATTLE ID</span>
-                            <span style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: 'monospace', letterSpacing: '2px' }}>{battleId}</span>
-                        </div>
-
-                        {/* Jagged Bottom Edge */}
-                        <div
-                            style={{
-                                position: 'absolute',
-                                bottom: '-15px',
-                                left: 0,
-                                right: 0,
-                                height: '30px',
-                                background: 'linear-gradient(135deg, transparent 75%, #0a0a0a 75%), linear-gradient(225deg, transparent 75%, #0a0a0a 75%), linear-gradient(315deg, transparent 75%, #0a0a0a 75%), linear-gradient(45deg, transparent 75%, #0a0a0a 75%)',
-                                backgroundSize: '40px 40px',
-                            }}
-                        />
                     </div>
                 </div>
             ),
@@ -269,133 +179,82 @@ export default async function Image({ params }: { params: { id: string } }) {
         );
     }
 
-    // ===== STANDARD RECEIPT =====
+    // STANDARD PREDICTION
     return new ImageResponse(
         (
-            <div
-                style={{
-                    height: '100%',
-                    width: '100%',
+            <div style={{
+                height: '100%',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#0a0a0a',
+            }}>
+                <div style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#0a0a0a',
-                }}
-            >
-                {/* Receipt Card */}
-                <div
-                    style={{
+                    flexDirection: 'column',
+                    width: '700px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '24px',
+                    overflow: 'hidden',
+                }}>
+                    {/* Header */}
+                    <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        width: '550px',
-                        backgroundColor: '#fff',
-                        position: 'relative',
-                    }}
-                >
-                    {/* Jagged Top Edge */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '-15px',
-                            left: 0,
-                            right: 0,
-                            height: '30px',
-                            background: 'linear-gradient(135deg, #0a0a0a 25%, transparent 25%) -20px 0, linear-gradient(225deg, #0a0a0a 25%, transparent 25%) -20px 0, linear-gradient(315deg, #0a0a0a 25%, transparent 25%), linear-gradient(45deg, #0a0a0a 25%, transparent 25%)',
-                            backgroundSize: '40px 40px',
-                            backgroundPosition: 'top',
-                        }}
-                    />
-
-                    {/* Header */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '50px 40px 30px',
-                            borderBottom: '3px dashed #ddd',
-                        }}
-                    >
-                        <span style={{ fontSize: 38, fontWeight: 900, color: '#111', letterSpacing: '-1px', fontFamily: 'monospace' }}>
+                        alignItems: 'center',
+                        padding: '40px',
+                        borderBottom: '3px dashed #dddddd',
+                    }}>
+                        <span style={{ fontSize: 44, fontWeight: 900, color: '#111111' }}>
                             PREDICTION CONFIRMED
                         </span>
-                        <span style={{ fontSize: 14, color: '#888', letterSpacing: '4px', marginTop: 8, fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: 18, color: '#888888', marginTop: 8, letterSpacing: 4 }}>
                             OFFICIAL RECEIPT
-                        </span>
-                        <span style={{ fontSize: 12, color: '#aaa', marginTop: 4, fontFamily: 'monospace' }}>
-                            {timestamp}
                         </span>
                     </div>
 
                     {/* Details */}
-                    <div style={{ display: 'flex', flexDirection: 'column', padding: '30px 40px', gap: '20px' }}>
-                        {/* Player */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '30px 50px',
+                        gap: '20px',
+                    }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>PLAYER</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {bet.pfpUrl && (
-                                    <img
-                                        src={bet.pfpUrl}
-                                        width={32}
-                                        height={32}
-                                        style={{ borderRadius: '8px' }}
-                                    />
-                                )}
-                                <span style={{ fontSize: 22, fontWeight: 700, color: '#111', fontFamily: 'monospace' }}>
-                                    @{bet.username}
-                                </span>
-                            </div>
+                            <span style={{ fontSize: 18, color: '#888888' }}>PLAYER</span>
+                            <span style={{ fontSize: 28, fontWeight: 700, color: '#111111' }}>@{bet.username}</span>
                         </div>
 
-                        {/* Target */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>TARGET</span>
-                            <span style={{ fontSize: 20, fontWeight: 700, color: '#111', fontFamily: 'monospace', textAlign: 'right', maxWidth: '280px' }}>
-                                {targetLabel}
-                            </span>
+                            <span style={{ fontSize: 18, color: '#888888' }}>TARGET</span>
+                            <span style={{ fontSize: 24, fontWeight: 700, color: '#111111' }}>{targetLabel}</span>
                         </div>
 
-                        <div style={{ width: '100%', height: 2, backgroundColor: '#eee' }} />
+                        <div style={{ width: '100%', height: 2, backgroundColor: '#eeeeee' }} />
 
-                        {/* Total Pot */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>TOTAL POT</span>
-                            <span style={{ fontSize: 28, fontWeight: 900, color: '#111', fontFamily: 'monospace' }}>{potDisplay}</span>
+                            <span style={{ fontSize: 18, color: '#888888' }}>TOTAL POT</span>
+                            <span style={{ fontSize: 40, fontWeight: 900, color: '#111111' }}>{potDisplay}</span>
                         </div>
 
-                        {/* Predictors */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888', fontFamily: 'monospace' }}>PREDICTORS</span>
-                            <span style={{ fontSize: 28, fontWeight: 900, color: '#FF5F1F', fontFamily: 'monospace' }}>{bet.participantCount || 0}</span>
+                            <span style={{ fontSize: 18, color: '#888888' }}>PREDICTORS</span>
+                            <span style={{ fontSize: 40, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
                         </div>
                     </div>
 
                     {/* Footer */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '20px',
-                            backgroundColor: '#111',
-                        }}
-                    >
-                        <span style={{ fontSize: 12, color: '#666', fontFamily: 'monospace' }}>BATTLE ID</span>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: 'monospace', letterSpacing: '2px' }}>{battleId}</span>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '24px',
+                        backgroundColor: '#111111',
+                    }}>
+                        <span style={{ fontSize: 14, color: '#666666' }}>BATTLE ID</span>
+                        <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', letterSpacing: 3 }}>{battleId}</span>
                     </div>
-
-                    {/* Jagged Bottom Edge */}
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: '-15px',
-                            left: 0,
-                            right: 0,
-                            height: '30px',
-                            background: 'linear-gradient(135deg, transparent 75%, #0a0a0a 75%), linear-gradient(225deg, transparent 75%, #0a0a0a 75%), linear-gradient(315deg, transparent 75%, #0a0a0a 75%), linear-gradient(45deg, transparent 75%, #0a0a0a 75%)',
-                            backgroundSize: '40px 40px',
-                        }}
-                    />
                 </div>
             </div>
         ),
