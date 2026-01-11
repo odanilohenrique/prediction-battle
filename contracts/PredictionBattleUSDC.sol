@@ -40,6 +40,7 @@ contract PredictionBattleUSDC {
 
     mapping(string => Prediction) public predictions;
     mapping(string => bool) public predictionExists;
+    mapping(address => bool) public operators; // Authorized auto-verifiers
 
     event PredictionCreated(string id, uint256 target, uint256 deadline);
     event BetPlaced(string id, address user, bool vote, uint256 amount);
@@ -47,15 +48,27 @@ contract PredictionBattleUSDC {
     event PredictionVoided(string id, uint256 totalPool, uint256 platformFee);
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
+    event OperatorUpdated(address operator, bool status);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
         _;
     }
 
+    modifier onlyAdminOrOperator() {
+        require(msg.sender == admin || operators[msg.sender], "Not authorized");
+        _;
+    }
+
     constructor(address _usdcAddress) {
         admin = msg.sender;
         usdcToken = IERC20(_usdcAddress);
+    }
+
+    // 0. Manage Operators
+    function setOperator(address _operator, bool _status) external onlyAdmin {
+        operators[_operator] = _status;
+        emit OperatorUpdated(_operator, _status);
     }
 
     // Transfer admin rights to another address
@@ -109,9 +122,8 @@ contract PredictionBattleUSDC {
         emit BetPlaced(_id, msg.sender, _vote, _amount);
     }
 
-    // 3. Resolve Prediction (Anyone can trigger if logic allows, usually off-chain checks restrict this in UI)
-    // For this MVP, we remove onlyAdmin to avoid wallet confusion
-    function resolvePrediction(string memory _id, bool _result) external {
+    // 3. Resolve Prediction (Standard Logic)
+    function resolvePrediction(string memory _id, bool _result) external onlyAdminOrOperator {
         require(predictionExists[_id], "Prediction does not exist");
         Prediction storage p = predictions[_id];
         require(!p.resolved, "Already resolved");
@@ -130,7 +142,7 @@ contract PredictionBattleUSDC {
     }
 
     // 3.5. Resolve as Void (Draw/Refund)
-    function resolveVoid(string memory _id) external {
+    function resolveVoid(string memory _id) external onlyAdminOrOperator {
         require(predictionExists[_id], "Prediction does not exist");
         Prediction storage p = predictions[_id];
         require(!p.resolved, "Already resolved");
@@ -148,8 +160,7 @@ contract PredictionBattleUSDC {
     }
 
     // 4. Distribute Winnings (Batch Processing)
-    // Anyone can call this to help distribute winnings
-    function distributeWinnings(string memory _id, uint256 _batchSize) external {
+    function distributeWinnings(string memory _id, uint256 _batchSize) external onlyAdminOrOperator {
         Prediction storage p = predictions[_id];
         require(p.resolved, "Prediction not resolved yet");
         require(!p.paidOut, "Already fully paid out");

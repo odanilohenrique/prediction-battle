@@ -33,20 +33,34 @@ contract PredictionBattle {
     mapping(string => Prediction) public predictions;
     mapping(string => bool) public predictionExists;
 
+    mapping(address => bool) public operators; // Authorized auto-verifiers
+
     event PredictionCreated(string id, uint256 target, uint256 deadline);
     event BetPlaced(string id, address user, bool vote, uint256 amount);
     event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 platformFee);
     event PredictionVoided(string id, uint256 totalPool, uint256 platformFee);
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
+    event OperatorUpdated(address operator, bool status);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
         _;
     }
 
+    modifier onlyAdminOrOperator() {
+        require(msg.sender == admin || operators[msg.sender], "Not authorized");
+        _;
+    }
+
     constructor() {
         admin = msg.sender;
+    }
+
+    // 0. Manage Operators
+    function setOperator(address _operator, bool _status) external onlyAdmin {
+        operators[_operator] = _status;
+        emit OperatorUpdated(_operator, _status);
     }
 
     // 1. Create a Prediction Market
@@ -92,7 +106,7 @@ contract PredictionBattle {
     }
 
     // 3. Resolve Prediction
-    function resolvePrediction(string memory _id, bool _result) external onlyAdmin {
+    function resolvePrediction(string memory _id, bool _result) external onlyAdminOrOperator {
         require(predictionExists[_id], "Prediction does not exist");
         Prediction storage p = predictions[_id];
         require(!p.resolved, "Already resolved");
@@ -131,7 +145,7 @@ contract PredictionBattle {
     }
 
     // 4. Distribute Winnings (Batch Processing)
-    function distributeWinnings(string memory _id, uint256 _batchSize) external onlyAdmin {
+    function distributeWinnings(string memory _id, uint256 _batchSize) external onlyAdminOrOperator {
         Prediction storage p = predictions[_id];
         require(p.resolved, "Prediction not resolved yet");
         require(!p.paidOut, "Already fully paid out");

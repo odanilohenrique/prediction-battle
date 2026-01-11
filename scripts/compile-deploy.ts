@@ -42,8 +42,8 @@ if (fs.existsSync(envPath)) {
 
         console.log(`Found key: "${cleanKey}"`);
 
-        if (cleanKey === 'PRIVATE_KEY') {
-            console.log(`MATCH! Found PRIVATE_KEY. Raw Value: "${val.substring(0, 10)}..." (len: ${val.length})`);
+        if (cleanKey === 'PRIVATE_KEY' || cleanKey === 'DEPLOYER_PRIVATE_KEY') {
+            console.log(`MATCH! Found Key (${cleanKey}). Raw Value: "${val.substring(0, 10)}..." (len: ${val.length})`);
 
             // Aggressively clean value: remove ALL whitespace/nulls to fix encoding/copy-paste issues
             const cleanVal = val.replace(/[\s\uFEFF\x00]+/g, '');

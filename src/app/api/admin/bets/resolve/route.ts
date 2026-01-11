@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { isAdmin } from '@/lib/config';
+import { resolvePredictionOnChain, distributeWinningsOnChain } from '@/lib/contracts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'Invalid parameters. Result must be "yes" or "no".' }, { status: 400 });
         }
 
-        // 1. Fetch the Bet using the correct store method
+        // 1. Fetch the Bet
         const bet = await store.getBet(betId);
 
         if (!bet) {
@@ -22,30 +23,43 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'Bet is already completed' }, { status: 400 });
         }
 
-        // 2. Set the winner and update status
+        const winBool = result === 'yes';
+
+        try {
+            // 2. Execute On-Chain Logic
+            console.log(`[ADMIN] Resolving ${betId} manually -> ${result}`);
+            await resolvePredictionOnChain(betId, winBool);
+
+            console.log(`[ADMIN] Distributing payouts for ${betId}`);
+            await distributeWinningsOnChain(betId, 50);
+
+        } catch (chainError) {
+            console.error('Blockchain Resolution Failed:', chainError);
+            // Decide: Do we stop or continue to update DB? 
+            // Best to FAIL here so the Admin knows something went wrong.
+            return NextResponse.json({ success: false, error: `Blockchain Error: ${chainError}` }, { status: 500 });
+        }
+
+        // 3. Update Status in DB
         bet.result = result;
         bet.status = 'completed';
 
-        // Calculate Fees & Settlements
-        // Taxa da Casa: 20% Total on Volume
+        // Calculate Fees (Record keeping only, contract handles real funds)
         const totalFeePercentage = 0.20;
         bet.feeAmount = bet.totalPot * totalFeePercentage;
         bet.winnerPool = bet.totalPot - bet.feeAmount;
 
-        // Fee Split Feature:
-        // - If Admin created: 20% to Protocol.
-        // - If User created: 15% to Protocol, 5% to Creator.
-        const creatorIsAdmin = bet.creatorAddress ? isAdmin(bet.creatorAddress) : true; // Default to admin for legacy bets
+        const creatorIsAdmin = bet.creatorAddress ? isAdmin(bet.creatorAddress) : true;
 
         if (creatorIsAdmin) {
             bet.protocolFeeAmount = bet.feeAmount;
             bet.creatorFeeAmount = 0;
         } else {
-            bet.protocolFeeAmount = bet.totalPot * 0.15; // 15% to Protocol
-            bet.creatorFeeAmount = bet.totalPot * 0.05;  // 5% to User Creator
+            bet.protocolFeeAmount = bet.totalPot * 0.15;
+            bet.creatorFeeAmount = bet.totalPot * 0.05;
         }
 
-        // 3. Save the updated bet
+        // 4. Save
         await store.saveBet(bet);
 
         // Purge cache

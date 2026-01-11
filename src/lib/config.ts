@@ -40,6 +40,8 @@ export const ADMIN_ADDRESSES = [
     '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // User's Wallet
 ].filter(Boolean);
 
+export const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'.toLowerCase();
+
 // Check if address is admin
 export function isAdmin(address: string): boolean {
     return ADMIN_ADDRESSES.includes(address.toLowerCase());
