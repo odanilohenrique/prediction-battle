@@ -35,14 +35,16 @@ async function fetchBet(id: string) {
 }
 
 function getBetTypeLabel(bet: any): string {
+    if (bet.castText && bet.castText.length > 5) return bet.castText;
+
+    const target = bet.target || bet.targetValue || '';
     const labels: Record<string, string> = {
-        post_count: `post ${bet.target}+ times`,
-        likes_total: `get ${bet.target}+ likes`,
-        followers_gain: `gain ${bet.target}+ followers`,
-        comment_count: `get ${bet.target}+ comments`,
-        custom_text: bet.castText || 'custom bet',
+        post_count: `post ${target}+ times`,
+        likes_total: `get ${target}+ likes`,
+        followers_gain: `gain ${target}+ followers`,
+        comment_count: `get ${target}+ comments`,
     };
-    return labels[bet.type] || `hit ${bet.target}+ ${bet.type}`;
+    return labels[bet.type] || bet.castText || 'Make your prediction!';
 }
 
 export default async function Image({ params }: { params: { id: string } }) {
@@ -77,6 +79,7 @@ export default async function Image({ params }: { params: { id: string } }) {
 
     // ========================================
     // BATTLE TICKET - Dark theme with VS
+    // (DO NOT MODIFY - User approved)
     // ========================================
     if (isBattle) {
         return new ImageResponse(
@@ -98,7 +101,7 @@ export default async function Image({ params }: { params: { id: string } }) {
                         border: '2px solid #222222',
                         overflow: 'hidden',
                     }}>
-                        {/* Header - Red/Orange gradient simulated with solid */}
+                        {/* Header */}
                         <div style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -122,7 +125,7 @@ export default async function Image({ params }: { params: { id: string } }) {
                             padding: '24px 30px 16px',
                         }}>
                             <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', fontStyle: 'italic', textAlign: 'center' }}>
-                                "{bet.castText || targetLabel}"
+                                "{targetLabel}"
                             </span>
                         </div>
 
@@ -225,7 +228,7 @@ export default async function Image({ params }: { params: { id: string } }) {
     }
 
     // ========================================
-    // PREDICTION RECEIPT - White paper style
+    // PREDICTION RECEIPT - Enhanced Design
     // ========================================
     return new ImageResponse(
         (
@@ -240,81 +243,116 @@ export default async function Image({ params }: { params: { id: string } }) {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    width: '550px',
+                    width: '900px',
                     backgroundColor: '#ffffff',
+                    borderRadius: '24px',
                     overflow: 'hidden',
+                    boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
                 }}>
-                    {/* Header */}
+                    {/* Header with Orange accent */}
                     <div style={{
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        padding: '40px 30px 30px',
-                        borderBottom: '3px dashed #dddddd',
+                        justifyContent: 'center',
+                        padding: '40px',
+                        backgroundColor: '#FF5F1F',
                     }}>
-                        <span style={{ fontSize: 38, fontWeight: 900, color: '#111111', letterSpacing: '-1px' }}>
-                            PREDICTION CONFIRMED
-                        </span>
-                        <span style={{ fontSize: 14, color: '#888888', letterSpacing: '6px', marginTop: 8 }}>
-                            OFFICIAL RECEIPT
-                        </span>
-                        <span style={{ fontSize: 12, color: '#aaaaaa', marginTop: 6 }}>
-                            {new Date().toLocaleString('en-US')}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ fontSize: 52, fontWeight: 900, color: '#ffffff', letterSpacing: '-2px' }}>
+                                🎯 PREDICTION
+                            </span>
+                            <span style={{ fontSize: 20, color: '#ffffff', opacity: 0.9, letterSpacing: '8px', marginTop: 8 }}>
+                                OFFICIAL RECEIPT
+                            </span>
+                        </div>
                     </div>
 
-                    {/* Details */}
+                    {/* Main Content */}
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '30px 40px',
-                        gap: '18px',
+                        padding: '40px 60px',
+                        gap: '24px',
                     }}>
-                        {/* Player */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>PLAYER</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {bet.pfpUrl && (
-                                    <img src={bet.pfpUrl} width={28} height={28} style={{ borderRadius: '6px' }} />
-                                )}
-                                <span style={{ fontSize: 22, fontWeight: 700, color: '#111111' }}>@{bet.username}</span>
+                        {/* Player Row - Large and prominent */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '20px',
+                            padding: '24px',
+                            backgroundColor: '#f8f8f8',
+                            borderRadius: '16px',
+                        }}>
+                            {bet.pfpUrl && (
+                                <img src={bet.pfpUrl} width={80} height={80} style={{ borderRadius: '16px' }} />
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: 20, color: '#888888' }}>PLAYER</span>
+                                <span style={{ fontSize: 40, fontWeight: 900, color: '#111111' }}>@{bet.username}</span>
                             </div>
                         </div>
 
-                        {/* Target */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>TARGET</span>
-                            <span style={{ fontSize: 18, fontWeight: 700, color: '#111111', textAlign: 'right', maxWidth: '300px' }}>
-                                {targetLabel}
+                        {/* Target - The prediction question */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            padding: '24px',
+                            backgroundColor: '#111111',
+                            borderRadius: '16px',
+                        }}>
+                            <span style={{ fontSize: 16, color: '#888888', marginBottom: 8 }}>PREDICTION TARGET</span>
+                            <span style={{ fontSize: 28, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
+                                "{targetLabel}"
                             </span>
                         </div>
 
-                        {/* Divider */}
-                        <div style={{ width: '100%', height: 2, backgroundColor: '#eeeeee', margin: '8px 0' }} />
+                        {/* Stats Row */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: '24px',
+                        }}>
+                            {/* Total Pot */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                flex: 1,
+                                padding: '24px',
+                                backgroundColor: '#22c55e',
+                                borderRadius: '16px',
+                            }}>
+                                <span style={{ fontSize: 18, color: '#ffffff', opacity: 0.9 }}>TOTAL POT</span>
+                                <span style={{ fontSize: 48, fontWeight: 900, color: '#ffffff' }}>{potDisplay}</span>
+                            </div>
 
-                        {/* Total Pot */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>TOTAL POT</span>
-                            <span style={{ fontSize: 32, fontWeight: 900, color: '#111111' }}>{potDisplay}</span>
-                        </div>
-
-                        {/* Predictors */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>PREDICTORS</span>
-                            <span style={{ fontSize: 32, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
+                            {/* Predictors */}
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                flex: 1,
+                                padding: '24px',
+                                backgroundColor: '#111111',
+                                borderRadius: '16px',
+                            }}>
+                                <span style={{ fontSize: 18, color: '#888888' }}>PREDICTORS</span>
+                                <span style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
+                            </div>
                         </div>
                     </div>
 
                     {/* Footer */}
                     <div style={{
                         display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
+                        justifyContent: 'center',
                         padding: '20px',
-                        backgroundColor: '#111111',
+                        backgroundColor: '#f0f0f0',
+                        borderTop: '2px dashed #dddddd',
                     }}>
-                        <span style={{ fontSize: 12, color: '#666666' }}>BATTLE ID</span>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', letterSpacing: '3px' }}>{battleId}</span>
+                        <span style={{ fontSize: 16, color: '#999999', letterSpacing: '4px' }}>
+                            ID: {battleId} • predictionbattle.xyz
+                        </span>
                     </div>
                 </div>
             </div>
