@@ -330,6 +330,55 @@ export default function CreateCommunityBet() {
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
 
+            // 3. Create on Smart Contract (CRITICAL FIX)
+            // The contract requires the prediction to exist before anyone (including admin) can bet/distribute.
+            try {
+                console.log('Registering prediction on-chain...');
+                const durationSeconds = formData.timeframe === '24h' ? 86400 :
+                    formData.timeframe === '12h' ? 43200 :
+                        formData.timeframe === '6h' ? 21600 :
+                            formData.timeframe === '7d' ? 604800 : 86400;
+
+                const createHash = await writeContractAsync({
+                    address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`, // Use dynamic env var
+                    abi: [
+                        {
+                            name: 'createPrediction',
+                            type: 'function',
+                            stateMutability: 'nonpayable',
+                            inputs: [
+                                { name: '_id', type: 'string' },
+                                { name: '_target', type: 'uint256' },
+                                { name: '_deadline', type: 'uint256' }
+                            ],
+                            outputs: []
+                        }
+                    ],
+                    functionName: 'createPrediction',
+                    args: [
+                        data.predictionId,
+                        BigInt(formData.targetValue || 0),
+                        BigInt(durationSeconds)
+                    ],
+                    gas: BigInt(500000),
+                });
+
+                console.log('CreatePrediction Tx:', createHash);
+
+                if (publicClient) {
+                    await publicClient.waitForTransactionReceipt({ hash: createHash });
+                }
+                console.log('✅ On-chain creation confirmed');
+
+            } catch (contractError) {
+                console.error('Failed to create on contract:', contractError);
+                // We show an error but don't block the UI flow entirely, although this is critical.
+                // In production, we should probably revert the API call or retry.
+                showAlert('Partial Error', 'Bet saved to DB but failed on Blockchain. Please retry or contact dev.', 'error');
+                setIsSubmitting(false);
+                return;
+            }
+
             showModal({
                 title: 'Battle Created!',
                 message: creationMode === 'battle' ? '⚔️ Battle Launched! Redirecting...' : '✅ Battle Created Successfully! Redirecting...',
