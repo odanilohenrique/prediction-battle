@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Share2, CheckCircle, Smartphone, ShieldCheck, Trophy, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Share2, CheckCircle, Smartphone, ShieldCheck, Trophy, X, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { toPng } from 'html-to-image';
 
 interface ViralReceiptProps {
     isOpen: boolean;
@@ -27,7 +28,47 @@ interface ViralReceiptProps {
 
 export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProps) {
     const modalRef = useRef<HTMLDivElement>(null);
+    const ticketRef = useRef<HTMLDivElement>(null);
     const isBattle = data.variant === 'battle';
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [imageCaptured, setImageCaptured] = useState(false);
+
+    // Capture and save ticket image when opened
+    useEffect(() => {
+        if (isOpen && ticketRef.current && data.predictionId && !imageCaptured) {
+            const captureAndSave = async () => {
+                try {
+                    // Wait for images to load
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    if (!ticketRef.current) return;
+
+                    const dataUrl = await toPng(ticketRef.current, {
+                        quality: 0.95,
+                        pixelRatio: 2,
+                        backgroundColor: isBattle ? '#0f0f0f' : '#ffffff',
+                    });
+
+                    // Save to API
+                    await fetch('/api/ticket-image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            predictionId: data.predictionId,
+                            imageBase64: dataUrl,
+                        }),
+                    });
+
+                    setImageCaptured(true);
+                    console.log('[ViralReceipt] Ticket image captured and saved');
+                } catch (error) {
+                    console.error('[ViralReceipt] Failed to capture ticket:', error);
+                }
+            };
+
+            captureAndSave();
+        }
+    }, [isOpen, data.predictionId, imageCaptured, isBattle]);
 
     useEffect(() => {
         if (isOpen) {
@@ -75,7 +116,9 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
                 </button>
 
                 {/* TICKET CONTAINER */}
-                <div className={`
+                <div
+                    ref={ticketRef}
+                    className={`
                     relative overflow-hidden shadow-2xl transition-transform duration-300 rotate-1 hover:rotate-0
                     ${isBattle ? 'bg-[#0f0f0f] text-white border border-white/10 rounded-3xl' : 'bg-white text-black font-mono'}
                 `}>
