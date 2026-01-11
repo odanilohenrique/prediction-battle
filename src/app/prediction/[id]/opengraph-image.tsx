@@ -34,35 +34,17 @@ async function fetchBet(id: string) {
     }
 }
 
-function getTargetLabel(bet: any): string {
-    if (bet.castText && bet.castText.length > 5) return bet.castText;
-    const target = bet.target || bet.targetValue || '0';
-    const labels: Record<string, string> = {
-        post_count: `post ${target}+ times`,
-        likes_total: `get ${target}+ likes`,
-        followers_gain: `gain ${target}+ followers`,
-        comment_count: `get ${target}+ comments`,
-    };
-    return labels[bet.type] || bet.castText || 'Make prediction';
-}
-
 export default async function Image({ params }: { params: { id: string } }) {
     const bet = await fetchBet(params.id);
 
-    // FALLBACK
     if (!bet) {
         return new ImageResponse(
             (
                 <div style={{
-                    height: '100%',
-                    width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#0a0a0a',
+                    height: '100%', width: '100%', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0a0a',
                 }}>
-                    <div style={{ fontSize: 72, marginBottom: 20 }}>PREDICTION BATTLE</div>
+                    <span style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>PREDICTION BATTLE</span>
                 </div>
             ),
             { ...size }
@@ -70,108 +52,105 @@ export default async function Image({ params }: { params: { id: string } }) {
     }
 
     const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
-    const battleId = (bet.id?.split('_')[1] || 'UNKNOWN').toUpperCase().slice(0, 9);
-    const targetLabel = getTargetLabel(bet);
+    const timestamp = new Date().toLocaleString('en-US').toUpperCase();
+    const battleId = (bet.id?.split('_')[1] || '').toUpperCase().slice(0, 9);
+    const targetLabel = bet.castText || `get ${bet.target || 0}+ ${bet.type || 'likes'}`;
     const potDisplay = `$${(bet.totalPot || 0).toFixed(2)}`;
-    const timestamp = new Date().toLocaleString('en-US', {
-        month: '2-digit', day: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
 
-    // ========================================
-    // BATTLE TICKET - Dark with VS
-    // ========================================
+    // =====================================================
+    // BATTLE TICKET - Exact replica of ViralReceipt battle
+    // =====================================================
     if (isBattle) {
         return new ImageResponse(
             (
                 <div style={{
-                    height: '100%',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#0a0a0a',
+                    height: '100%', width: '100%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', backgroundColor: '#000',
                 }}>
                     <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        width: '500px',
-                        backgroundColor: '#0f0f0f',
-                        borderRadius: '24px',
-                        border: '1px solid #222',
+                        display: 'flex', flexDirection: 'column', width: '420px',
+                        backgroundColor: '#0f0f0f', borderRadius: '24px', border: '1px solid #222',
                         overflow: 'hidden',
                     }}>
-                        {/* Header - Red gradient */}
+                        {/* RED HEADER */}
                         <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            padding: '20px',
-                            backgroundColor: '#dc2626',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            padding: '16px', backgroundColor: '#dc2626',
                         }}>
-                            <span style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>FIGHT TICKET</span>
-                            <span style={{ fontSize: 10, color: '#fff', opacity: 0.8, letterSpacing: '4px' }}>OFFICIAL ENTRY</span>
-                        </div>
-
-                        {/* Phrase */}
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 20px 8px' }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontStyle: 'italic', textAlign: 'center' }}>
-                                "{targetLabel}"
+                            <span style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontStyle: 'italic' }}>
+                                FIGHT TICKET
+                            </span>
+                            <span style={{ fontSize: 10, color: '#fff', opacity: 0.8, letterSpacing: '3px' }}>
+                                OFFICIAL ENTRY
                             </span>
                         </div>
 
-                        {/* VS Section */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', gap: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        {/* PREDICTION PHRASE */}
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 20px 8px' }}>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontStyle: 'italic', textAlign: 'center' }}>
+                                "{targetLabel.slice(0, 50)}"
+                            </span>
+                        </div>
+
+                        {/* VS SECTION */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', gap: '16px' }}>
+                            {/* Fighter A */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <div style={{
-                                    width: 70, height: 70, backgroundColor: '#1a1a1a', borderRadius: '14px',
+                                    width: 80, height: 80, backgroundColor: '#1a1a1a', borderRadius: '16px',
                                     border: '2px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     overflow: 'hidden',
                                 }}>
                                     {bet.optionA?.imageUrl ? (
-                                        <img src={bet.optionA.imageUrl} width={70} height={70} style={{ objectFit: 'cover' }} />
+                                        <img src={bet.optionA.imageUrl} width={80} height={80} style={{ objectFit: 'cover' }} />
                                     ) : (
                                         <span style={{ fontSize: 32, color: '#22c55e' }}>A</span>
                                     )}
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 6, opacity: 0.8 }}>
-                                    {bet.optionA?.label?.slice(0, 12) || 'A'}
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', opacity: 0.8, maxWidth: '70px', textAlign: 'center' }}>
+                                    {(bet.optionA?.label || 'A').slice(0, 12)}
                                 </span>
                             </div>
+
+                            {/* VS */}
                             <span style={{ fontSize: 32, fontWeight: 900, color: '#333', fontStyle: 'italic' }}>VS</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                            {/* Fighter B */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <div style={{
-                                    width: 70, height: 70, backgroundColor: '#1a1a1a', borderRadius: '14px',
+                                    width: 80, height: 80, backgroundColor: '#1a1a1a', borderRadius: '16px',
                                     border: '2px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     overflow: 'hidden',
                                 }}>
                                     {bet.optionB?.imageUrl ? (
-                                        <img src={bet.optionB.imageUrl} width={70} height={70} style={{ objectFit: 'cover' }} />
+                                        <img src={bet.optionB.imageUrl} width={80} height={80} style={{ objectFit: 'cover' }} />
                                     ) : (
                                         <span style={{ fontSize: 32, color: '#ef4444' }}>B</span>
                                     )}
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 6, opacity: 0.8 }}>
-                                    {bet.optionB?.label?.slice(0, 12) || 'B'}
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', opacity: 0.8, maxWidth: '70px', textAlign: 'center' }}>
+                                    {(bet.optionB?.label || 'B').slice(0, 12)}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Stats */}
-                        <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 24px', gap: '10px', backgroundColor: '#0a0a0a', borderTop: '1px solid #222' }}>
+                        {/* DETAILS SECTION */}
+                        <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 20px', backgroundColor: '#0a0a0a', borderTop: '1px solid #222', gap: '12px' }}>
+                            {/* Total Pot Row */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#666' }}>TOTAL POT</span>
-                                <span style={{ fontSize: 22, fontWeight: 900, color: '#22c55e' }}>{potDisplay}</span>
+                                <span style={{ fontSize: 10, color: '#666', letterSpacing: '2px' }}>TOTAL POT</span>
+                                <span style={{ fontSize: 20, fontWeight: 900, color: '#22c55e' }}>{potDisplay}</span>
                             </div>
+                            {/* Predictors Row */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#666' }}>PREDICTORS</span>
-                                <span style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{bet.participantCount || 0}</span>
+                                <span style={{ fontSize: 10, color: '#666', letterSpacing: '2px' }}>PREDICTORS</span>
+                                <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{bet.participantCount || 0}</span>
                             </div>
                         </div>
 
-                        {/* Footer */}
+                        {/* FOOTER */}
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '12px', backgroundColor: '#000' }}>
-                            <span style={{ fontSize: 10, color: '#444' }}>ID: {battleId}</span>
+                            <span style={{ fontSize: 10, color: '#333', letterSpacing: '2px' }}>ID: {battleId}</span>
                         </div>
                     </div>
                 </div>
@@ -180,85 +159,83 @@ export default async function Image({ params }: { params: { id: string } }) {
         );
     }
 
-    // ========================================
-    // PREDICTION RECEIPT - White paper style
-    // Matches ViralReceipt exactly
-    // ========================================
+    // =====================================================
+    // PREDICTION RECEIPT - Exact replica of ViralReceipt
+    // =====================================================
     return new ImageResponse(
         (
             <div style={{
-                height: '100%',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#0a0a0a',
+                height: '100%', width: '100%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', backgroundColor: '#000',
             }}>
                 <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '420px',
-                    backgroundColor: '#ffffff',
-                    overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column', width: '380px',
+                    backgroundColor: '#fff', overflow: 'hidden',
                 }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 24px 20px' }}>
-                        <span style={{ fontSize: 32, fontWeight: 900, color: '#000', letterSpacing: '-1px' }}>PREDICTION CONFIRMED</span>
-                        <span style={{ fontSize: 11, color: '#888', letterSpacing: '4px', marginTop: 4 }}>OFFICIAL RECEIPT</span>
-                        <span style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>{timestamp}</span>
+                    {/* HEADER */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 20px 16px' }}>
+                        <span style={{ fontSize: 28, fontWeight: 900, color: '#000', letterSpacing: '-1px' }}>
+                            PREDICTION CONFIRMED
+                        </span>
+                        <span style={{ fontSize: 10, color: '#888', letterSpacing: '3px', marginTop: 4 }}>
+                            OFFICIAL RECEIPT
+                        </span>
+                        <span style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>
+                            {timestamp}
+                        </span>
                     </div>
 
-                    {/* Dashed line */}
-                    <div style={{ width: '100%', height: 2, borderBottom: '2px dashed #ddd', margin: '0 0 16px' }} />
+                    {/* DASHED LINE */}
+                    <div style={{ width: '100%', height: 2, borderBottom: '2px dashed #ddd' }} />
 
-                    {/* Details */}
-                    <div style={{ display: 'flex', flexDirection: 'column', padding: '0 28px', gap: '14px' }}>
+                    {/* DETAILS */}
+                    <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 24px', gap: '12px' }}>
                         {/* Player */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#888' }}>PLAYER</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#888' }}>PLAYER</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {bet.pfpUrl && <img src={bet.pfpUrl} width={24} height={24} style={{ borderRadius: '50%' }} />}
-                                <span style={{ fontSize: 16, fontWeight: 700, color: '#000' }}>@{bet.username}</span>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: '#000' }}>@{bet.username}</span>
                             </div>
                         </div>
 
-                        {/* Position - shows YES/NO with color */}
+                        {/* Position */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#888' }}>POSITION</span>
-                            <span style={{ fontSize: 20, fontWeight: 900, color: '#ef4444' }}>BET NOW</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#888' }}>POSITION</span>
+                            <span style={{ fontSize: 18, fontWeight: 900, color: '#22c55e' }}>YES / NO</span>
                         </div>
 
                         {/* Target */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#888' }}>TARGET</span>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: '#000', textAlign: 'right', maxWidth: '200px' }}>
-                                {targetLabel.slice(0, 30)}
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#888' }}>TARGET</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#000', textAlign: 'right', maxWidth: '180px' }}>
+                                {targetLabel.slice(0, 35)}
                             </span>
                         </div>
 
-                        {/* Dashed line */}
-                        <div style={{ width: '100%', height: 2, borderBottom: '2px dashed #ddd' }} />
+                        {/* DASHED LINE */}
+                        <div style={{ width: '100%', height: 2, borderBottom: '2px dashed #ddd', margin: '4px 0' }} />
 
-                        {/* Stake */}
+                        {/* Total Pot */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#888' }}>TOTAL POT</span>
-                            <span style={{ fontSize: 22, fontWeight: 700, color: '#000' }}>{potDisplay}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#888' }}>TOTAL POT</span>
+                            <span style={{ fontSize: 20, fontWeight: 700, color: '#000' }}>{potDisplay}</span>
                         </div>
 
-                        {/* Potential Win / Predictors */}
+                        {/* Predictors (like Potential Win) */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#888' }}>PREDICTORS</span>
-                            <span style={{ fontSize: 32, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#888' }}>PREDICTORS</span>
+                            <span style={{ fontSize: 28, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
                         </div>
                     </div>
 
-                    {/* Black footer */}
+                    {/* BLACK FOOTER */}
                     <div style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        padding: '16px', marginTop: '20px', backgroundColor: '#000',
+                        padding: '16px', backgroundColor: '#000', marginTop: '8px',
                     }}>
                         <span style={{ fontSize: 10, color: '#666' }}>BATTLE ID</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: '3px' }}>{battleId}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '2px' }}>{battleId}</span>
                     </div>
                 </div>
             </div>
