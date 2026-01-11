@@ -10,7 +10,6 @@ export const size = {
 
 export const contentType = 'image/png';
 
-// Helper to fetch bet data directly via REST API
 async function fetchBet(id: string) {
     const KV_URL = process.env.KV_REST_API_URL;
     const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -63,22 +62,23 @@ export default async function Image({ params }: { params: { id: string } }) {
                     backgroundColor: '#0a0a0a',
                 }}>
                     <div style={{ fontSize: 72, marginBottom: 20 }}>🥊</div>
-                    <div style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>
-                        PREDICTION BATTLE
-                    </div>
+                    <div style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>PREDICTION BATTLE</div>
                 </div>
             ),
             { ...size }
         );
     }
 
-    const isVersus = !!(bet.optionA?.label && bet.optionB?.label);
-    const potDisplay = `$${(bet.totalPot || 0).toFixed(2)}`;
+    // Check if it's a Battle (has optionA and optionB)
+    const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
+    const battleId = (bet.id?.split('_')[1] || 'UNKNOWN').toUpperCase().slice(0, 9);
     const targetLabel = getBetTypeLabel(bet);
-    const battleId = (bet.id?.split('_')[1] || 'UNKNOWN').toUpperCase();
+    const potDisplay = `$${(bet.totalPot || 0).toFixed(2)}`;
 
-    // VERSUS / BATTLE MODE
-    if (isVersus) {
+    // ========================================
+    // BATTLE TICKET - Dark theme with VS
+    // ========================================
+    if (isBattle) {
         return new ImageResponse(
             (
                 <div style={{
@@ -92,21 +92,37 @@ export default async function Image({ params }: { params: { id: string } }) {
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        width: '800px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '24px',
+                        width: '700px',
+                        backgroundColor: '#0f0f0f',
+                        borderRadius: '32px',
+                        border: '2px solid #222222',
                         overflow: 'hidden',
                     }}>
-                        {/* Header */}
+                        {/* Header - Red/Orange gradient simulated with solid */}
                         <div style={{
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            padding: '30px',
-                            backgroundColor: '#111111',
+                            padding: '28px',
+                            backgroundColor: '#dc2626',
                         }}>
-                            <span style={{ fontSize: 40, fontWeight: 900, color: '#ffffff' }}>
-                                ⚔️ FIGHT TICKET ⚔️
+                            <span style={{ fontSize: 36, fontWeight: 900, color: '#ffffff', fontStyle: 'italic', letterSpacing: '-1px' }}>
+                                FIGHT TICKET
+                            </span>
+                            <span style={{ fontSize: 14, color: '#ffffff', opacity: 0.8, letterSpacing: '6px', marginTop: 4 }}>
+                                OFFICIAL ENTRY
+                            </span>
+                        </div>
+
+                        {/* Prediction Phrase */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            padding: '24px 30px 16px',
+                        }}>
+                            <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', fontStyle: 'italic', textAlign: 'center' }}>
+                                "{bet.castText || targetLabel}"
                             </span>
                         </div>
 
@@ -115,62 +131,91 @@ export default async function Image({ params }: { params: { id: string } }) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            padding: '40px',
-                            gap: '40px',
+                            padding: '20px 40px 30px',
+                            gap: '30px',
                         }}>
+                            {/* Fighter A */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <div style={{
-                                    width: 120,
-                                    height: 120,
-                                    backgroundColor: '#e8f5e9',
+                                    width: 100,
+                                    height: 100,
+                                    backgroundColor: '#1a1a1a',
                                     borderRadius: '20px',
-                                    border: '4px solid #22c55e',
+                                    border: '3px solid #333333',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: 60,
-                                }}>🟢</div>
-                                <span style={{ fontSize: 24, fontWeight: 900, color: '#22c55e', marginTop: 12 }}>
+                                    fontSize: 50,
+                                    overflow: 'hidden',
+                                }}>
+                                    {bet.optionA?.imageUrl ? (
+                                        <img src={bet.optionA.imageUrl} width={100} height={100} style={{ objectFit: 'cover' }} />
+                                    ) : (
+                                        <span>🟢</span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: 18, fontWeight: 700, color: '#22c55e', marginTop: 10 }}>
                                     {bet.optionA?.label || 'A'}
                                 </span>
                             </div>
 
-                            <span style={{ fontSize: 60, fontWeight: 900, color: '#cccccc' }}>VS</span>
+                            {/* VS */}
+                            <span style={{ fontSize: 50, fontWeight: 900, color: '#333333', fontStyle: 'italic' }}>VS</span>
 
+                            {/* Fighter B */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <div style={{
-                                    width: 120,
-                                    height: 120,
-                                    backgroundColor: '#ffebee',
+                                    width: 100,
+                                    height: 100,
+                                    backgroundColor: '#1a1a1a',
                                     borderRadius: '20px',
-                                    border: '4px solid #ef4444',
+                                    border: '3px solid #333333',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: 60,
-                                }}>🔴</div>
-                                <span style={{ fontSize: 24, fontWeight: 900, color: '#ef4444', marginTop: 12 }}>
+                                    fontSize: 50,
+                                    overflow: 'hidden',
+                                }}>
+                                    {bet.optionB?.imageUrl ? (
+                                        <img src={bet.optionB.imageUrl} width={100} height={100} style={{ objectFit: 'cover' }} />
+                                    ) : (
+                                        <span>🔴</span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: 18, fontWeight: 700, color: '#ef4444', marginTop: 10 }}>
                                     {bet.optionB?.label || 'B'}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Stats */}
+                        {/* Stats Row */}
                         <div style={{
                             display: 'flex',
                             justifyContent: 'center',
-                            gap: '60px',
-                            padding: '30px',
-                            borderTop: '2px solid #eeeeee',
+                            gap: '50px',
+                            padding: '24px',
+                            backgroundColor: '#0a0a0a',
+                            borderTop: '1px solid #222222',
                         }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ fontSize: 16, color: '#888888' }}>TOTAL POT</span>
-                                <span style={{ fontSize: 36, fontWeight: 900, color: '#22c55e' }}>{potDisplay}</span>
+                                <span style={{ fontSize: 14, color: '#666666', letterSpacing: '2px' }}>TOTAL POT</span>
+                                <span style={{ fontSize: 32, fontWeight: 900, color: '#22c55e' }}>{potDisplay}</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ fontSize: 16, color: '#888888' }}>PREDICTORS</span>
-                                <span style={{ fontSize: 36, fontWeight: 900, color: '#111111' }}>{bet.participantCount || 0}</span>
+                                <span style={{ fontSize: 14, color: '#666666', letterSpacing: '2px' }}>PREDICTORS</span>
+                                <span style={{ fontSize: 32, fontWeight: 900, color: '#ffffff' }}>{bet.participantCount || 0}</span>
                             </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            padding: '16px',
+                            backgroundColor: '#000000',
+                        }}>
+                            <span style={{ fontSize: 12, color: '#444444' }}>BATTLE ID: {battleId}</span>
                         </div>
                     </div>
                 </div>
@@ -179,7 +224,9 @@ export default async function Image({ params }: { params: { id: string } }) {
         );
     }
 
-    // STANDARD PREDICTION
+    // ========================================
+    // PREDICTION RECEIPT - White paper style
+    // ========================================
     return new ImageResponse(
         (
             <div style={{
@@ -193,9 +240,8 @@ export default async function Image({ params }: { params: { id: string } }) {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    width: '700px',
+                    width: '550px',
                     backgroundColor: '#ffffff',
-                    borderRadius: '24px',
                     overflow: 'hidden',
                 }}>
                     {/* Header */}
@@ -203,14 +249,17 @@ export default async function Image({ params }: { params: { id: string } }) {
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        padding: '40px',
+                        padding: '40px 30px 30px',
                         borderBottom: '3px dashed #dddddd',
                     }}>
-                        <span style={{ fontSize: 44, fontWeight: 900, color: '#111111' }}>
+                        <span style={{ fontSize: 38, fontWeight: 900, color: '#111111', letterSpacing: '-1px' }}>
                             PREDICTION CONFIRMED
                         </span>
-                        <span style={{ fontSize: 18, color: '#888888', marginTop: 8, letterSpacing: 4 }}>
+                        <span style={{ fontSize: 14, color: '#888888', letterSpacing: '6px', marginTop: 8 }}>
                             OFFICIAL RECEIPT
+                        </span>
+                        <span style={{ fontSize: 12, color: '#aaaaaa', marginTop: 6 }}>
+                            {new Date().toLocaleString('en-US')}
                         </span>
                     </div>
 
@@ -218,29 +267,41 @@ export default async function Image({ params }: { params: { id: string } }) {
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '30px 50px',
-                        gap: '20px',
+                        padding: '30px 40px',
+                        gap: '18px',
                     }}>
+                        {/* Player */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 18, color: '#888888' }}>PLAYER</span>
-                            <span style={{ fontSize: 28, fontWeight: 700, color: '#111111' }}>@{bet.username}</span>
+                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>PLAYER</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {bet.pfpUrl && (
+                                    <img src={bet.pfpUrl} width={28} height={28} style={{ borderRadius: '6px' }} />
+                                )}
+                                <span style={{ fontSize: 22, fontWeight: 700, color: '#111111' }}>@{bet.username}</span>
+                            </div>
                         </div>
 
+                        {/* Target */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 18, color: '#888888' }}>TARGET</span>
-                            <span style={{ fontSize: 24, fontWeight: 700, color: '#111111' }}>{targetLabel}</span>
+                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>TARGET</span>
+                            <span style={{ fontSize: 18, fontWeight: 700, color: '#111111', textAlign: 'right', maxWidth: '300px' }}>
+                                {targetLabel}
+                            </span>
                         </div>
 
-                        <div style={{ width: '100%', height: 2, backgroundColor: '#eeeeee' }} />
+                        {/* Divider */}
+                        <div style={{ width: '100%', height: 2, backgroundColor: '#eeeeee', margin: '8px 0' }} />
 
+                        {/* Total Pot */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 18, color: '#888888' }}>TOTAL POT</span>
-                            <span style={{ fontSize: 40, fontWeight: 900, color: '#111111' }}>{potDisplay}</span>
+                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>TOTAL POT</span>
+                            <span style={{ fontSize: 32, fontWeight: 900, color: '#111111' }}>{potDisplay}</span>
                         </div>
 
+                        {/* Predictors */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 18, color: '#888888' }}>PREDICTORS</span>
-                            <span style={{ fontSize: 40, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
+                            <span style={{ fontSize: 16, color: '#888888', fontWeight: 600 }}>PREDICTORS</span>
+                            <span style={{ fontSize: 32, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
                         </div>
                     </div>
 
@@ -249,11 +310,11 @@ export default async function Image({ params }: { params: { id: string } }) {
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        padding: '24px',
+                        padding: '20px',
                         backgroundColor: '#111111',
                     }}>
-                        <span style={{ fontSize: 14, color: '#666666' }}>BATTLE ID</span>
-                        <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', letterSpacing: 3 }}>{battleId}</span>
+                        <span style={{ fontSize: 12, color: '#666666' }}>BATTLE ID</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', letterSpacing: '3px' }}>{battleId}</span>
                     </div>
                 </div>
             </div>
