@@ -38,11 +38,11 @@ export async function generateMetadata(
         openGraph: {
             title: title,
             description: description,
-            images: [`/prediction/${id}/opengraph-image?v=6`], // Dynamic Image Route
+            images: [`/prediction/${id}/opengraph-image?v=7`], // Dynamic Image Route
         },
         other: {
             'fc:frame': 'vNext',
-            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=6`,
+            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=7`,
             'fc:frame:button:1': '🥊 Enter Arena',
             'fc:frame:button:1:action': 'link',
             'fc:frame:button:1:target': `https://predictionbattle.xyz/prediction/${id}`,
@@ -73,7 +73,7 @@ export default async function PredictionPage({ params }: Props) {
 
     return (
         <div className="min-h-screen bg-background bg-[url('/grid.svg')] text-textPrimary py-12 px-4">
-            <div className="max-w-md mx-auto">
+            <div className="max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="mb-8 flex items-center justify-between">
                     <Link
