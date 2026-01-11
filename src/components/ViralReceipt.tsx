@@ -43,7 +43,7 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
     if (!isOpen) return null;
 
     const handleShare = () => {
-        const link = data.predictionId ? `${window.location.origin}/predict/${data.predictionId}` : window.location.origin;
+        const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
 
         const text = isBattle
             ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\n${data.choice} vs ${data.opponentName}\n\nStaked: $${data.amount}\nPotential Win: $${data.potentialWin} (${data.multiplier}x)\n\nWho you got? Join the fight! 🥊\n\n${link}`
