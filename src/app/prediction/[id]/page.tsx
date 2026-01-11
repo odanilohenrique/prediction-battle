@@ -38,11 +38,11 @@ export async function generateMetadata(
         openGraph: {
             title: title,
             description: description,
-            images: [`/prediction/${id}/opengraph-image`], // Dynamic Image Route
+            images: [`/prediction/${id}/opengraph-image?v=2`], // Dynamic Image Route
         },
         other: {
             'fc:frame': 'vNext',
-            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image`,
+            'fc:frame:image': `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=2`,
             'fc:frame:button:1': '🥊 Enter Arena',
             'fc:frame:button:1:action': 'link',
             'fc:frame:button:1:target': `https://predictionbattle.xyz/prediction/${id}`,
@@ -70,7 +70,7 @@ export default async function PredictionPage({ params }: Props) {
     // For a cleaner landing, we might want to just show the card and a "Launch App" button if not logged in.
 
     // Client Wrapper to handle interactions cleanly
-    // Moved to top
+
     return (
         <div className="min-h-screen bg-background bg-[url('/grid.svg')] text-textPrimary py-12 px-4">
             <div className="max-w-md mx-auto">

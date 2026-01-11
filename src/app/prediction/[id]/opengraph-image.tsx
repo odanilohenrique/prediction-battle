@@ -144,7 +144,7 @@ export default async function Image({ params }: { params: { id: string } }) {
                             {/* Pot */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '20px' }}>
                                 <span style={{ color: '#888', fontSize: 20, letterSpacing: '2px', textTransform: 'uppercase' }}>Total Pot</span>
-                                <span style={{ color: '#22c55e', fontSize: 60, fontWeight: 900 }}>${bet.totalPot || 0}</span>
+                                <span style={{ color: '#22c55e', fontSize: 60, fontWeight: 900 }}>${bet.totalPot?.toFixed(2) || '0.00'}</span>
                             </div>
                         </div>
 
