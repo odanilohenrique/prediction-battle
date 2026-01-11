@@ -228,7 +228,7 @@ export default async function Image({ params }: { params: { id: string } }) {
     }
 
     // ========================================
-    // PREDICTION RECEIPT - Enhanced Design
+    // PREDICTION RECEIPT - Compact Design
     // ========================================
     return new ImageResponse(
         (
@@ -243,65 +243,63 @@ export default async function Image({ params }: { params: { id: string } }) {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    width: '900px',
+                    width: '800px',
                     backgroundColor: '#ffffff',
-                    borderRadius: '24px',
+                    borderRadius: '20px',
                     overflow: 'hidden',
-                    boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
                 }}>
-                    {/* Header with Orange accent */}
+                    {/* Header */}
                     <div style={{
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '40px',
+                        padding: '28px',
                         backgroundColor: '#FF5F1F',
                     }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <span style={{ fontSize: 52, fontWeight: 900, color: '#ffffff', letterSpacing: '-2px' }}>
-                                🎯 PREDICTION
-                            </span>
-                            <span style={{ fontSize: 20, color: '#ffffff', opacity: 0.9, letterSpacing: '8px', marginTop: 8 }}>
-                                OFFICIAL RECEIPT
-                            </span>
-                        </div>
+                        <span style={{ fontSize: 42, fontWeight: 900, color: '#ffffff', letterSpacing: '-1px' }}>
+                            PREDICTION
+                        </span>
+                        <span style={{ fontSize: 16, color: '#ffffff', opacity: 0.9, letterSpacing: '6px', marginTop: 4 }}>
+                            OFFICIAL RECEIPT
+                        </span>
                     </div>
 
                     {/* Main Content */}
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '40px 60px',
-                        gap: '24px',
+                        padding: '28px 40px',
+                        gap: '16px',
                     }}>
-                        {/* Player Row - Large and prominent */}
+                        {/* Player Row */}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '20px',
-                            padding: '24px',
-                            backgroundColor: '#f8f8f8',
-                            borderRadius: '16px',
+                            gap: '16px',
+                            padding: '16px',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: '12px',
                         }}>
                             {bet.pfpUrl && (
-                                <img src={bet.pfpUrl} width={80} height={80} style={{ borderRadius: '16px' }} />
+                                <img src={bet.pfpUrl} width={56} height={56} style={{ borderRadius: '12px' }} />
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: 20, color: '#888888' }}>PLAYER</span>
-                                <span style={{ fontSize: 40, fontWeight: 900, color: '#111111' }}>@{bet.username}</span>
+                                <span style={{ fontSize: 14, color: '#888888' }}>PLAYER</span>
+                                <span style={{ fontSize: 28, fontWeight: 900, color: '#111111' }}>@{bet.username}</span>
                             </div>
                         </div>
 
-                        {/* Target - The prediction question */}
+                        {/* Target */}
                         <div style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            padding: '24px',
+                            padding: '16px',
                             backgroundColor: '#111111',
-                            borderRadius: '16px',
+                            borderRadius: '12px',
                         }}>
-                            <span style={{ fontSize: 16, color: '#888888', marginBottom: 8 }}>PREDICTION TARGET</span>
-                            <span style={{ fontSize: 28, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
+                            <span style={{ fontSize: 12, color: '#888888', marginBottom: 6 }}>PREDICTION TARGET</span>
+                            <span style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', lineHeight: 1.3 }}>
                                 "{targetLabel}"
                             </span>
                         </div>
@@ -309,8 +307,7 @@ export default async function Image({ params }: { params: { id: string } }) {
                         {/* Stats Row */}
                         <div style={{
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            gap: '24px',
+                            gap: '16px',
                         }}>
                             {/* Total Pot */}
                             <div style={{
@@ -318,12 +315,12 @@ export default async function Image({ params }: { params: { id: string } }) {
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 flex: 1,
-                                padding: '24px',
+                                padding: '16px',
                                 backgroundColor: '#22c55e',
-                                borderRadius: '16px',
+                                borderRadius: '12px',
                             }}>
-                                <span style={{ fontSize: 18, color: '#ffffff', opacity: 0.9 }}>TOTAL POT</span>
-                                <span style={{ fontSize: 48, fontWeight: 900, color: '#ffffff' }}>{potDisplay}</span>
+                                <span style={{ fontSize: 14, color: '#ffffff', opacity: 0.9 }}>TOTAL POT</span>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#ffffff' }}>{potDisplay}</span>
                             </div>
 
                             {/* Predictors */}
@@ -332,12 +329,12 @@ export default async function Image({ params }: { params: { id: string } }) {
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 flex: 1,
-                                padding: '24px',
+                                padding: '16px',
                                 backgroundColor: '#111111',
-                                borderRadius: '16px',
+                                borderRadius: '12px',
                             }}>
-                                <span style={{ fontSize: 18, color: '#888888' }}>PREDICTORS</span>
-                                <span style={{ fontSize: 48, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
+                                <span style={{ fontSize: 14, color: '#888888' }}>PREDICTORS</span>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#FF5F1F' }}>{bet.participantCount || 0}</span>
                             </div>
                         </div>
                     </div>
@@ -346,12 +343,12 @@ export default async function Image({ params }: { params: { id: string } }) {
                     <div style={{
                         display: 'flex',
                         justifyContent: 'center',
-                        padding: '20px',
+                        padding: '14px',
                         backgroundColor: '#f0f0f0',
                         borderTop: '2px dashed #dddddd',
                     }}>
-                        <span style={{ fontSize: 16, color: '#999999', letterSpacing: '4px' }}>
-                            ID: {battleId} • predictionbattle.xyz
+                        <span style={{ fontSize: 14, color: '#999999', letterSpacing: '3px' }}>
+                            ID: {battleId} | predictionbattle.xyz
                         </span>
                     </div>
                 </div>
