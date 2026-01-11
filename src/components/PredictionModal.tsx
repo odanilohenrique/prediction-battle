@@ -115,6 +115,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
             }
 
             const predictionId = data.predictionId;
+            const shareUrl = `${window.location.origin}/prediction/${predictionId}`;
 
             // 2. Create on Chain
             console.log('Creating prediction on-chain:', predictionId);
