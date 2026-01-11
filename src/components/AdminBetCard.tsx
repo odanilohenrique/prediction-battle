@@ -399,7 +399,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     return (
         <>
-            <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300">
+            <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300 w-full max-w-full">
                 {/* Header Ticket Stub */}
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
