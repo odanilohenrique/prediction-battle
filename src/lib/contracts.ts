@@ -61,7 +61,7 @@ export async function isPredictionResolved(predictionId: string): Promise<boolea
     }
 }
 
-export async function resolvePredictionOnChain(predictionId: string, result: boolean) {
+export async function resolvePredictionOnChain(predictionId: string, result: boolean, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 
     console.log(`[OPERATOR] Resolving bet ${predictionId} on-chain with result: ${result}`);
@@ -76,11 +76,13 @@ export async function resolvePredictionOnChain(predictionId: string, result: boo
 
         console.log(`[OPERATOR] Resolve Tx Hash: ${hash}`);
 
-        // Wait for receipt
-        const receipt = await client.waitForTransactionReceipt({ hash });
+        if (waitForReceipt) {
+            // Wait for receipt
+            const receipt = await client.waitForTransactionReceipt({ hash });
 
-        if (receipt.status !== 'success') {
-            throw new Error(`Transaction reverted: ${hash}`);
+            if (receipt.status !== 'success') {
+                throw new Error(`Transaction reverted: ${hash}`);
+            }
         }
 
         return hash;
@@ -90,7 +92,7 @@ export async function resolvePredictionOnChain(predictionId: string, result: boo
     }
 }
 
-export async function distributeWinningsOnChain(predictionId: string, batchSize: number = 50) {
+export async function distributeWinningsOnChain(predictionId: string, batchSize: number = 50, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 
     console.log(`[OPERATOR] Distributing winnings for ${predictionId} (Batch: ${batchSize})`);
@@ -105,10 +107,12 @@ export async function distributeWinningsOnChain(predictionId: string, batchSize:
 
         console.log(`[OPERATOR] Payout Tx Hash: ${hash}`);
 
-        const receipt = await client.waitForTransactionReceipt({ hash });
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
 
-        if (receipt.status !== 'success') {
-            throw new Error(`Transaction reverted: ${hash}`);
+            if (receipt.status !== 'success') {
+                throw new Error(`Transaction reverted: ${hash}`);
+            }
         }
 
         return hash;

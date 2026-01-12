@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
         // 1. Auth Check
         const authHeader = req.headers.get('authorization');
         if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-            // Allow bypassing auth in development if needed, or strictly enforce
             if (process.env.NODE_ENV === 'production') {
                 return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
             }
@@ -30,23 +29,23 @@ export async function GET(req: NextRequest) {
 
         const results = [];
 
+        // LIMIT BATCH SIZE to avoid timeouts (Vercel Hobby 10s limit)
+        // Since we run daily, we process up to 10. 
+        // With fire-and-forget, this should be very fast.
+        const BATCH_LIMIT = 10;
+        const processList = activeBets.slice(0, BATCH_LIMIT);
+
         // 3. Loop and Verify
-        for (const bet of activeBets) {
+        for (const bet of processList) {
             let verified = false;
             let currentVal: number | string = 0;
             let finalResult: boolean | null = null;
             const expired = Date.now() > bet.expiresAt;
 
-            // EXCEPTION: Battles are manual for now, unless expired
+            // EXCEPTION: Battles are manual for now
             if (bet.optionA && bet.optionB) {
-                // If expired, we can't auto-decide winner without data.
-                // For now, only standard bets are auto-resolvable.
-                // TODO: Add Battle Verification Logic
-                if (!expired) {
-                    continue; // Skip if not expired
-                }
-                // If expired, battles might need manual intervention or default "draw/no"?
-                // Let's leave battles as manual trigger only for safety to avoid resolving wrong.
+                if (!expired) continue;
+                // If expired battle, we skip auto-resolution for safety
                 results.push({ id: bet.id, result: 'SKIPPED_VERSUS', reason: 'Waiting for manual resolution.' });
                 continue;
             }
@@ -111,49 +110,34 @@ export async function GET(req: NextRequest) {
                     const { isPredictionResolved } = await import('@/lib/contracts');
                     const alreadyResolved = await isPredictionResolved(bet.id);
 
+                    let resolveTxHash = undefined;
+
                     if (!alreadyResolved) {
-                        await resolvePredictionOnChain(bet.id, finalResult);
-                        // Wait slightly for propagation if needed (viem waitForReceipt should be enough)
-                        await new Promise(r => setTimeout(r, 2000));
+                        // FIRE AND FORGET (waitForReceipt = false)
+                        resolveTxHash = await resolvePredictionOnChain(bet.id, finalResult, false);
+                        console.log(`[CRON] Resolution Tx Sent (No Wait): ${resolveTxHash}`);
                     } else {
-                        console.log(`[CRON] Bet ${bet.id} already resolved on-chain. Proceeding to payout.`);
+                        console.log(`[CRON] Bet ${bet.id} already resolved on-chain.`);
                     }
 
-                    // 4.3 Trigger Payout (Distribute Winnings)
-                    // Always try to distribute if we are in this block
-                    let distributionTx: string | undefined;
-                    try {
-                        distributionTx = await distributeWinningsOnChain(bet.id, 50);
-                    } catch (distError: any) {
-                        console.warn(`[CRON] Distribution warning for ${bet.id}: ${distError.message}`);
-                    }
-
-                    // 4.4 Update DB
+                    // 4.4 Update DB Optimistically
+                    // We assume the tx will succeed. The Payout Cron (running 15 mins later) will handle distribution.
                     bet.result = finalResult ? 'yes' : 'no';
-                    bet.status = 'completed';
+                    bet.status = 'completed'; // Ready for Payout Cron
+                    bet.resolvedAt = Date.now();
+                    if (resolveTxHash) {
+                        bet.resolutionTxHash = resolveTxHash;
+                    }
 
-                    // Update fees
+                    // Calculate Fees (Local DB update)
                     const totalFeePercentage = 0.20;
                     bet.feeAmount = bet.totalPot * totalFeePercentage;
                     bet.winnerPool = bet.totalPot - bet.feeAmount;
                     bet.protocolFeeAmount = bet.feeAmount;
                     bet.creatorFeeAmount = 0;
 
-                    // 4.5 Mark winners as PAID if distribution succeeded
-                    if (distributionTx) {
-                        const winOption = finalResult ? 'yes' : 'no';
-                        if (bet.participants && bet.participants[winOption]) {
-                            bet.participants[winOption] = bet.participants[winOption].map((p: any) => ({
-                                ...p,
-                                paid: true,
-                                txHash: distributionTx
-                            }));
-                        }
-                    }
-                    bet.creatorFeeAmount = 0;
-
                     await store.saveBet(bet);
-                    results.push({ id: bet.id, result: finalResult ? 'RESOLVED_YES' : 'RESOLVED_NO', tx: 'OnChain Success' });
+                    results.push({ id: bet.id, result: finalResult ? 'RESOLVED_YES' : 'RESOLVED_NO', tx: resolveTxHash || 'Already Resolved' });
 
                 } catch (chainError) {
                     console.error(`[CRON] Chain action failed for ${bet.id}:`, chainError);
@@ -164,7 +148,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        return NextResponse.json({ success: true, processed: activeBets.length, results });
+        return NextResponse.json({ success: true, processed: processList.length, results });
 
     } catch (error) {
         console.error('Cron Error:', error);
