@@ -1191,13 +1191,19 @@ export default function CreateCommunityBet() {
                                     </div>
                                 </label>
                                 <input
-                                    type="number"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.minBet}
-                                    onChange={(e) => setFormData({ ...formData, minBet: parseFloat(e.target.value) || 0 })}
+                                    onChange={(e) => {
+                                        const raw = e.target.value.replace(',', '.');
+                                        setFormData({ ...formData, minBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                    }}
+                                    onBlur={(e) => {
+                                        const val = parseFloat(e.target.value.replace(',', '.')) || 0.05;
+                                        setFormData({ ...formData, minBet: val });
+                                    }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    min={0.01}
-                                    required
+                                    placeholder="0.05"
                                 />
                             </div>
                             <div className="bg-surface border border-darkGray rounded-2xl p-6">
@@ -1208,14 +1214,19 @@ export default function CreateCommunityBet() {
                                     </div>
                                 </label>
                                 <input
-                                    type="number"
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.maxBet}
-                                    onChange={(e) => setFormData({ ...formData, maxBet: parseFloat(e.target.value) || 0 })}
+                                    onChange={(e) => {
+                                        const raw = e.target.value.replace(',', '.');
+                                        setFormData({ ...formData, maxBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                    }}
+                                    onBlur={(e) => {
+                                        const val = parseFloat(e.target.value.replace(',', '.')) || 5;
+                                        setFormData({ ...formData, maxBet: val });
+                                    }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    min={formData.minBet}
-                                    max={100}
-                                    required
+                                    placeholder="5"
                                 />
                                 <p className="text-xs text-textSecondary mt-1">
                                     Higher max bet requires more initial seeding.
