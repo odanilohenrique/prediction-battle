@@ -106,8 +106,8 @@ export default function CreateCommunityBet() {
         castUrl: '', // Added for Post Link
 
         // Limits & Econ
-        minBet: 0.05,
-        maxBet: 5,   // Creator sets this
+        minBet: '0.05' as string | number,
+        maxBet: '5' as string | number,   // Creator sets this
 
         // Metadata
         rules: '',
@@ -149,8 +149,14 @@ export default function CreateCommunityBet() {
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
+    const parseAmount = (val: string | number) => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        return parseFloat(val.replace(',', '.'));
+    };
+
     // Liquidity Calculation
-    const requiredSeedPerSide = formData.maxBet;
+    const requiredSeedPerSide = parseAmount(formData.maxBet);
 
     // Clear specific fields when switching modes to prevent state leaks
     useEffect(() => {
@@ -295,8 +301,8 @@ export default function CreateCommunityBet() {
                     choice: 'both',
                     betAmount: totalRequiredSeed,
                     userAddress: address,
-                    maxEntrySize: formData.maxBet,
-                    minBet: formData.minBet,
+                    maxEntrySize: parseAmount(formData.maxBet),
+                    minBet: parseAmount(formData.minBet),
 
                     // Metadata
                     castHash: 'manual_creation',

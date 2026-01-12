@@ -5,7 +5,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagm
 import { useRouter } from 'next/navigation';
 import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload, Loader2, Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
-import { CURRENT_CONFIG } from '@/lib/config';
+import { CURRENT_CONFIG, getContractAddressForBet } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // Mock Top Handles
@@ -221,8 +221,6 @@ export default function AdminDashboard() {
     };
 
     const { writeContractAsync } = useWriteContract();
-
-    import { getContractAddressForBet } from '@/lib/config';
 
     const resolveBet = async (betId: string, result: 'yes' | 'no' | 'void') => {
         const bet = bets.find(b => b.id === betId);
