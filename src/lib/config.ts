@@ -62,3 +62,16 @@ export const TESTNET_FAUCETS = {
     eth: 'https://www.coinbase.com/faucets/base-ethereum-goerli-faucet',
     usdc: 'https://faucet.circle.com/', // Circle USDC faucet
 };
+
+export const LEGACY_CONTRACT_ADDRESS = '0x1e57a200b5aa90e44701e4bba0b70a02c7d074c4'; // Prior to creator fee / void fix
+
+export function getContractAddressForBet(createdAt: number): string {
+    // Cutoff: Creation time of the deployment (Approx 2026-01-12 18:00 UTC)
+    // Timestamp: 1768245000000 
+    const CUTOFF_TIMESTAMP = 1768245000000;
+
+    if (createdAt < CUTOFF_TIMESTAMP) {
+        return LEGACY_CONTRACT_ADDRESS;
+    }
+    return CURRENT_CONFIG.contractAddress;
+}
