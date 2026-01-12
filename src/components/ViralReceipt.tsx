@@ -87,8 +87,8 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
         const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
 
         const text = isBattle
-            ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\n${data.choice} vs ${data.opponentName}\n\nStaked: $${data.amount}\nPotential Win: $${data.potentialWin.toFixed(2)} (${data.multiplier}x)\n\nWho you got? Join the fight! 🥊\n\n${link}`
-            : `⚔️ I just entered the Battle Arena!\n\nStaked: $${data.amount} on ${data.choice}\nPotential Win: $${data.potentialWin.toFixed(2)} (${data.multiplier}x)\n\nTarget: ${data.targetName}\n\nJoin the fight on Prediction Battle! 🥊\n\n${link}`;
+            ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀\n\n${link}`
+            : `betting ${data.choice} on this one 🎯\n\n$${data.amount} in, could win $${data.potentialWin.toFixed(2)}\n\nam i crazy or genius? lol\n\n${link}`;
 
         const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
@@ -98,8 +98,8 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
         const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
 
         const text = isBattle
-            ? `⚔️ I'm backing ${data.choice} in the Battle Arena!\n\n${data.choice} vs ${data.opponentName}\nStaked: $${data.amount} | Potential Win: $${data.potentialWin.toFixed(2)}\n\nJoin the fight!`
-            : `⚔️ I just entered the Battle Arena!\n\nStaked: $${data.amount} on ${data.choice}\nPotential Win: $${data.potentialWin.toFixed(2)}\n\nTarget: ${data.targetName}\n\nJoin the fight!`;
+            ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀`
+            : `betting ${data.choice} on this one 🎯\n\n$${data.amount} in, could win $${data.potentialWin.toFixed(2)}\n\nam i crazy or genius? lol`;
 
         const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
         window.open(url, '_blank');
