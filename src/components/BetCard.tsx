@@ -109,7 +109,7 @@ export default function BetCard({
                         <div className="flex items-center gap-1.5 text-textSecondary text-sm">
                             <Clock className="w-4 h-4" />
                             {isNoLimit ? (
-                                <span className="text-primary font-bold">No Time Limit</span>
+                                <span className="text-primary font-bold">Indefinite ♾️</span>
                             ) : (
                                 isExpired ? 'Expired' : `${hours}h ${minutes}m left`
                             )}

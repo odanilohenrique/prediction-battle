@@ -49,7 +49,7 @@ const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }>
     '12h': { label: '12 Hours', shortLabel: '12h' },
     '24h': { label: '24 Hours', shortLabel: '24h' },
     '7d': { label: '7 Days', shortLabel: '7d' },
-    'none': { label: 'No Limit', shortLabel: '∞' },
+    'none': { label: 'Indefinite', shortLabel: '∞' },
 };
 
 // Popular Farcaster users for quick selection
@@ -665,7 +665,7 @@ export default function CreateCommunityBet() {
                                 </div>
                             </label>
                             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                                {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).filter(t => t !== 'none').map((tf) => (
+                                {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
                                     <button
                                         key={tf}
                                         type="button"

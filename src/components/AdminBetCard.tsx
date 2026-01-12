@@ -99,6 +99,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     const formatTimeRemaining = () => {
         const remaining = bet.expiresAt - Date.now();
+        if (remaining > 50 * 365 * 24 * 60 * 60 * 1000) return 'Indefinite ♾️';
         const hours = Math.floor(remaining / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 

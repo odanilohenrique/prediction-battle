@@ -19,7 +19,26 @@ import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 
 // ... (interface)
-// ...
+// ... (interface)
+type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d' | 'none';
+
+const TIMEFRAME_SECONDS: Record<Timeframe, number> = {
+    '30m': 30 * 60,
+    '6h': 6 * 60 * 60,
+    '12h': 12 * 60 * 60,
+    '24h': 24 * 60 * 60,
+    '7d': 7 * 24 * 60 * 60,
+    'none': 100 * 365 * 24 * 60 * 60,
+};
+
+const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }> = {
+    '30m': { label: '30 Minutes', shortLabel: '30m' },
+    '6h': { label: '6 Hours', shortLabel: '6h' },
+    '12h': { label: '12 Hours', shortLabel: '12h' },
+    '24h': { label: '24 Hours', shortLabel: '24h' },
+    '7d': { label: '7 Days', shortLabel: '7d' },
+    'none': { label: 'Indefinite', shortLabel: '∞' },
+};
 
 export default function PredictionModal({ cast, onClose }: PredictionModalProps) {
     const { showAlert, showModal } = useModal();
@@ -28,6 +47,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
     const [metric, setMetric] = useState<MetricType>('likes');
     const [targetValue, setTargetValue] = useState<number>(0);
     const [choice, setChoice] = useState<PredictionChoice>('yes');
+    const [timeframe, setTimeframe] = useState<Timeframe>('24h');
     const [betAmount, setBetAmount] = useState<number>(0.1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showReceipt, setShowReceipt] = useState(false);
@@ -96,7 +116,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                     minBet: 0.1,
                     displayName: cast.author.displayName,
                     pfpUrl: cast.author.pfp.url,
-                    timeframe: '24h',
+                    timeframe: timeframe,
                     castHash: cast.hash,
                     castAuthor: cast.author.username,
                     castText: cast.text,
@@ -121,7 +141,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
             console.log('Creating prediction on-chain:', predictionId);
             if (CURRENT_CONFIG.contractAddress) {
                 try {
-                    const duration = 86400; // 24h
+                    const duration = TIMEFRAME_SECONDS[timeframe] || 86400;
                     const createHash = await writeContractAsync({
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
@@ -343,6 +363,30 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 </p>
                             </div>
 
+                            {/* Timeframe Selector */}
+                            <div>
+                                <label className="block text-sm font-medium text-textPrimary mb-2">
+                                    Duration
+                                </label>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                    {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
+                                        <button
+                                            key={tf}
+                                            onClick={() => setTimeframe(tf)}
+                                            className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all ${timeframe === tf
+                                                ? 'border-primary bg-primary/20 text-textPrimary'
+                                                : 'border-darkGray bg-darkGray/50 text-textSecondary hover:text-textPrimary hover:bg-darkGray'
+                                                }`}
+                                        >
+                                            {TIMEFRAME_CONFIG[tf].shortLabel}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-textSecondary mt-1">
+                                    {TIMEFRAME_CONFIG[timeframe].label}
+                                </p>
+                            </div>
+
                             <button
                                 onClick={() => setStep(2)}
                                 className="w-full bg-primary hover:bg-secondary text-background font-bold py-3 rounded-xl transition-colors"
@@ -435,7 +479,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                     <span className="font-bold">
                                         {choice === 'yes' ? 'HIT' : 'NOT HIT'}
                                     </span>
-                                    {' '}{targetValue} {metric} in 24 hours
+                                    {' '}{targetValue} {metric} in {TIMEFRAME_CONFIG[timeframe].label}
                                 </div>
 
                                 {/* Potential Return / Odds Display */}

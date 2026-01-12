@@ -32,109 +32,135 @@ export async function GET(req: NextRequest) {
 
         // 3. Loop and Verify
         for (const bet of activeBets) {
-            // SAFETY: Skip Auto-Verify for Versus Battles for now.
-            // The current logic checks a SINGLE target/username. It cannot referee a race (Who posted first?).
-            // For Battle Mode, we must verify manually or upgrade this logic later.
+            let verified = false;
+            let currentVal: number | string = 0;
+            let finalResult: boolean | null = null;
+            const expired = Date.now() > bet.expiresAt;
+
+            // EXCEPTION: Battles are manual for now, unless expired
             if (bet.optionA && bet.optionB) {
-                results.push({ id: bet.id, result: 'SKIPPED_VERSUS', reason: 'Auto-verify not supported for battles yet.' });
+                // If expired, we can't auto-decide winner without data.
+                // For now, only standard bets are auto-resolvable.
+                // TODO: Add Battle Verification Logic
+                if (!expired) {
+                    continue; // Skip if not expired
+                }
+                // If expired, battles might need manual intervention or default "draw/no"?
+                // Let's leave battles as manual trigger only for safety to avoid resolving wrong.
+                results.push({ id: bet.id, result: 'SKIPPED_VERSUS', reason: 'Waiting for manual resolution.' });
                 continue;
             }
 
-            const { type, target, url, username } = bet.verification!;
-            let verified = false;
-            let currentVal: number | string = 0;
+            // Standard Verification Logic
+            if (bet.verification?.enabled) {
+                const { type, target, url, username } = bet.verification;
 
-            try {
-                // A. ENGAGEMENT (Likes, Recasts, Replies)
-                if (['likes', 'recasts', 'replies'].includes(type) && url) {
-                    // Extract Hash/ID from URL logic if needed, or use full URL if API supports it.
-                    // neynar.ts `getCastStats` expects Hash.
-                    // Need a helper to extract hash from URL.
-                    const hash = url.split('/').pop(); // naive extract
-                    if (hash) {
-                        const stats = await getCastStats(hash);
+                try {
+                    // A. ENGAGEMENT
+                    if (['likes', 'recasts', 'replies'].includes(type) && url) {
+                        const hash = url.split('/').pop();
+                        if (hash) {
+                            const stats = await getCastStats(hash);
+                            if (stats) {
+                                if (type === 'likes') currentVal = stats.likes;
+                                if (type === 'recasts') currentVal = stats.recasts;
+                                if (type === 'replies') currentVal = stats.replies;
+                                if (Number(currentVal) >= Number(target)) verified = true;
+                            }
+                        }
+                    }
+                    // B. FOLLOWERS
+                    else if (type === 'followers' && username) {
+                        const stats = await getUserStats(username);
                         if (stats) {
-                            if (type === 'likes') currentVal = stats.likes;
-                            if (type === 'recasts') currentVal = stats.recasts;
-                            if (type === 'replies') currentVal = stats.replies;
-
-                            if (Number(currentVal) >= Number(target)) verified = true;
+                            currentVal = stats.followers;
+                            if (currentVal >= Number(target)) verified = true;
                         }
                     }
-                }
-
-                // B. FOLLOWERS
-                if (type === 'followers' && username) {
-                    const stats = await getUserStats(username);
-                    if (stats) {
-                        currentVal = stats.followers;
-                        if (currentVal >= Number(target)) verified = true;
-                    }
-                }
-
-                // C. KEYWORD
-                if (type === 'keyword' && username) {
-                    const user = await getUserByUsername(username);
-                    if (user) {
-                        const recentCasts = await getUserRecentCasts(user.fid, 50); // check last 50
-                        const word = String(target).toLowerCase();
-                        // Check if any cast contains the word
-                        // Also check timestamp against bet creation? Ideally yes.
-                        // For now, checks if ANY recent cast has it (assuming bet created recently).
-                        const match = recentCasts.find(c => c.text.toLowerCase().includes(word));
-                        if (match) {
-                            currentVal = match.text;
-                            verified = true;
+                    // C. KEYWORD
+                    else if (type === 'keyword' && username) {
+                        const user = await getUserByUsername(username);
+                        if (user) {
+                            const recentCasts = await getUserRecentCasts(user.fid, 50);
+                            const word = String(target).toLowerCase();
+                            const match = recentCasts.find(c => c.text.toLowerCase().includes(word));
+                            if (match) {
+                                currentVal = match.text;
+                                verified = true;
+                            }
                         }
                     }
+                } catch (e) {
+                    console.error(`Verification check failed for ${bet.id}:`, e);
                 }
+            }
 
-                let finalResult: boolean | null = null;
-                const expired = Date.now() > bet.expiresAt;
+            // DECISION LOGIC
+            if (verified) {
+                finalResult = true; // YES won (Target Met)
+            } else if (expired) {
+                finalResult = false; // NO won (Time up & Target NOT Met)
+            }
 
-                if (verified) {
-                    finalResult = true; // YES won
-                } else if (expired) {
-                    finalResult = false; // NO won (Target not met in time)
-                }
+            // 4. Resolve On-Chain if result decided
+            if (finalResult !== null) {
+                console.log(`[CRON] Resolving Bet ${bet.id} -> ${finalResult ? 'YES' : 'NO'}`);
 
-                // 4. Resolve On-Chain if decided
-                if (finalResult !== null) {
-                    // Update Local State FIRST (Optimistic or Locking)
-                    // But if on-chain fails, we might want to retry later.
-                    // Best practice: Try on-chain, if success, update DB.
+                try {
+                    // Check if already resolved to allow retrying payouts
+                    const { isPredictionResolved } = await import('@/lib/contracts');
+                    const alreadyResolved = await isPredictionResolved(bet.id);
 
-                    console.log(`[CRON] Resolving Bet ${bet.id} -> ${finalResult ? 'YES' : 'NO'}`);
+                    if (!alreadyResolved) {
+                        await resolvePredictionOnChain(bet.id, finalResult);
+                        // Wait slightly for propagation if needed (viem waitForReceipt should be enough)
+                        await new Promise(r => setTimeout(r, 2000));
+                    } else {
+                        console.log(`[CRON] Bet ${bet.id} already resolved on-chain. Proceeding to payout.`);
+                    }
 
-                    // 4.1 Call Smart Contract Resolve
-                    await resolvePredictionOnChain(bet.id, finalResult);
-
-                    // 4.2 Wait a bit? Block time logic handled by `waitForTransactionReceipt` inside helper.
-
-                    // 4.3 Trigger Payout (Distribute Winnings) immediately
-                    // Note: If pool is huge, might need multiple batches. Cron can run 50 at a time.
-                    await distributeWinningsOnChain(bet.id, 50);
+                    // 4.3 Trigger Payout (Distribute Winnings)
+                    // Always try to distribute if we are in this block
+                    let distributionTx: string | undefined;
+                    try {
+                        distributionTx = await distributeWinningsOnChain(bet.id, 50);
+                    } catch (distError: any) {
+                        console.warn(`[CRON] Distribution warning for ${bet.id}: ${distError.message}`);
+                    }
 
                     // 4.4 Update DB
                     bet.result = finalResult ? 'yes' : 'no';
                     bet.status = 'completed';
 
-                    // Update fees in DB for record keeping (though contract handled money)
+                    // Update fees
                     const totalFeePercentage = 0.20;
                     bet.feeAmount = bet.totalPot * totalFeePercentage;
                     bet.winnerPool = bet.totalPot - bet.feeAmount;
                     bet.protocolFeeAmount = bet.feeAmount;
-                    bet.creatorFeeAmount = 0; // Automation assumes standard fee for now
+                    bet.creatorFeeAmount = 0;
+
+                    // 4.5 Mark winners as PAID if distribution succeeded
+                    if (distributionTx) {
+                        const winOption = finalResult ? 'yes' : 'no';
+                        if (bet.participants && bet.participants[winOption]) {
+                            bet.participants[winOption] = bet.participants[winOption].map((p: any) => ({
+                                ...p,
+                                paid: true,
+                                txHash: distributionTx
+                            }));
+                        }
+                    }
+                    bet.creatorFeeAmount = 0;
 
                     await store.saveBet(bet);
                     results.push({ id: bet.id, result: finalResult ? 'RESOLVED_YES' : 'RESOLVED_NO', tx: 'OnChain Success' });
-                } else {
-                    results.push({ id: bet.id, result: 'PENDING', current: currentVal });
-                }
 
-            } catch (err) {
-                console.error(`Failed to verify/resolve bet ${bet.id}:`, err);
-                results.push({ id: bet.id, error: String(err) });
+                } catch (chainError) {
+                    console.error(`[CRON] Chain action failed for ${bet.id}:`, chainError);
+                    results.push({ id: bet.id, error: String(chainError) });
+                }
+            } else {
+                results.push({ id: bet.id, result: 'PENDING', current: currentVal });
             }
         }
 
