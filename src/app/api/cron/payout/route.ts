@@ -99,25 +99,16 @@ export async function GET(req: NextRequest) {
                 console.log(`[AutoPayout] Processing ${bet.id}...`);
 
                 // Call Contract
-                const { request: txRequest } = await client.simulateContract({
-                    address: contractAddress,
-                    abi: DISTRIBUTE_ABI,
-                    functionName: 'distributeWinnings',
-                    args: [bet.id, BigInt(50)], // Batch 50 winners at a time
-                    account
-                });
+                // FIRE AND FORGET (waitForReceipt = false)
+                // We use the shared helper which we updated
+                const { distributeWinningsOnChain } = await import('@/lib/contracts');
+                const txHash = await distributeWinningsOnChain(bet.id, 50, false);
 
-                const txHash = await client.writeContract(txRequest);
-                console.log(`[AutoPayout] Tx Sent: ${txHash}`);
+                console.log(`[AutoPayout] Tx Sent (No Wait): ${txHash}`);
 
                 // Update Local DB immediately to mark as processing/paid
-                // In a real system, we'd wait for receipt, but cron might timeout.
-                // Better to mark as "processing" or trust the chain.
-                // We'll trust the chain for now and mark winners as paid in DB
-                // slightly optimistic but prevents re-running immediately next minute
-
                 const winners = bet.result === 'yes' ? bet.participants.yes : bet.participants.no;
-                const updatedWinners = winners.map(w => ({ ...w, paid: true, paidAt: Date.now(), txHash }));
+                const updatedWinners = winners.map((w: any) => ({ ...w, paid: true, paidAt: Date.now(), txHash }));
 
                 if (bet.result === 'yes') {
                     bet.participants.yes = updatedWinners;
@@ -129,7 +120,8 @@ export async function GET(req: NextRequest) {
                 results.push({ id: bet.id, status: 'initiated', txHash });
 
                 // Wait a bit to prevent nonce overlap if RPC is slow
-                await new Promise(r => setTimeout(r, 2000));
+                // Reduced to 1s to ensure we fit in 10s limit for 5 bets
+                await new Promise(r => setTimeout(r, 1000));
 
             } catch (error: any) {
                 console.error(`[AutoPayout] Failed ${bet.id}:`, error);

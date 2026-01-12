@@ -2,11 +2,11 @@
     "crons": [
         {
             "path": "/api/cron/verify",
-            "schedule": "*/10 * * * *"
+            "schedule": "0 12 * * *"
         },
         {
             "path": "/api/cron/payout",
-            "schedule": "0 0 * * *"
+            "schedule": "15 12 * * *"
         }
     ]
 }
