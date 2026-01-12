@@ -17,6 +17,20 @@ export const TESTNET_CONFIG = {
     contractAddress: TESTNET_CONTRACT_ADDRESS,
 };
 
+export const MAINNET_CONFIG = {
+    chainId: 8453, // Base Mainnet
+    chainName: 'Base Mainnet',
+    rpcUrl: 'https://mainnet.base.org',
+    blockExplorer: 'https://basescan.org',
+    nativeCurrency: {
+        name: 'Ethereum',
+        symbol: 'ETH',
+        decimals: 18,
+    },
+    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base Mainnet
+    contractAddress: '', // To be deployed
+};
+
 // For now, always use testnet
 export const CURRENT_CONFIG = TESTNET_CONFIG;
 

@@ -101,13 +101,13 @@ export default function CreateCommunityBet() {
 
         // Bet config
         betType: 'post_count' as BetType,
-        targetValue: 3,
+        targetValue: '3',
         timeframe: '24h' as Timeframe,
         castUrl: '', // Added for Post Link
 
         // Limits & Econ
-        minBet: 0.05,
-        maxBet: 5,   // Creator sets this
+        minBet: '0.05',
+        maxBet: '5',   // Creator sets this
 
         // Metadata
         rules: '',
@@ -150,7 +150,7 @@ export default function CreateCommunityBet() {
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     // Liquidity Calculation
-    const requiredSeedPerSide = formData.maxBet;
+    const requiredSeedPerSide = parseFloat(formData.maxBet) || 0;
 
     // Clear specific fields when switching modes to prevent state leaks
     useEffect(() => {
@@ -285,18 +285,22 @@ export default function CreateCommunityBet() {
                 finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType.targetLabel}?`;
             }
 
+            const minBetNum = parseFloat(formData.minBet) || 0;
+            const maxBetNum = parseFloat(formData.maxBet) || 0;
+            const targetValueNum = parseFloat(formData.targetValue) || 0;
+
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     // Core
                     metric: formData.betType,
-                    targetValue: formData.noTargetValue || formData.betType === 'custom_text' ? 0 : (formData.betType === 'ratio' || creationMode === 'battle' ? 1 : formData.targetValue),
+                    targetValue: formData.noTargetValue || formData.betType === 'custom_text' ? 0 : (formData.betType === 'ratio' || creationMode === 'battle' ? 1 : targetValueNum),
                     choice: 'both',
                     betAmount: totalRequiredSeed,
                     userAddress: address,
-                    maxEntrySize: formData.maxBet,
-                    minBet: formData.minBet,
+                    maxEntrySize: maxBetNum,
+                    minBet: minBetNum,
 
                     // Metadata
                     castHash: 'manual_creation',
@@ -699,16 +703,13 @@ export default function CreateCommunityBet() {
                                         inputMode="decimal"
                                         value={formData.minBet}
                                         onChange={(e) => {
-                                            const rawVal = e.target.value.replace(',', '.');
-                                            const val = rawVal === '' ? 0 : parseFloat(rawVal) || 0;
-                                            setFormData({
-                                                ...formData,
-                                                minBet: rawVal === '' ? '' as any : val,
-                                            });
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                setFormData({ ...formData, minBet: val });
+                                            }
                                         }}
                                         onBlur={(e) => {
-                                            const val = parseFloat(e.target.value.replace(',', '.')) || 0.05;
-                                            setFormData({ ...formData, minBet: val });
+                                            if (!e.target.value) setFormData({ ...formData, minBet: '0.05' });
                                         }}
                                         className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-green-500"
                                         placeholder="0.05"
@@ -721,16 +722,13 @@ export default function CreateCommunityBet() {
                                         inputMode="decimal"
                                         value={formData.maxBet}
                                         onChange={(e) => {
-                                            const rawVal = e.target.value.replace(',', '.');
-                                            const val = rawVal === '' ? 0 : parseFloat(rawVal) || 0;
-                                            setFormData({
-                                                ...formData,
-                                                maxBet: rawVal === '' ? '' as any : val,
-                                            });
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                setFormData({ ...formData, maxBet: val });
+                                            }
                                         }}
                                         onBlur={(e) => {
-                                            const val = parseFloat(e.target.value.replace(',', '.')) || 5;
-                                            setFormData({ ...formData, maxBet: val });
+                                            if (!e.target.value) setFormData({ ...formData, maxBet: '5' });
                                         }}
                                         className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-green-500"
                                         placeholder="5"
@@ -1102,11 +1100,16 @@ export default function CreateCommunityBet() {
                                         Target Value
                                     </label>
                                     <input
-                                        type="number"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={formData.targetValue}
-                                        onChange={(e) => setFormData({ ...formData, targetValue: parseInt(e.target.value) || 0 })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*$/.test(val)) {
+                                                setFormData({ ...formData, targetValue: val });
+                                            }
+                                        }}
                                         className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
-                                        min={1}
                                         required={!formData.noTargetValue}
                                     />
                                     <p className="text-sm text-primary mt-2 font-medium">
@@ -1195,12 +1198,13 @@ export default function CreateCommunityBet() {
                                     inputMode="decimal"
                                     value={formData.minBet}
                                     onChange={(e) => {
-                                        const raw = e.target.value.replace(',', '.');
-                                        setFormData({ ...formData, minBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                            setFormData({ ...formData, minBet: val });
+                                        }
                                     }}
                                     onBlur={(e) => {
-                                        const val = parseFloat(e.target.value.replace(',', '.')) || 0.05;
-                                        setFormData({ ...formData, minBet: val });
+                                        if (!e.target.value) setFormData({ ...formData, minBet: '0.05' });
                                     }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
                                     placeholder="0.05"
@@ -1218,12 +1222,13 @@ export default function CreateCommunityBet() {
                                     inputMode="decimal"
                                     value={formData.maxBet}
                                     onChange={(e) => {
-                                        const raw = e.target.value.replace(',', '.');
-                                        setFormData({ ...formData, maxBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                            setFormData({ ...formData, maxBet: val });
+                                        }
                                     }}
                                     onBlur={(e) => {
-                                        const val = parseFloat(e.target.value.replace(',', '.')) || 5;
-                                        setFormData({ ...formData, maxBet: val });
+                                        if (!e.target.value) setFormData({ ...formData, maxBet: '5' });
                                     }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
                                     placeholder="5"

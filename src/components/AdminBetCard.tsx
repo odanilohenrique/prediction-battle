@@ -64,7 +64,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
-    const [amount, setAmount] = useState(bet.minBet);
+    const [amount, setAmount] = useState<string>(bet.minBet.toString());
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -137,6 +137,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
 
         setIsSubmitting(true);
+        const submitAmount = parseFloat(amount) || 0;
 
         try {
             // 0. Verify and Switch Chain
@@ -158,7 +159,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
             // 1. Approve USDC to Contract
             console.log('Step 1: Approving USDC to contract...');
-            const amountInWei = parseUnits(amount.toString(), 6); // USDC has 6 decimals
+            const amountInWei = parseUnits(submitAmount.toString(), 6); // USDC has 6 decimals
 
             let approveHash;
             try {
@@ -227,7 +228,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 body: JSON.stringify({
                     betId: bet.id,
                     choice,
-                    amount,
+                    amount: submitAmount,
                     txHash: hash,
                     userAddress: address
                 }),
@@ -247,8 +248,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                 const multiplier = choice === 'yes'
-                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + amount)) // 75% pool after fees
-                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + amount));
+                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + submitAmount)) // 75% pool after fees
+                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + submitAmount));
 
                 // Detect Battle Mode
                 const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
@@ -278,8 +279,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     avatarUrl: bet.pfpUrl, // For Battle, this might be unused or general
                     username: bet.username,
                     action: "JOINED BATTLE",
-                    amount: amount,
-                    potentialWin: amount * multiplier,
+                    amount: submitAmount,
+                    potentialWin: submitAmount * multiplier,
                     multiplier: parseFloat(multiplier.toFixed(2)),
                     choice: finalChoice === 'YES' ? 'YES' : (finalChoice === 'NO' ? 'NO' : finalChoice),
                     targetName: getBetTypeLabel(),
@@ -860,8 +861,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             min={bet.minBet}
                                             max={bet.maxBet}
                                             step={0.01}
-                                            value={amount}
-                                            onChange={(e) => setAmount(parseFloat(e.target.value))}
+                                            value={parseFloat(amount) || bet.minBet}
+                                            onChange={(e) => setAmount(e.target.value)}
                                             className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
                                         />
                                         {/* Input + Quick Buttons */}
@@ -873,12 +874,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     inputMode="decimal"
                                                     value={amount}
                                                     onChange={(e) => {
-                                                        const raw = e.target.value.replace(',', '.');
-                                                        const val = parseFloat(raw) || bet.minBet;
-                                                        if (val >= bet.minBet && val <= bet.maxBet) {
+                                                        const val = e.target.value;
+                                                        // Allow empty string or valid float input pattern
+                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
                                                             setAmount(val);
-                                                        } else if (raw === '') {
-                                                            setAmount(bet.minBet);
                                                         }
                                                     }}
                                                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 md:py-3 text-white font-bold text-base md:text-lg focus:outline-none focus:border-primary"
@@ -888,15 +887,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             {/* Quick Select Buttons */}
                                             <button
                                                 type="button"
-                                                onClick={() => setAmount(bet.minBet)}
-                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${amount === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                onClick={() => setAmount(bet.minBet.toString())}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${parseFloat(amount) === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MIN
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setAmount(bet.maxBet)}
-                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${amount === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                onClick={() => setAmount(bet.maxBet.toString())}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${parseFloat(amount) === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MAX
                                             </button>
@@ -916,20 +915,22 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <div className="text-xs text-white/60 mb-1">Potential Payout</div>
                                         <div className="text-3xl font-black text-white flex items-end gap-2">
                                             ${(() => {
+                                                const numericAmount = parseFloat(amount) || 0;
                                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                 const multiplier = choice === 'yes'
-                                                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / yesPool)
-                                                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / noPool);
-                                                return (amount * multiplier).toFixed(2);
+                                                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + numericAmount))
+                                                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + numericAmount));
+                                                return (numericAmount * multiplier).toFixed(2);
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
                                                 ({(() => {
+                                                    const numericAmount = parseFloat(amount) || 0;
                                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                     const multiplier = choice === 'yes'
-                                                        ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / yesPool)
-                                                        : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / noPool);
+                                                        ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + numericAmount))
+                                                        : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + numericAmount));
                                                     return multiplier.toFixed(2);
                                                 })()}x)
                                             </span>
