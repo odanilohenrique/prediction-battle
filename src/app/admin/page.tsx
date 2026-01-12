@@ -222,22 +222,34 @@ export default function AdminDashboard() {
 
     const { writeContractAsync } = useWriteContract();
 
-    const resolveBet = async (betId: string, result: 'yes' | 'no') => {
-        showConfirm('Confirm Resolution', `Are you sure you want to declare ${result.toUpperCase()} as the winner? Payouts provided cannot be reversed.`, async () => {
+    const resolveBet = async (betId: string, result: 'yes' | 'no' | 'void') => {
+        const actionText = result === 'void' ? 'VOID' : result.toUpperCase();
+        showConfirm('Confirm Resolution', `Are you sure you want to declare ${actionText} outcome? Payouts provided cannot be reversed.`, async () => {
             setIsResolving(true);
             try {
                 // 1. Resolve on Blockchain First
                 if (CURRENT_CONFIG.contractAddress) {
                     try {
-                        const hash = await writeContractAsync({
-                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                            abi: PredictionBattleABI.abi,
-                            functionName: 'resolvePrediction',
-                            args: [betId, result === 'yes']
-                        });
+                        let hash;
+                        if (result === 'void') {
+                            hash = await writeContractAsync({
+                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                abi: PredictionBattleABI.abi,
+                                functionName: 'resolveVoid',
+                                args: [betId]
+                            });
+                        } else {
+                            hash = await writeContractAsync({
+                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                abi: PredictionBattleABI.abi,
+                                functionName: 'resolvePrediction',
+                                args: [betId, result === 'yes']
+                            });
+                        }
 
                         console.log('Resolution Transaction Sent:', hash);
                         showAlert('Processing on Chain', 'Transaction sent. Waiting for confirmation...', 'success');
+
 
                         // Wait for receipt would be ideal here if we want to be 100% sure before DB update
                         // But for now, let's assume if tx sends, we update DB. 
@@ -743,6 +755,13 @@ export default function AdminDashboard() {
                                                 <img src={selectedBet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full" />
                                             )}
                                             ❌ {selectedBet.optionB?.label || 'NO'}
+                                        </button>
+                                        <button
+                                            onClick={() => resolveBet(selectedBet.id, 'void')}
+                                            disabled={isResolving}
+                                            className="col-span-2 p-4 rounded-xl border border-gray-500/50 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 font-bold transition-all flex items-center justify-center gap-2"
+                                        >
+                                            ⛔ VOID / DRAW (Refund)
                                         </button>
                                     </div>
 
