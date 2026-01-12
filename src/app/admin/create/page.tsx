@@ -349,7 +349,8 @@ export default function CreateCommunityBet() {
                             inputs: [
                                 { name: '_id', type: 'string' },
                                 { name: '_target', type: 'uint256' },
-                                { name: '_deadline', type: 'uint256' }
+                                { name: '_deadline', type: 'uint256' },
+                                { name: '_creator', type: 'address' }
                             ],
                             outputs: []
                         }
@@ -358,7 +359,8 @@ export default function CreateCommunityBet() {
                     args: [
                         data.predictionId,
                         BigInt(formData.targetValue || 0),
-                        BigInt(durationSeconds)
+                        BigInt(durationSeconds),
+                        address as `0x${string}`
                     ],
                     gas: BigInt(500000),
                 });

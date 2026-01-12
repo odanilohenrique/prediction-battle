@@ -82,7 +82,7 @@ export default function Home() {
             : expiredBattles;
 
     return (
-        <main className="min-h-screen bg-transparent pb-20">
+        <main className="bg-transparent">
             {/* Header */}
             <header className="glass sticky top-0 z-40 border-b border-white/5">
                 <div className="max-w-2xl mx-auto px-4 py-4">

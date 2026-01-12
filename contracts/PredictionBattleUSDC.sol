@@ -17,7 +17,8 @@ interface IERC20 {
 contract PredictionBattleUSDC {
     address public admin;
     IERC20 public usdcToken;
-    uint256 public platformFeeBps = 2000; // 20% fee (2000 basis points)
+    uint256 public platformFeeBps = 2000; // 20% fee
+    uint256 public creatorFeeBps = 500;   // 5% fee for creator
 
     struct Prediction {
         string id;
@@ -36,15 +37,16 @@ contract PredictionBattleUSDC {
         bool isVoid;
         uint256 processedIndex;
         bool paidOut;
+        address creator; // Market creator for 5% fee
     }
 
     mapping(string => Prediction) public predictions;
     mapping(string => bool) public predictionExists;
     mapping(address => bool) public operators; // Authorized auto-verifiers
 
-    event PredictionCreated(string id, uint256 target, uint256 deadline);
+    event PredictionCreated(string id, uint256 target, uint256 deadline, address creator);
     event BetPlaced(string id, address user, bool vote, uint256 amount);
-    event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 platformFee);
+    event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 totalFees);
     event PredictionVoided(string id, uint256 totalPool, uint256 platformFee);
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
@@ -77,8 +79,8 @@ contract PredictionBattleUSDC {
         admin = _newAdmin;
     }
 
-    // 1. Create a Prediction Market (Anyone can create)
-    function createPrediction(string memory _id, uint256 _target, uint256 _duration) external {
+    // 1. Create a Prediction Market (Admin/Bot creates on behalf of user)
+    function createPrediction(string memory _id, uint256 _target, uint256 _duration, address _creator) external {
         require(!predictionExists[_id], "Prediction ID already exists");
         
         Prediction storage p = predictions[_id];
@@ -89,10 +91,11 @@ contract PredictionBattleUSDC {
         p.isVoid = false;
         p.processedIndex = 0;
         p.paidOut = false;
+        p.creator = _creator;
         
         predictionExists[_id] = true;
         
-        emit PredictionCreated(_id, _target, p.deadline);
+        emit PredictionCreated(_id, _target, p.deadline, _creator);
     }
 
     // 2. Place a Bet (User must `approve` USDC first)
@@ -131,14 +134,23 @@ contract PredictionBattleUSDC {
         p.resolved = true;
         p.result = _result;
 
-        // Calculate Fee
+        // Calculate Fees
         uint256 totalPool = p.totalYes + p.totalNo;
-        uint256 fee = (totalPool * platformFeeBps) / 10000;
+        uint256 platformFee = (totalPool * platformFeeBps) / 10000;
+        uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
         
-        // Send fee to admin (deployer/owner)
-        require(usdcToken.transfer(admin, fee), "Failed to send platform fee");
+        // Send fees
+        require(usdcToken.transfer(admin, platformFee), "Failed to send platform fee");
+        if (p.creator != address(0)) {
+            require(usdcToken.transfer(p.creator, creatorFee), "Failed to send creator fee");
+        } else {
+            // If no creator (legacy or admin), platform takes it or it stays in winners pool?
+            // Let's send to admin to avoid stuck funds if logic assumes fee deducted
+            require(usdcToken.transfer(admin, creatorFee), "Legacy creator fee to admin");
+        }
 
-        emit PredictionResolved(_id, _result, totalPool - fee, fee);
+        uint256 totalFees = platformFee + creatorFee;
+        emit PredictionResolved(_id, _result, totalPool - totalFees, totalFees);
     }
 
     // 3.5. Resolve as Void (Draw/Refund)
@@ -167,8 +179,21 @@ contract PredictionBattleUSDC {
 
         address[] memory winners;
         uint256 totalPool = p.totalYes + p.totalNo;
-        uint256 fee = (totalPool * platformFeeBps) / 10000;
-        uint256 distributablePot = totalPool - fee;
+        
+        uint256 platformFee = (totalPool * platformFeeBps) / 10000;
+        uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
+        
+        // If Void, we only deducted platformFee. If Resolved, we deducted both.
+        uint256 distributablePot;
+        
+        if (p.isVoid) {
+            // In Void, we only took platformFee (or should we take 0? Existing logic took platformFee)
+            // Let's keep it consistent with resolveVoid logic
+            distributablePot = totalPool - platformFee;
+        } else {
+            // In Normal Resolve, we took both
+            distributablePot = totalPool - platformFee - creatorFee;
+        }
         
         // --- VOID LOGIC ---
         if (p.isVoid) {
