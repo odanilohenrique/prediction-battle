@@ -28,8 +28,18 @@ export const MAINNET_CONFIG = {
     contractAddress: '', // Fill when deployed to mainnet
 };
 
-// Use testnet by default, can be changed via env var
-export const CURRENT_CONFIG = process.env.NEXT_PUBLIC_USE_MAINNET === 'true'
+// Use dynamic config based on LocalStorage (Client) or Env (Server)
+const isMainnetEnv = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+
+const getMainnetState = () => {
+    if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('prediction-battle-is-mainnet');
+        if (stored !== null) return stored === 'true';
+    }
+    return isMainnetEnv;
+}
+
+export const CURRENT_CONFIG = getMainnetState()
     ? MAINNET_CONFIG
     : TESTNET_CONFIG;
 
