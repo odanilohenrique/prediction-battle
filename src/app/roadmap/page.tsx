@@ -30,7 +30,7 @@ export default function RoadmapPage() {
                 "User-Created Markets",
                 "Community Disputes / Resolution",
                 "Leaderboard & Reputation System",
-                "$BATTLE Token Airdrop (?)"
+                "$BATTLE Governança Airdrop (?)"
             ]
         },
         {
