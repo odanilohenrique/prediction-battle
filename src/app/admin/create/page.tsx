@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
 import { useModal } from '@/providers/ModalProvider';
-
+import { getContractAddress } from '@/lib/config';
 
 // Extended bet types
 type BetType =
@@ -106,8 +106,8 @@ export default function CreateCommunityBet() {
         castUrl: '', // Added for Post Link
 
         // Limits & Econ
-        minBet: '0.05' as string | number,
-        maxBet: '5' as string | number,   // Creator sets this
+        minBet: 0.05,
+        maxBet: 5,   // Creator sets this
 
         // Metadata
         rules: '',
@@ -149,14 +149,8 @@ export default function CreateCommunityBet() {
         : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
-    const parseAmount = (val: string | number) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        return parseFloat(val.replace(',', '.'));
-    };
-
     // Liquidity Calculation
-    const requiredSeedPerSide = parseAmount(formData.maxBet);
+    const requiredSeedPerSide = formData.maxBet;
 
     // Clear specific fields when switching modes to prevent state leaks
     useEffect(() => {
@@ -301,8 +295,8 @@ export default function CreateCommunityBet() {
                     choice: 'both',
                     betAmount: totalRequiredSeed,
                     userAddress: address,
-                    maxEntrySize: parseAmount(formData.maxBet),
-                    minBet: parseAmount(formData.minBet),
+                    maxEntrySize: formData.maxBet,
+                    minBet: formData.minBet,
 
                     // Metadata
                     castHash: 'manual_creation',
@@ -346,7 +340,7 @@ export default function CreateCommunityBet() {
                             formData.timeframe === '7d' ? 604800 : 86400;
 
                 const createHash = await writeContractAsync({
-                    address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`, // Use dynamic env var
+                    address: getContractAddress(),
                     abi: [
                         {
                             name: 'createPrediction',

@@ -1,4 +1,7 @@
-// Testnet Configuration for Base Sepolia
+// Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
+
+// New deployed contract with creator fee + void support
+const TESTNET_CONTRACT_ADDRESS = '0x7a4128f643e1D023c498B7a616F7243Ef9Aa6eBc';
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
@@ -11,45 +14,35 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x8d511d4e58021b2847aab2cbdd031dee9a3f445c').toLowerCase().trim(),
+    contractAddress: TESTNET_CONTRACT_ADDRESS,
 };
 
-export const MAINNET_CONFIG = {
-    chainId: 8453, // Base Mainnet
-    chainName: 'Base',
-    rpcUrl: 'https://mainnet.base.org',
-    blockExplorer: 'https://basescan.org',
-    nativeCurrency: {
-        name: 'Ethereum',
-        symbol: 'ETH',
-        decimals: 18,
-    },
-    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base Mainnet
-    contractAddress: '', // Fill when deployed to mainnet
-};
+// For now, always use testnet
+export const CURRENT_CONFIG = TESTNET_CONFIG;
 
-// Use dynamic config based on LocalStorage (Client) or Env (Server)
-const isMainnetEnv = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
-
-const getMainnetState = () => {
-    if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('prediction-battle-is-mainnet');
-        if (stored !== null) return stored === 'true';
+// Helper that NEVER returns empty - use this everywhere
+export function getContractAddress(): `0x${string}` {
+    const addr = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || TESTNET_CONTRACT_ADDRESS;
+    if (!addr || addr.length < 10) {
+        console.warn('[CONFIG] Contract address missing, using hardcoded fallback');
+        return TESTNET_CONTRACT_ADDRESS as `0x${string}`;
     }
-    return isMainnetEnv;
+    return addr as `0x${string}`;
 }
 
-export const CURRENT_CONFIG = getMainnetState()
-    ? MAINNET_CONFIG
-    : TESTNET_CONFIG;
+// Helper for USDC address
+export function getUsdcAddress(): `0x${string}` {
+    return TESTNET_CONFIG.usdcAddress as `0x${string}`;
+}
 
 // Admin wallet addresses (whitelist)
 export const ADMIN_ADDRESSES = [
-    // Add your admin wallet address here
     process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase() || '',
-    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // User's Wallet
+    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // User's Admin Wallet
+    '0xfa278965a56a16252ccb850d3bb354f6a6e9fb02', // Operator Wallet
 ].filter(Boolean);
 
+// Operator address for resolution
 export const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'.toLowerCase();
 
 // Check if address is admin
@@ -63,15 +56,15 @@ export const TESTNET_FAUCETS = {
     usdc: 'https://faucet.circle.com/', // Circle USDC faucet
 };
 
-export const LEGACY_CONTRACT_ADDRESS = '0x1e57a200b5aa90e44701e4bba0b70a02c7d074c4'; // Prior to creator fee / void fix
-
-export function getContractAddressForBet(createdAt: number): string {
-    // Cutoff: Creation time of the deployment (Approx 2026-01-12 18:00 UTC)
-    // Timestamp: 1768245000000 
-    const CUTOFF_TIMESTAMP = 1768245000000;
-
-    if (createdAt < CUTOFF_TIMESTAMP) {
-        return LEGACY_CONTRACT_ADDRESS;
-    }
-    return CURRENT_CONFIG.contractAddress;
-}
+/**
+ * FEE STRUCTURE (defined in smart contract):
+ * - Platform Fee: 20% (goes to admin wallet)
+ * - Creator Fee: 5% (goes to market creator wallet)
+ * - Winners Pool: 75% (distributed to winners)
+ * 
+ * MULTIPLIER for UI: 1.75x max (since 75% of pool goes to winners)
+ */
+export const PLATFORM_FEE_PERCENT = 20;
+export const CREATOR_FEE_PERCENT = 5;
+export const WINNERS_POOL_PERCENT = 75;
+export const MAX_MULTIPLIER = 1.75;

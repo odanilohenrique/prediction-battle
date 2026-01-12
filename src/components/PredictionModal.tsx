@@ -146,7 +146,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
                         functionName: 'createPrediction',
-                        args: [predictionId, BigInt(targetValue), BigInt(duration)],
+                        args: [predictionId, BigInt(targetValue), BigInt(duration), address as `0x${string}`],
                         gas: BigInt(500000),
                     });
 
