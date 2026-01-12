@@ -247,8 +247,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                 const multiplier = choice === 'yes'
-                    ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / (yesPool + amount)) // Approximate simplified
-                    : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / (noPool + amount));
+                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + amount)) // 75% pool after fees
+                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + amount));
 
                 // Detect Battle Mode
                 const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
@@ -675,7 +675,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                     if (yesPool === 0) return '1.00';
-                                    const multiplier = 1 + (noPool * 0.8) / yesPool;
+                                    const multiplier = 1 + (noPool * 0.75) / yesPool;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -684,7 +684,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                     if (noPool === 0) return '1.00';
-                                    const multiplier = 1 + (yesPool * 0.8) / noPool;
+                                    const multiplier = 1 + (yesPool * 0.75) / noPool;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -917,8 +917,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                 const multiplier = choice === 'yes'
-                                                    ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
-                                                    : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
+                                                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / yesPool)
+                                                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / noPool);
                                                 return (amount * multiplier).toFixed(2);
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
@@ -926,8 +926,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                     const multiplier = choice === 'yes'
-                                                        ? (yesPool === 0 ? 2.0 : 1 + (noPool * 0.8) / yesPool)
-                                                        : (noPool === 0 ? 2.0 : 1 + (yesPool * 0.8) / noPool);
+                                                        ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / yesPool)
+                                                        : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / noPool);
                                                     return multiplier.toFixed(2);
                                                 })()}x)
                                             </span>
