@@ -88,7 +88,7 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
 
         const text = isBattle
             ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀\n\n${link}`
-            : `betting ${data.choice} on this one 🎯\n\n$${data.amount} in, could win $${data.potentialWin.toFixed(2)}\n\nam i crazy or genius? lol\n\n${link}`;
+            : `I predict ${data.choice} 🎯\n\nstaked $${data.amount}, potential win $${data.potentialWin.toFixed(2)}\n\nam i right? 👀\n\n${link}`;
 
         const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
@@ -99,7 +99,7 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
 
         const text = isBattle
             ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀`
-            : `betting ${data.choice} on this one 🎯\n\n$${data.amount} in, could win $${data.potentialWin.toFixed(2)}\n\nam i crazy or genius? lol`;
+            : `I predict ${data.choice} 🎯\n\nstaked $${data.amount}, potential win $${data.potentialWin.toFixed(2)}\n\nam i right? 👀`;
 
         const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
         window.open(url, '_blank');
