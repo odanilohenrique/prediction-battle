@@ -8,6 +8,7 @@ import { Sword, Flame, Trophy, Crown, Users, Plus, Clock } from 'lucide-react';
 import AdminBetCard from '@/components/AdminBetCard';
 import WalletButton from '@/components/WalletButton';
 import { isAdmin } from '@/lib/config';
+import NetworkToggle from '@/components/NetworkToggle';
 
 export default function Home() {
     const [battles, setBattles] = useState<any[]>([]);
@@ -104,7 +105,10 @@ export default function Home() {
                                 </div>
                             </div>
                         </div>
-                        <WalletButton />
+                        <div className="flex items-center gap-2">
+                            <NetworkToggle />
+                            <WalletButton />
+                        </div>
                     </div>
                 </div>
             </header>

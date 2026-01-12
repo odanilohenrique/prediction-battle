@@ -7,10 +7,13 @@ import { WagmiProvider } from 'wagmi';
 import { base, baseSepolia } from 'wagmi/chains';
 import { config } from '@/lib/wagmi';
 import FarcasterProvider from '@/providers/FarcasterProvider';
+import { NetworkProvider, useNetwork } from '@/providers/NetworkProvider';
 
-export default function OnchainProviders({ children }: { children: ReactNode }) {
+function ProvidersContent({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient());
-    const selectedChain = process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia;
+    const { isMainnet } = useNetwork();
+
+    const selectedChain = isMainnet ? base : baseSepolia;
 
     return (
         <FarcasterProvider>
@@ -25,5 +28,13 @@ export default function OnchainProviders({ children }: { children: ReactNode }) 
                 </QueryClientProvider>
             </WagmiProvider>
         </FarcasterProvider>
+    );
+}
+
+export default function OnchainProviders({ children }: { children: ReactNode }) {
+    return (
+        <NetworkProvider>
+            <ProvidersContent>{children}</ProvidersContent>
+        </NetworkProvider>
     );
 }

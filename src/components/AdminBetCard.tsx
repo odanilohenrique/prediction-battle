@@ -398,6 +398,32 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         });
     };
 
+    const handleVoid = async () => {
+        showConfirm('Confirm VOID / DRAW?', 'Are you sure you want to VOID this bet? This will refund all participants (minus fee). This action cannot be undone.', async () => {
+            setIsSubmitting(true);
+            try {
+                const hash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'resolveVoid',
+                    args: [bet.id],
+                });
+
+                if (publicClient) {
+                    await publicClient.waitForTransactionReceipt({ hash });
+                }
+
+                showAlert('Voided', 'Bet has been voided/refunded.', 'success');
+                onBet();
+            } catch (error) {
+                console.error('Void error:', error);
+                showAlert('Error', (error as Error).message, 'error');
+            } finally {
+                setIsSubmitting(false);
+            }
+        });
+    };
+
     return (
         <>
             <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300 w-full max-w-full">
@@ -667,6 +693,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                     {/* Action Area */}
                     <div className="flex gap-3">
+
+                        {/* ... existing render ... */}
                         {/* Seed button only for admin on empty pools */}
                         {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < bet.expiresAt && (
                             <button
@@ -675,6 +703,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 className="px-4 py-3 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold hover:bg-yellow-500/20 transition-all"
                             >
                                 🌱 Seed
+                            </button>
+                        )}
+
+                        {/* VOID Button (Admin Only) - For Stuck Bets */}
+                        {address && isAdmin(address) && bet.status === 'active' && (
+                            <button
+                                onClick={handleVoid}
+                                disabled={isSubmitting}
+                                className="px-4 py-3 rounded-xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-bold hover:bg-gray-500/20 transition-all"
+                                title="Void/Refund Bet"
+                            >
+                                🏳️ Void
                             </button>
                         )}
 
