@@ -33,7 +33,7 @@ export async function generateMetadata(
     const description = bet.castText || `Join the prediction market on specific outcomes! Pot: $${bet.totalPot}`;
 
     // Use dynamically generated OG image
-    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=15`;
+    const imageUrl = `https://predictionbattle.xyz/prediction/${id}/opengraph-image?v=16`;
 
     return {
         title: title + ' | Prediction Battle',
