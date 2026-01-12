@@ -222,25 +222,32 @@ export default function AdminDashboard() {
 
     const { writeContractAsync } = useWriteContract();
 
+    import { getContractAddressForBet } from '@/lib/config';
+
     const resolveBet = async (betId: string, result: 'yes' | 'no' | 'void') => {
+        const bet = bets.find(b => b.id === betId);
+        if (!bet) return;
+
+        const targetContract = getContractAddressForBet(bet.createdAt);
         const actionText = result === 'void' ? 'VOID' : result.toUpperCase();
+
         showConfirm('Confirm Resolution', `Are you sure you want to declare ${actionText} outcome? Payouts provided cannot be reversed.`, async () => {
             setIsResolving(true);
             try {
                 // 1. Resolve on Blockchain First
-                if (CURRENT_CONFIG.contractAddress) {
+                if (targetContract) {
                     try {
                         let hash;
                         if (result === 'void') {
                             hash = await writeContractAsync({
-                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                address: targetContract as `0x${string}`,
                                 abi: PredictionBattleABI.abi,
                                 functionName: 'resolveVoid',
                                 args: [betId]
                             });
                         } else {
                             hash = await writeContractAsync({
-                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                address: targetContract as `0x${string}`,
                                 abi: PredictionBattleABI.abi,
                                 functionName: 'resolvePrediction',
                                 args: [betId, result === 'yes']
