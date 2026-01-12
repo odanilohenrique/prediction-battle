@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
     try {
         const { betId, result } = await req.json();
 
-        if (!betId || (result !== 'yes' && result !== 'no')) {
-            return NextResponse.json({ success: false, error: 'Invalid parameters. Result must be "yes" or "no".' }, { status: 400 });
+        if (!betId || (result !== 'yes' && result !== 'no' && result !== 'void')) {
+            return NextResponse.json({ success: false, error: 'Invalid parameters. Result must be "yes", "no", or "void".' }, { status: 400 });
         }
 
         // 1. Fetch the Bet
