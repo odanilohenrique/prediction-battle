@@ -259,14 +259,20 @@ export default function AdminDashboard() {
                         // Wait for receipt would be ideal here if we want to be 100% sure before DB update
                         // But for now, let's assume if tx sends, we update DB. 
                         // Actually, better to just proceed. If it reverts, it throws.
-                    } catch (contractError) {
+                    } catch (contractError: any) {
                         console.error('Contract resolution failed:', contractError);
-                        // Ask to continue anyway? Or Block?
-                        // Usually if contract fails, we shouldn't mark as resolved in DB or payouts will fail.
-                        // But maybe it was ALREADY resolved on chain?
-                        // Let's alert and throw to stop DB update unless user forces it (not implemented).
-                        showAlert('Contract Error', 'Failed to resolve on blockchain. DB update aborted.', 'error');
-                        return;
+
+                        // Check for "Already resolved" or similar errors
+                        const errorMsg = contractError?.message?.toLowerCase() || '';
+                        const isAlreadyResolved = errorMsg.includes('resolved') || errorMsg.includes('finalized') || errorMsg.includes('already');
+
+                        if (isAlreadyResolved) {
+                            showAlert('Notice', 'Bet was already resolved on-chain. Syncing database...', 'info');
+                            // Proceed to update DB below (fall through)
+                        } else {
+                            showAlert('Contract Error', 'Failed to resolve on blockchain. DB update aborted.', 'error');
+                            return;
+                        }
                     }
                 } else {
                     console.warn('No contract address configured, skipping on-chain resolution');

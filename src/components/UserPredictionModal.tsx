@@ -20,10 +20,10 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
     const { showAlert, showModal } = useModal();
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [predictionType, setPredictionType] = useState<PredictionType>('post_count');
-    const [targetValue, setTargetValue] = useState<number>(3);
+    const [targetValue, setTargetValue] = useState<string>('3');
     const [timeframe, setTimeframe] = useState<'24h' | '7d'>('24h');
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
-    const [betAmount, setBetAmount] = useState<number>(0.1);
+    const [betAmount, setBetAmount] = useState<string>('0.1');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const predictionTypeLabels = {
@@ -46,6 +46,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
+        const targetValNum = parseFloat(targetValue) || 0;
+        const betAmountNum = parseFloat(betAmount) || 0;
 
         try {
             const response = await fetch('/api/predictions/user/create', {
@@ -58,9 +60,9 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                 showModal({
                     type: 'success',
                     title: 'PREVISÃO CRIADA!',
-                    message: `${choice === 'yes' ? 'SIM' : 'NÃO'}, @${username} ${choice === 'yes' ? 'VAI' : 'NÃO VAI'} ${predictionType === 'post_count' ? `postar ${targetValue}+ vezes` :
-                        predictionType === 'likes_total' ? `receber ${targetValue}+ likes` :
-                            `ganhar ${targetValue}+ seguidores`
+                    message: `${choice === 'yes' ? 'SIM' : 'NÃO'}, @${username} ${choice === 'yes' ? 'VAI' : 'NÃO VAI'} ${predictionType === 'post_count' ? `postar ${targetValNum}+ vezes` :
+                        predictionType === 'likes_total' ? `receber ${targetValNum}+ likes` :
+                            `ganhar ${targetValNum}+ seguidores`
                         } em ${timeframe === '24h' ? '24 horas' : '7 dias'}`,
                     confirmText: 'Show!',
                     onConfirm: onClose
@@ -138,16 +140,16 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                     Valor Alvo
                                 </label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={targetValue}
-                                    onChange={(e) => setTargetValue(parseInt(e.target.value) || 0)}
+                                    onChange={(e) => setTargetValue(e.target.value)}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    min={1}
                                 />
                                 <p className="text-xs text-textSecondary mt-2">
-                                    {predictionType === 'post_count' && `${targetValue} posts ou mais`}
-                                    {predictionType === 'likes_total' && `${targetValue} likes totais ou mais`}
-                                    {predictionType === 'followers_gain' && `${targetValue} novos seguidores ou mais`}
+                                    {predictionType === 'post_count' && `${targetValue || 0} posts ou mais`}
+                                    {predictionType === 'likes_total' && `${targetValue || 0} likes totais ou mais`}
+                                    {predictionType === 'followers_gain' && `${targetValue || 0} novos seguidores ou mais`}
                                 </p>
                             </div>
 
@@ -205,7 +207,7 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                     <div className="text-4xl mb-2">✅</div>
                                     <div className="text-lg font-bold text-textPrimary mb-1">SIM</div>
                                     <div className="text-sm text-textSecondary">
-                                        Vai atingir {targetValue}+
+                                        Vai atingir {targetValue || 0}+
                                     </div>
                                 </button>
                                 <button
@@ -218,7 +220,7 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                     <div className="text-4xl mb-2">❌</div>
                                     <div className="text-lg font-bold text-textPrimary mb-1">NÃO</div>
                                     <div className="text-sm text-textSecondary">
-                                        Não vai atingir {targetValue}
+                                        Não vai atingir {targetValue || 0}
                                     </div>
                                 </button>
                             </div>
@@ -250,8 +252,8 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                                 {BET_AMOUNTS.map((amount) => (
                                     <button
                                         key={amount}
-                                        onClick={() => setBetAmount(amount)}
-                                        className={`p-4 rounded-xl border-2 transition-all ${betAmount === amount
+                                        onClick={() => setBetAmount(amount.toString())}
+                                        className={`p-4 rounded-xl border-2 transition-all ${parseFloat(betAmount) === amount
                                             ? 'border-primary bg-primary/10'
                                             : 'border-darkGray hover:border-darkGray/50'
                                             }`}
@@ -266,13 +268,13 @@ export default function UserPredictionModal({ username, onClose }: UserPredictio
                             <div className="bg-darkGray rounded-xl p-4 space-y-2">
                                 <div className="text-sm font-medium text-textSecondary">Resumo</div>
                                 <div className="text-textPrimary">
-                                    Apostando <span className="text-primary font-bold">{betAmount} USDC</span>
+                                    Apostando <span className="text-primary font-bold">{betAmount || 0} USDC</span>
                                     {' '}que{' '}
                                     <span className="font-bold">@{username}</span>
                                     {' '}{choice === 'yes' ? 'VAI' : 'NÃO VAI'}{' '}
-                                    {predictionType === 'post_count' && `postar ${targetValue}+ vezes`}
-                                    {predictionType === 'likes_total' && `receber ${targetValue}+ likes`}
-                                    {predictionType === 'followers_gain' && `ganhar ${targetValue}+ seguidores`}
+                                    {predictionType === 'post_count' && `postar ${targetValue || 0}+ vezes`}
+                                    {predictionType === 'likes_total' && `receber ${targetValue || 0}+ likes`}
+                                    {predictionType === 'followers_gain' && `ganhar ${targetValue || 0}+ seguidores`}
                                     {' '}em {timeframe === '24h' ? '24 horas' : '7 dias'}
                                 </div>
                             </div>
