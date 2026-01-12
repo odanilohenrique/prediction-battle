@@ -869,18 +869,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             <div className="flex-1 relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-primary font-bold">$</span>
                                                 <input
-                                                    type="number"
-                                                    min={bet.minBet}
-                                                    max={bet.maxBet}
-                                                    step={0.01}
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     value={amount}
                                                     onChange={(e) => {
-                                                        const val = parseFloat(e.target.value);
+                                                        const raw = e.target.value.replace(',', '.');
+                                                        const val = parseFloat(raw) || bet.minBet;
                                                         if (val >= bet.minBet && val <= bet.maxBet) {
                                                             setAmount(val);
+                                                        } else if (raw === '') {
+                                                            setAmount(bet.minBet);
                                                         }
                                                     }}
                                                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 md:py-3 text-white font-bold text-base md:text-lg focus:outline-none focus:border-primary"
+                                                    placeholder={bet.minBet.toString()}
                                                 />
                                             </div>
                                             {/* Quick Select Buttons */}
