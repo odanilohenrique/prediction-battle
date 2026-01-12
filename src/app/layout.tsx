@@ -23,6 +23,10 @@ import { ModalProvider } from "@/providers/ModalProvider";
 
 // ... previous code ...
 
+import Footer from "@/components/Footer";
+
+// ... existing code ...
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -34,7 +38,12 @@ export default function RootLayout({
                 <FarcasterMiniAppProvider>
                     <OnchainProviders>
                         <ModalProvider>
-                            {children}
+                            <div className="flex flex-col min-h-screen">
+                                <div className="flex-grow">
+                                    {children}
+                                </div>
+                                <Footer />
+                            </div>
                         </ModalProvider>
                     </OnchainProviders>
                 </FarcasterMiniAppProvider>
