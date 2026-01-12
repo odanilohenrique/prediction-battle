@@ -92,6 +92,35 @@ export async function resolvePredictionOnChain(predictionId: string, result: boo
     }
 }
 
+export async function resolveVoidOnChain(predictionId: string, waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+
+    console.log(`[OPERATOR] Voiding bet ${predictionId} on-chain`);
+
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'resolveVoid',
+            args: [predictionId],
+        });
+
+        console.log(`[OPERATOR] Void Tx Hash: ${hash}`);
+
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') {
+                throw new Error(`Transaction reverted: ${hash}`);
+            }
+        }
+
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to void on-chain:", error);
+        throw error;
+    }
+}
+
 export async function distributeWinningsOnChain(predictionId: string, batchSize: number = 50, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 

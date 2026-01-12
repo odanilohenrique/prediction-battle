@@ -8,6 +8,14 @@ export interface BetParticipant {
     timestamp: number;
     paid?: boolean; // Track if user has been paid
     txHash?: string; // Track payout transaction hash
+    payout?: number;
+    resolvedAt?: number;
+    resolutionTxHash?: string;
+    feeAmount?: number;
+    winnerPool?: number;
+    protocolFeeAmount?: number;
+    creatorFeeAmount?: number;
+    result?: 'yes' | 'no' | 'void';
 }
 
 export interface Bet {
@@ -37,7 +45,7 @@ export interface Bet {
     castAuthor?: string;
     castText?: string;
     initialValue?: number;
-    result?: 'yes' | 'no';
+    result?: 'yes' | 'no' | 'void';
     finalValue?: number;
     // Versus Mode Options (maps to yes/no)
     isVersus?: boolean;   // Flag for Battle (A vs B) mode
@@ -48,6 +56,8 @@ export interface Bet {
     predictionImage?: string;
 
     // Settlement Data
+    resolvedAt?: number;
+    resolutionTxHash?: string;
     feeAmount?: number;         // Total Fee Deducted (20%)
     protocolFeeAmount?: number; // Fee going to the protocol
     creatorFeeAmount?: number;  // Fee going to the creator (if applicable)

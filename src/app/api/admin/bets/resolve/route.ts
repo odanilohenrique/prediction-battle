@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { isAdmin } from '@/lib/config';
-import { resolvePredictionOnChain, distributeWinningsOnChain } from '@/lib/contracts';
+import { resolvePredictionOnChain, distributeWinningsOnChain, isPredictionResolved, resolveVoidOnChain } from '@/lib/contracts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -27,9 +27,23 @@ export async function POST(req: NextRequest) {
 
         try {
             // 2. Execute On-Chain Logic
-            console.log(`[ADMIN] Resolving ${betId} manually -> ${result}`);
-            await resolvePredictionOnChain(betId, winBool);
+            const alreadyResolved = await isPredictionResolved(betId);
 
+            if (alreadyResolved) {
+                console.log(`[ADMIN] Bet ${betId} already resolved on-chain. Skipping tx.`);
+            } else {
+                if (result === 'void') {
+                    console.log(`[ADMIN] Voiding ${betId} manually`);
+                    await resolveVoidOnChain(betId);
+                } else {
+                    console.log(`[ADMIN] Resolving ${betId} manually -> ${result}`);
+                    await resolvePredictionOnChain(betId, winBool);
+                }
+            }
+
+            // Distribute only if not just voided? 
+            // Voiding sets paidOut=false initially, but distributeWinnings handles refunds too.
+            // Actually, resolveVoid emits PredictionVoided. distributeWinnings handles both Resolved and Voided structs.
             console.log(`[ADMIN] Distributing payouts for ${betId}`);
             await distributeWinningsOnChain(betId, 50);
 
