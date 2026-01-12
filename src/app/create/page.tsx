@@ -335,7 +335,7 @@ export default function CreateCommunityBet() {
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
                         functionName: 'createPrediction',
-                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)],
+                        args: [data.predictionId, BigInt(targetVal), BigInt(duration), address as `0x${string}`],
                         gas: BigInt(500000), // Explicit gas limit
                     });
                     console.log('[CREATE PAGE] On-chain creation tx:', contractHash);

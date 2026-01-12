@@ -5,7 +5,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagm
 import { useRouter } from 'next/navigation';
 import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload, Loader2, Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
-import { CURRENT_CONFIG, getContractAddressForBet } from '@/lib/config';
+import { CURRENT_CONFIG, getContractAddress } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // Mock Top Handles
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
         const bet = bets.find(b => b.id === betId);
         if (!bet) return;
 
-        const targetContract = getContractAddressForBet(bet.createdAt);
+        const targetContract = getContractAddress();
         const actionText = result === 'void' ? 'VOID' : result.toUpperCase();
 
         showConfirm('Confirm Resolution', `Are you sure you want to declare ${actionText} outcome? Payouts provided cannot be reversed.`, async () => {
