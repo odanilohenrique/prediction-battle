@@ -235,6 +235,38 @@ export default function PayoutsPage() {
         });
     };
 
+    const handleForceResolve = async (bet: any) => {
+        setResolvingContract(bet.id);
+        const intendedResult = bet.result === 'yes';
+
+        showConfirm('Fix Contract State?', `Force resolve contract as ${bet.result?.toUpperCase()}? Only do this if contract is stuck.`, async () => {
+            try {
+                if (chainId !== EXPECTED_CHAIN_ID) {
+                    if (switchChainAsync) await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                    else throw new Error("Switch network manually");
+                }
+
+                const hash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'resolvePrediction',
+                    args: [bet.id, intendedResult],
+                });
+
+                showAlert('Success', `Resolution Tx: ${hash}`, 'success');
+            } catch (error) {
+                console.error("Force resolve failed:", error);
+                if ((error as Error).message.includes("already resolved")) {
+                    showAlert("Info", "Contract already resolved. Try Batch Distribute.", "info");
+                } else {
+                    showAlert('Error', (error as Error).message, 'error');
+                }
+            } finally {
+                setResolvingContract(null);
+            }
+        });
+    };
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
