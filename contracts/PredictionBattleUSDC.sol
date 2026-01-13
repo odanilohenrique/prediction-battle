@@ -38,6 +38,8 @@ contract PredictionBattleUSDC {
         uint256 processedIndex;
         bool paidOut;
         address creator; // Market creator for 5% fee
+        uint256 seedYes;
+        uint256 seedNo;
     }
 
     mapping(string => Prediction) public predictions;
@@ -51,6 +53,7 @@ contract PredictionBattleUSDC {
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
     event OperatorUpdated(address operator, bool status);
+    event SeedAdded(string id, uint256 yesAmount, uint256 noAmount);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
@@ -79,10 +82,14 @@ contract PredictionBattleUSDC {
         admin = _newAdmin;
     }
 
-    // 1. Create a Prediction Market (Admin/Bot creates on behalf of user)
-    function createPrediction(string memory _id, uint256 _target, uint256 _duration, address _creator) external {
+    // 1. Create a Prediction Market (Create + Seed Atomically)
+    function createPrediction(string memory _id, uint256 _target, uint256 _duration, uint256 _seedAmount) external {
         require(!predictionExists[_id], "Prediction ID already exists");
+        require(_seedAmount > 0 && _seedAmount % 2 == 0, "Seed must be > 0 and even");
         
+        // Transfer USDC from creator to contract
+        require(usdcToken.transferFrom(msg.sender, address(this), _seedAmount), "USDC transfer failed");
+
         Prediction storage p = predictions[_id];
         p.id = _id;
         p.target = _target;
@@ -91,11 +98,40 @@ contract PredictionBattleUSDC {
         p.isVoid = false;
         p.processedIndex = 0;
         p.paidOut = false;
-        p.creator = _creator;
+        p.creator = msg.sender;
+        
+        // Auto-Seed
+        uint256 seedPerSide = _seedAmount / 2;
+        p.totalYes = seedPerSide;
+        p.totalNo = seedPerSide;
+        p.seedYes = seedPerSide;
+        p.seedNo = seedPerSide;
         
         predictionExists[_id] = true;
         
-        emit PredictionCreated(_id, _target, p.deadline, _creator);
+        emit PredictionCreated(_id, _target, p.deadline, msg.sender);
+        emit SeedAdded(_id, seedPerSide, seedPerSide);
+    }
+
+    // 1.5 Seed Liquidity (Dead Liquidity) - USDC
+    // Creator MUST approve USDC transfer before calling this
+    function seedPrediction(string memory _id, uint256 _seedAmount) external {
+        require(predictionExists[_id], "Prediction does not exist");
+        require(_seedAmount > 0 && _seedAmount % 2 == 0, "Seed must be > 0 and even");
+        
+        Prediction storage p = predictions[_id];
+        
+        // Transfer USDC from creator to contract
+        require(usdcToken.transferFrom(msg.sender, address(this), _seedAmount), "USDC transfer failed");
+        
+        uint256 seedPerSide = _seedAmount / 2;
+        
+        p.totalYes += seedPerSide;
+        p.totalNo += seedPerSide;
+        p.seedYes += seedPerSide;
+        p.seedNo += seedPerSide;
+        
+        emit SeedAdded(_id, seedPerSide, seedPerSide);
     }
 
     // 2. Place a Bet (User must `approve` USDC first)
@@ -144,8 +180,6 @@ contract PredictionBattleUSDC {
         if (p.creator != address(0)) {
             require(usdcToken.transfer(p.creator, creatorFee), "Failed to send creator fee");
         } else {
-            // If no creator (legacy or admin), platform takes it or it stays in winners pool?
-            // Let's send to admin to avoid stuck funds if logic assumes fee deducted
             require(usdcToken.transfer(admin, creatorFee), "Legacy creator fee to admin");
         }
 
@@ -183,15 +217,11 @@ contract PredictionBattleUSDC {
         uint256 platformFee = (totalPool * platformFeeBps) / 10000;
         uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
         
-        // If Void, we only deducted platformFee. If Resolved, we deducted both.
         uint256 distributablePot;
         
         if (p.isVoid) {
-            // In Void, we only took platformFee (or should we take 0? Existing logic took platformFee)
-            // Let's keep it consistent with resolveVoid logic
             distributablePot = totalPool - platformFee;
         } else {
-            // In Normal Resolve, we took both
             distributablePot = totalPool - platformFee - creatorFee;
         }
         
@@ -234,20 +264,39 @@ contract PredictionBattleUSDC {
             return;
         }
 
-        // --- NORMAL LOGIC (Win/Loss) ---
-        uint256 winningPool;
+        // --- NORMAL LOGIC (Win/Loss) with DEAD LIQUIDITY ---
+        uint256 winningPoolTotal;
+        uint256 winningSeed;
         
         if (p.result) { // YES won
             winners = p.yesBettors;
-            winningPool = p.totalYes;
+            winningPoolTotal = p.totalYes;
+            winningSeed = p.seedYes;
         } else { // NO won
             winners = p.noBettors;
-            winningPool = p.totalNo;
+            winningPoolTotal = p.totalNo;
+            winningSeed = p.seedNo;
         }
 
         if (winners.length == 0) {
             p.paidOut = true;
             return;
+        }
+
+        // Determine Eligible Shares (Excluding Seed)
+        uint256 eligibleShares = winningPoolTotal - winningSeed;
+        
+        // If no eligible shares (only seed in pool), funds stay in contract/admin? 
+        // Logic: If only seed is in pot, distributablePot is locked or sent to admin?
+        // Current logic: we only distribute to winners list. If list is empty, returned above.
+        // If list is not empty but eligibleShares is somehow 0 (impossible if bettors exist), we check.
+        
+        if (eligibleShares == 0) {
+             // This implies all money in winning side is Seed. No user bets.
+             // Thus distributablePot should probably go to Admin or carry over.
+             // For now, let's just mark paidOut.
+             p.paidOut = true;
+             return;
         }
 
         uint256 totalWinners = winners.length;
@@ -267,7 +316,11 @@ contract PredictionBattleUSDC {
             }
 
             if (betAmount > 0) {
-                uint256 payout = (betAmount * distributablePot) / winningPool;
+                /** 
+                 * DEAD LIQUIDITY FORMULA:
+                 * Payout = (UserBet / EligibleShares) * DistributablePot
+                 */
+                uint256 payout = (betAmount * distributablePot) / eligibleShares;
                 require(usdcToken.transfer(winnerAddr, payout), "Transfer failed");
                 emit PayoutDistributed(_id, winnerAddr, payout);
             }
