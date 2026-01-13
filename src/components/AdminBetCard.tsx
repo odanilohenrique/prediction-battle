@@ -693,16 +693,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {(() => {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    const initialSeed = bet.initialValue || 0;
+                                    const seedPerSide = initialSeed / 2;
 
-                                    // Dead Liquidity: Subtract Seed from Share Calculation (Denominator)
-                                    // But keep in Prize Calculation (Numerator)
-                                    // Net Yes Pool (Shares) = Total Yes - Seed
-                                    const netYesPool = Math.max(0, yesPool - (bet.initialValue || 0));
+                                    // Preview multiplier for MIN bet on YES side
+                                    const previewBet = bet.minBet || 0.05;
+                                    const newTotalPool = yesPool + noPool + previewBet;
+                                    const distributablePot = newTotalPool * 0.75;
+                                    const eligibleShares = yesPool + previewBet - seedPerSide;
 
-                                    if (netYesPool <= 0) return '2.00'; // Default max specific for dead liquidity start
-
-                                    // Prize = No Pool (Full, including seed) * 0.75 (Fees)
-                                    const multiplier = 1 + (noPool * 0.75) / netYesPool;
+                                    if (eligibleShares <= 0) return '2.00';
+                                    const multiplier = distributablePot / eligibleShares;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -710,13 +711,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {(() => {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    const initialSeed = bet.initialValue || 0;
+                                    const seedPerSide = initialSeed / 2;
 
-                                    // Dead Liquidity: Subtract Seed from Share Calculation (Denominator)
-                                    const netNoPool = Math.max(0, noPool - (bet.initialValue || 0));
+                                    // Preview multiplier for MIN bet on NO side
+                                    const previewBet = bet.minBet || 0.05;
+                                    const newTotalPool = yesPool + noPool + previewBet;
+                                    const distributablePot = newTotalPool * 0.75;
+                                    const eligibleShares = noPool + previewBet - seedPerSide;
 
-                                    if (netNoPool <= 0) return '2.00';
-
-                                    const multiplier = 1 + (yesPool * 0.75) / netNoPool;
+                                    if (eligibleShares <= 0) return '2.00';
+                                    const multiplier = distributablePot / eligibleShares;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -950,14 +955,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                 const initialSeed = bet.initialValue || 0;
+                                                const seedPerSide = initialSeed / 2;
 
-                                                // Dead Liquidity Logic
-                                                const netYes = Math.max(0, yesPool - initialSeed);
-                                                const netNo = Math.max(0, noPool - initialSeed);
+                                                // After user's bet
+                                                const newTotalPool = yesPool + noPool + numericAmount;
+                                                const distributablePot = newTotalPool * 0.75; // 75% to winners
 
-                                                const multiplier = choice === 'yes'
-                                                    ? (netYes + numericAmount <= 0 ? 2.00 : 1 + (noPool * 0.75) / (netYes + numericAmount))
-                                                    : (netNo + numericAmount <= 0 ? 2.00 : 1 + (yesPool * 0.75) / (netNo + numericAmount));
+                                                // Eligible shares = winning side pool (after bet) - seed on that side
+                                                let eligibleShares;
+                                                if (choice === 'yes') {
+                                                    const newYesPool = yesPool + numericAmount;
+                                                    eligibleShares = newYesPool - seedPerSide;
+                                                } else {
+                                                    const newNoPool = noPool + numericAmount;
+                                                    eligibleShares = newNoPool - seedPerSide;
+                                                }
+
+                                                // Multiplier = Total Payout / User Bet
+                                                // Payout = (userBet * distributablePot) / eligibleShares
+                                                // So Multiplier = distributablePot / eligibleShares
+                                                const multiplier = eligibleShares > 0 ? distributablePot / eligibleShares : 2.00;
 
                                                 return (numericAmount * multiplier).toFixed(2);
                                             })()}
@@ -967,12 +984,19 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
                                                     const initialSeed = bet.initialValue || 0;
-                                                    const netYes = Math.max(0, yesPool - initialSeed);
-                                                    const netNo = Math.max(0, noPool - initialSeed);
+                                                    const seedPerSide = initialSeed / 2;
 
-                                                    const multiplier = choice === 'yes'
-                                                        ? (netYes + numericAmount <= 0 ? 2.00 : 1 + (noPool * 0.75) / (netYes + numericAmount))
-                                                        : (netNo + numericAmount <= 0 ? 2.00 : 1 + (yesPool * 0.75) / (netNo + numericAmount));
+                                                    const newTotalPool = yesPool + noPool + numericAmount;
+                                                    const distributablePot = newTotalPool * 0.75;
+
+                                                    let eligibleShares;
+                                                    if (choice === 'yes') {
+                                                        eligibleShares = yesPool + numericAmount - seedPerSide;
+                                                    } else {
+                                                        eligibleShares = noPool + numericAmount - seedPerSide;
+                                                    }
+
+                                                    const multiplier = eligibleShares > 0 ? distributablePot / eligibleShares : 2.00;
                                                     return multiplier.toFixed(2);
                                                 })()}x)
                                             </span>
