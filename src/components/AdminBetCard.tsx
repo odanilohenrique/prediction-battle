@@ -696,14 +696,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     const initialSeed = bet.initialValue || 0;
                                     const seedPerSide = initialSeed / 2;
 
-                                    // Preview multiplier for MIN bet on YES side
+                                    // Traditional Parimutuel: bet back + 75% of losing side
                                     const previewBet = bet.minBet || 0.05;
-                                    const newTotalPool = yesPool + noPool + previewBet;
-                                    const distributablePot = newTotalPool * 0.75;
+                                    const losingPool = noPool; // For YES side, NO pool is losing
                                     const eligibleShares = yesPool + previewBet - seedPerSide;
 
-                                    if (eligibleShares <= 0) return '2.00';
-                                    const multiplier = distributablePot / eligibleShares;
+                                    if (eligibleShares <= 0) return '1.75';
+                                    const multiplier = 1 + (losingPool * 0.75) / eligibleShares;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -714,14 +713,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     const initialSeed = bet.initialValue || 0;
                                     const seedPerSide = initialSeed / 2;
 
-                                    // Preview multiplier for MIN bet on NO side
+                                    // Traditional Parimutuel: bet back + 75% of losing side
                                     const previewBet = bet.minBet || 0.05;
-                                    const newTotalPool = yesPool + noPool + previewBet;
-                                    const distributablePot = newTotalPool * 0.75;
+                                    const losingPool = yesPool; // For NO side, YES pool is losing
                                     const eligibleShares = noPool + previewBet - seedPerSide;
 
-                                    if (eligibleShares <= 0) return '2.00';
-                                    const multiplier = distributablePot / eligibleShares;
+                                    if (eligibleShares <= 0) return '1.75';
+                                    const multiplier = 1 + (losingPool * 0.75) / eligibleShares;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -957,24 +955,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 const initialSeed = bet.initialValue || 0;
                                                 const seedPerSide = initialSeed / 2;
 
-                                                // After user's bet
-                                                const newTotalPool = yesPool + noPool + numericAmount;
-                                                const distributablePot = newTotalPool * 0.75; // 75% to winners
+                                                // Traditional Parimutuel with Dead Liquidity:
+                                                // You get your bet back + 75% of LOSING side's pool (split by your share)
+                                                const losingPool = choice === 'yes' ? noPool : yesPool;
+                                                const eligibleShares = choice === 'yes'
+                                                    ? yesPool + numericAmount - seedPerSide  // Your side (excluding seed)
+                                                    : noPool + numericAmount - seedPerSide;
 
-                                                // Eligible shares = winning side pool (after bet) - seed on that side
-                                                let eligibleShares;
-                                                if (choice === 'yes') {
-                                                    const newYesPool = yesPool + numericAmount;
-                                                    eligibleShares = newYesPool - seedPerSide;
-                                                } else {
-                                                    const newNoPool = noPool + numericAmount;
-                                                    eligibleShares = newNoPool - seedPerSide;
-                                                }
-
-                                                // Multiplier = Total Payout / User Bet
-                                                // Payout = (userBet * distributablePot) / eligibleShares
-                                                // So Multiplier = distributablePot / eligibleShares
-                                                const multiplier = eligibleShares > 0 ? distributablePot / eligibleShares : 2.00;
+                                                // multiplier = 1 (bet back) + (losingPool * 0.75) / eligibleShares
+                                                const multiplier = eligibleShares > 0
+                                                    ? 1 + (losingPool * 0.75) / eligibleShares
+                                                    : 1.75; // Default
 
                                                 return (numericAmount * multiplier).toFixed(2);
                                             })()}
@@ -986,17 +977,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     const initialSeed = bet.initialValue || 0;
                                                     const seedPerSide = initialSeed / 2;
 
-                                                    const newTotalPool = yesPool + noPool + numericAmount;
-                                                    const distributablePot = newTotalPool * 0.75;
+                                                    const losingPool = choice === 'yes' ? noPool : yesPool;
+                                                    const eligibleShares = choice === 'yes'
+                                                        ? yesPool + numericAmount - seedPerSide
+                                                        : noPool + numericAmount - seedPerSide;
 
-                                                    let eligibleShares;
-                                                    if (choice === 'yes') {
-                                                        eligibleShares = yesPool + numericAmount - seedPerSide;
-                                                    } else {
-                                                        eligibleShares = noPool + numericAmount - seedPerSide;
-                                                    }
-
-                                                    const multiplier = eligibleShares > 0 ? distributablePot / eligibleShares : 2.00;
+                                                    const multiplier = eligibleShares > 0
+                                                        ? 1 + (losingPool * 0.75) / eligibleShares
+                                                        : 1.75;
                                                     return multiplier.toFixed(2);
                                                 })()}x)
                                             </span>
