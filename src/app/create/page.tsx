@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect } from 'wagmi';
 import { parseUnits } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
@@ -99,6 +99,7 @@ export default function CreateCommunityBet() {
     const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const { switchChainAsync } = useSwitchChain();
+    const { connectors, connect } = useConnect();
     const publicClient = usePublicClient();
 
     // Configuration
@@ -122,8 +123,9 @@ export default function CreateCommunityBet() {
         castUrl: '',
 
         // Limits & Econ
-        minBet: 0.1, // Community default
-        maxBet: 10,  // Community max
+        // Limits & Econ
+        minBet: '0.1', // Community default (string for input)
+        maxBet: '10',  // Community max (string for input)
 
         // Metadata
         rules: '',
@@ -145,7 +147,7 @@ export default function CreateCommunityBet() {
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
-    const requiredSeedPerSide = formData.maxBet; // Logic: creator seeds max possible win pool? Or just max bet? In admin it was maxBet.
+    const requiredSeedPerSide = parseFloat(formData.maxBet) || 0; // Parse string
     const totalRequiredSeed = requiredSeedPerSide * 2;
 
     // Load players
@@ -288,8 +290,8 @@ export default function CreateCommunityBet() {
                     betAmount: totalRequiredSeed,
                     userAddress: address,
                     initialValue: 0,
-                    maxEntrySize: formData.maxBet,
-                    minBet: formData.minBet,
+                    maxEntrySize: parseFloat(formData.maxBet) || 0,
+                    minBet: parseFloat(formData.minBet) || 0,
                     displayName: creationMode === 'battle' ? 'Battle Master' : formData.displayName,
                     pfpUrl: formData.pfpUrl || '',
                     timeframe: formData.timeframe,
@@ -728,12 +730,14 @@ export default function CreateCommunityBet() {
                                         inputMode="decimal"
                                         value={formData.minBet}
                                         onChange={(e) => {
-                                            const raw = e.target.value.replace(',', '.');
-                                            setFormData({ ...formData, minBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*[.,]?\d*$/.test(val)) {
+                                                setFormData({ ...formData, minBet: val });
+                                            }
                                         }}
                                         onBlur={(e) => {
-                                            const val = parseFloat(e.target.value.replace(',', '.')) || 0.1;
-                                            setFormData({ ...formData, minBet: val });
+                                            let val = parseFloat(e.target.value.replace(',', '.')) || 0.1;
+                                            setFormData({ ...formData, minBet: val.toString() });
                                         }}
                                         className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-green-500"
                                         placeholder="0.1"
@@ -746,12 +750,14 @@ export default function CreateCommunityBet() {
                                         inputMode="decimal"
                                         value={formData.maxBet}
                                         onChange={(e) => {
-                                            const raw = e.target.value.replace(',', '.');
-                                            setFormData({ ...formData, maxBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*[.,]?\d*$/.test(val)) {
+                                                setFormData({ ...formData, maxBet: val });
+                                            }
                                         }}
                                         onBlur={(e) => {
-                                            const val = parseFloat(e.target.value.replace(',', '.')) || 10;
-                                            setFormData({ ...formData, maxBet: val });
+                                            let val = parseFloat(e.target.value.replace(',', '.')) || 10;
+                                            setFormData({ ...formData, maxBet: val.toString() });
                                         }}
                                         className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-green-500"
                                         placeholder="10"
@@ -1263,7 +1269,7 @@ export default function CreateCommunityBet() {
                                     }}
                                     onBlur={(e) => {
                                         const val = parseFloat(e.target.value.replace(',', '.')) || 0.01;
-                                        setFormData({ ...formData, minBet: val });
+                                        setFormData({ ...formData, minBet: val.toString() });
                                     }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
                                     placeholder="0.01"
@@ -1286,7 +1292,7 @@ export default function CreateCommunityBet() {
                                     }}
                                     onBlur={(e) => {
                                         const val = parseFloat(e.target.value.replace(',', '.')) || 10;
-                                        setFormData({ ...formData, maxBet: val });
+                                        setFormData({ ...formData, maxBet: val.toString() });
                                     }}
                                     className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
                                     placeholder="10"
@@ -1431,13 +1437,32 @@ export default function CreateCommunityBet() {
                 {/* Submit - Shared by both modes */}
                 <div className="flex gap-4 mt-6">
                     <Link href="/" className="flex-1 bg-darkGray py-3 rounded-xl text-center text-textPrimary hover:bg-white/5 transition-colors">Cancel</Link>
-                    <button
-                        type="submit"
-                        disabled={isSubmitting || (creationMode === 'prediction' && !formData.username && !formData.predictionQuestion) || (creationMode === 'battle' && (!formData.optionA.label || !formData.optionB.label || !formData.battleQuestion)) || totalRequiredSeed <= 0}
-                        className={`flex-1 font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg ${creationMode === 'battle' ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-red-500/20' : 'bg-gradient-to-r from-primary to-secondary text-background shadow-primary/20'}`}
-                    >
-                        {isSubmitting ? 'Waiting for Wallet...' : creationMode === 'battle' ? `⚔️ Launch Battle ($${totalRequiredSeed.toFixed(2)})` : `Create Battle ($${totalRequiredSeed.toFixed(2)})`}
-                    </button>
+                    {isConnected ? (
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || (creationMode === 'prediction' && !formData.username && !formData.predictionQuestion) || (creationMode === 'battle' && (!formData.optionA.label || !formData.optionB.label || !formData.battleQuestion)) || totalRequiredSeed <= 0}
+                            className={`flex-1 font-bold py-3 rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg ${creationMode === 'battle' ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-red-500/20' : 'bg-gradient-to-r from-primary to-secondary text-background shadow-primary/20'}`}
+                        >
+                            {isSubmitting ? 'Waiting for Wallet...' : creationMode === 'battle' ? `⚔️ Launch Battle ($${totalRequiredSeed.toFixed(2)})` : `Create Battle ($${totalRequiredSeed.toFixed(2)})`}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
+                                if (coinbaseConnector) {
+                                    connect({ connector: coinbaseConnector });
+                                } else if (connectors.length > 0) {
+                                    connect({ connector: connectors[0] });
+                                } else {
+                                    alert('No wallet connectors found. Please install a wallet.');
+                                }
+                            }}
+                            className="flex-1 bg-white hover:bg-gray-200 text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                        >
+                            <span>💳</span> Connect Wallet
+                        </button>
+                    )}
                 </div>
 
             </form>
