@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
                 castAuthor,
                 castText,
                 castUrl, // Saved here
-                initialValue: initialValue || 0,
+                initialValue: requiredSeed, // CRITICAL: This is the seed amount used for multiplier calculation
                 creatorAddress: userId, // Store creator wallet for fee splitting
                 wordToMatch: wordToMatch || undefined,
                 // Battle Mode specifics
