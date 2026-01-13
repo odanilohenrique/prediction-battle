@@ -9,16 +9,22 @@ pragma solidity ^0.8.20;
  */
 contract PredictionBattle {
     address public admin;
-    uint256 public platformFeeBps = 2000; // 20% fee (2000 basis points)
+    uint256 public creatorFeeBps = 500; // 5% fee for market creator
 
     struct Prediction {
         string id;
+        address creator; // Market Creator
         uint256 target;
         uint256 deadline;
         bool resolved;
         bool result; // true = YES, false = NO
         uint256 totalYes;
         uint256 totalNo;
+        
+        // Dead Liquidity Tracking (Seed)
+        uint256 seedYes;
+        uint256 seedNo;
+
         // Tracking bettors for auto-distribution
         address[] yesBettors;
         address[] noBettors;
@@ -35,9 +41,10 @@ contract PredictionBattle {
 
     mapping(address => bool) public operators; // Authorized auto-verifiers
 
-    event PredictionCreated(string id, uint256 target, uint256 deadline);
+    event PredictionCreated(string id, address creator, uint256 target, uint256 deadline);
+    event SeedAdded(string id, uint256 seedYes, uint256 seedNo);
     event BetPlaced(string id, address user, bool vote, uint256 amount);
-    event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 platformFee);
+    event PredictionResolved(string id, bool result, uint256 winnerPool, uint256 platformFee, uint256 creatorFee);
     event PredictionVoided(string id, uint256 totalPool, uint256 platformFee);
     event PayoutDistributed(string id, address user, uint256 amount);
     event DistributionCompleted(string id);
@@ -63,12 +70,14 @@ contract PredictionBattle {
         emit OperatorUpdated(_operator, _status);
     }
 
-    // 1. Create a Prediction Market
-    function createPrediction(string memory _id, uint256 _target, uint256 _duration) external onlyAdmin {
+    // 1. Create a Prediction Market (Permissionless + Seed in one Tx)
+    function createPrediction(string memory _id, uint256 _target, uint256 _duration) external payable {
         require(!predictionExists[_id], "Prediction ID already exists");
+        require(msg.value > 0 && msg.value % 2 == 0, "Seed must be > 0 and even");
         
         Prediction storage p = predictions[_id];
         p.id = _id;
+        p.creator = msg.sender;
         p.target = _target;
         p.deadline = block.timestamp + _duration;
         p.resolved = false;
@@ -76,9 +85,34 @@ contract PredictionBattle {
         p.processedIndex = 0;
         p.paidOut = false;
         
+        // Auto-Seed Split (Dead Liquidity)
+        uint256 seedPerSide = msg.value / 2;
+        p.totalYes = seedPerSide;
+        p.totalNo = seedPerSide;
+        p.seedYes = seedPerSide;
+        p.seedNo = seedPerSide;
+        
         predictionExists[_id] = true;
         
-        emit PredictionCreated(_id, _target, p.deadline);
+        emit PredictionCreated(_id, msg.sender, _target, p.deadline);
+        emit SeedAdded(_id, seedPerSide, seedPerSide);
+    }
+
+    // 1.5 Additional Seed (Optional Boost)
+    function seedPrediction(string memory _id) external payable { // Simplified signature
+        require(predictionExists[_id], "Prediction does not exist");
+        require(msg.value > 0 && msg.value % 2 == 0, "Seed must be > 0 and even");
+        
+        uint256 seedPerSide = msg.value / 2;
+
+        Prediction storage p = predictions[_id];
+        
+        p.totalYes += seedPerSide;
+        p.totalNo += seedPerSide;
+        p.seedYes += seedPerSide;
+        p.seedNo += seedPerSide;
+        
+        emit SeedAdded(_id, seedPerSide, seedPerSide);
     }
 
     // 2. Place a Bet
@@ -114,15 +148,30 @@ contract PredictionBattle {
         p.resolved = true;
         p.result = _result;
 
-        // Calculate Fee
+        // Calculate Fees
         uint256 totalPool = p.totalYes + p.totalNo;
-        uint256 fee = (totalPool * platformFeeBps) / 10000;
+        uint256 platformFee = (totalPool * platformFeeBps) / 10000;
+        uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
         
-        // Send fee to admin immediately
-        (bool sent, ) = admin.call{value: fee}("");
-        require(sent, "Failed to send platform fee");
+        // Send Platform Fee
+        (bool sentHouse, ) = admin.call{value: platformFee}("");
+        require(sentHouse, "Failed to send platform fee");
 
-        emit PredictionResolved(_id, _result, totalPool - fee, fee);
+        // Send Creator Fee (if creator exists and isn't admin/null)
+        if (p.creator != address(0) && p.creator != admin) {
+             (bool sentCreator, ) = p.creator.call{value: creatorFee}("");
+             require(sentCreator, "Failed to send creator fee");
+        } else {
+            // If self-created by admin, keep fee or burn? Keep in contract or treat as revenue?
+            // Sending to admin for simplicity
+            (bool sentAdmin, ) = admin.call{value: creatorFee}("");
+            require(sentAdmin, "Failed to send creator fee to admin");
+        }
+        
+        // Distributable = Total - 25% (20+5)
+        uint256 totalFees = platformFee + creatorFee;
+
+        emit PredictionResolved(_id, _result, totalPool - totalFees, platformFee, creatorFee);
     }
 
     // 3.5. Resolve as Void (Draw/Refund)
@@ -136,8 +185,10 @@ contract PredictionBattle {
 
         uint256 totalPool = p.totalYes + p.totalNo;
         uint256 fee = (totalPool * platformFeeBps) / 10000;
-
-        // Send fee to admin immediately
+        // No creator fee on void? Or yes? Usually void returns 100% or keeps fees.
+        // Standard: Users prefer 100% refund. But to prevent spam, maybe fees kept?
+        // Current implementation: Keeps platform fee, refunds rest.
+        
         (bool sent, ) = admin.call{value: fee}("");
         require(sent, "Failed to send platform fee");
 
@@ -150,74 +201,86 @@ contract PredictionBattle {
         require(p.resolved, "Prediction not resolved yet");
         require(!p.paidOut, "Already fully paid out");
 
-        address[] memory winners;
-        uint256 totalPool = p.totalYes + p.totalNo;
-        uint256 fee = (totalPool * platformFeeBps) / 10000;
-        uint256 distributablePot = totalPool - fee;
+        address[] memory winners; // Users who have SHARES
         
-        // --- VOID LOGIC ---
+        uint256 totalPool = p.totalYes + p.totalNo;
+        uint256 platformFee = (totalPool * platformFeeBps) / 10000;
+        uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
+        uint256 distributablePot = totalPool - platformFee - creatorFee;
+
         if (p.isVoid) {
-            // Need to iterate through ALL bettors (YES and NO)
-            // Ideally we'd have a single array of allBettors, but we have two.
-            // Complex to do in one loop if sizes differ.
-            // Better strategy: Treat them as a single virtual list.
+            // VOID LOGIC (Refunding Everyone)
+            // Distribute Pot is effectively Total - Fees.
+            // ... (Same Void Logic as before, just treating refund proportional to bet)
             
-            uint256 totalYesCount = p.yesBettors.length;
-            uint256 totalNoCount = p.noBettors.length;
-            uint256 totalBettors = totalYesCount + totalNoCount;
+             uint256 totalYesCount = p.yesBettors.length;
+             uint256 totalNoCount = p.noBettors.length;
+             uint256 totalBettors = totalYesCount + totalNoCount;
             
-            uint256 endIndex = p.processedIndex + _batchSize;
-            if (endIndex > totalBettors) endIndex = totalBettors;
+             uint256 endIndex = p.processedIndex + _batchSize;
+             if (endIndex > totalBettors) endIndex = totalBettors;
 
-            for (uint256 i = p.processedIndex; i < endIndex; i++) {
-                address userAddr;
-                uint256 betAmount;
+             for (uint256 i = p.processedIndex; i < endIndex; i++) {
+                 address userAddr;
+                 uint256 betAmount;
                 
-                if (i < totalYesCount) {
-                    // Processing YES bettors
-                    userAddr = p.yesBettors[i];
-                    betAmount = p.yesBets[userAddr];
-                    p.yesBets[userAddr] = 0; 
-                } else {
-                    // Processing NO bettors
-                    uint256 noIndex = i - totalYesCount;
-                    userAddr = p.noBettors[noIndex];
-                    betAmount = p.noBets[userAddr];
-                    p.noBets[userAddr] = 0;
-                }
+                 if (i < totalYesCount) {
+                     userAddr = p.yesBettors[i];
+                     betAmount = p.yesBets[userAddr];
+                     p.yesBets[userAddr] = 0; 
+                 } else {
+                     uint256 noIndex = i - totalYesCount;
+                     userAddr = p.noBettors[noIndex];
+                     betAmount = p.noBets[userAddr];
+                     p.noBets[userAddr] = 0;
+                 }
 
-                if (betAmount > 0) {
-                    // Refund calculation: (UserBet / TotalPool) * Distributable
-                    // Or simply: UserBet * (0.8) if fee is constant 20%
-                    // Using (betAmount * distributablePot) / totalPool is safer for precision
-                    uint256 refund = (betAmount * distributablePot) / totalPool;
-                    
-                    (bool sent, ) = userAddr.call{value: refund}("");
-                    require(sent, "Transfer failed"); 
-                    emit PayoutDistributed(_id, userAddr, refund);
-                }
-            }
+                 if (betAmount > 0) {
+                     // Void Refund: Proportional to what's left after fee logic
+                     // Or 100% if we didn't take fees (currently we took platform fee).
+                     // If seed existed, seed is also lost (or refunded to whom? Creator?).
+                     // Current Logic: Only 'Bettors' in the list get refunded.
+                     // Seed amount is basically 'donated' to the void refund pool if creator isn't in list.
+                     // This is acceptable for Dead Liquidity.
+                     
+                     uint256 totalUserBets = totalPool - p.seedYes - p.seedNo; // Total Claimable
+                     if (totalUserBets > 0) {
+                        uint256 refund = (betAmount * distributablePot) / totalUserBets;
+                        (bool sent, ) = userAddr.call{value: refund}("");
+                        require(sent, "Transfer failed"); 
+                        emit PayoutDistributed(_id, userAddr, refund);
+                     }
+                 }
+             }
             
-            p.processedIndex = endIndex;
-            if (p.processedIndex >= totalBettors) {
-                p.paidOut = true;
-                emit DistributionCompleted(_id);
-            }
-            return;
+             p.processedIndex = endIndex;
+             if (p.processedIndex >= totalBettors) {
+                 p.paidOut = true;
+                 emit DistributionCompleted(_id);
+             }
+             return;
         }
 
-        // --- NORMAL LOGIC (Win/Loss) ---
-        uint256 winningPool;
+        // --- WINNER LOGIC ---
+        
+        uint256 winningPoolTotal; // Including Seed
+        uint256 winningSeed;
         
         if (p.result) { // YES won
             winners = p.yesBettors;
-            winningPool = p.totalYes;
+            winningPoolTotal = p.totalYes;
+            winningSeed = p.seedYes;
         } else { // NO won
             winners = p.noBettors;
-            winningPool = p.totalNo;
+            winningPoolTotal = p.totalNo;
+            winningSeed = p.seedNo;
         }
+        
+        // Critical Fix for Dead Liquidity:
+        // The shares that are eligible for payout = Total - Seed.
+        uint256 eligibleShares = winningPoolTotal - winningSeed;
 
-        if (winners.length == 0) {
+        if (winners.length == 0 || eligibleShares == 0) {
             p.paidOut = true;
             return;
         }
@@ -239,7 +302,10 @@ contract PredictionBattle {
             }
 
             if (betAmount > 0) {
-                uint256 payout = (betAmount * distributablePot) / winningPool;
+                // Denominator is now ONLY eligible shares (excluding seed)
+                // This means the Seed's portion of the win is distributed to these users.
+                uint256 payout = (betAmount * distributablePot) / eligibleShares;
+                
                 (bool sent, ) = winnerAddr.call{value: payout}("");
                 require(sent, "Transfer failed");
                 emit PayoutDistributed(_id, winnerAddr, payout);
