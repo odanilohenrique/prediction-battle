@@ -678,8 +678,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {(() => {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                    if (yesPool === 0) return '1.00';
-                                    const multiplier = 1 + (noPool * 0.75) / yesPool;
+
+                                    // Dead Liquidity: Subtract Seed from Share Calculation (Denominator)
+                                    // But keep in Prize Calculation (Numerator)
+                                    // Net Yes Pool (Shares) = Total Yes - Seed
+                                    const netYesPool = Math.max(0, yesPool - (bet.initialValue || 0));
+
+                                    if (netYesPool <= 0) return '2.00'; // Default max specific for dead liquidity start
+
+                                    // Prize = No Pool (Full, including seed) * 0.75 (Fees)
+                                    const multiplier = 1 + (noPool * 0.75) / netYesPool;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
@@ -687,8 +695,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 {(() => {
                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-                                    if (noPool === 0) return '1.00';
-                                    const multiplier = 1 + (yesPool * 0.75) / noPool;
+
+                                    // Dead Liquidity: Subtract Seed from Share Calculation (Denominator)
+                                    const netNoPool = Math.max(0, noPool - (bet.initialValue || 0));
+
+                                    if (netNoPool <= 0) return '2.00';
+
+                                    const multiplier = 1 + (yesPool * 0.75) / netNoPool;
                                     return multiplier.toFixed(2);
                                 })()}x
                             </span></span>
