@@ -208,8 +208,31 @@ export default function CreateCommunityBet() {
             }
 
 
-            // 1. Skip USDC (Using Native ETH value in contract call)
-            console.log('Skipping USDC tx, using ETH value in createPrediction...');
+            // 1. Approve USDC for the Contract
+            console.log('[ADMIN CREATE] Approving USDC...');
+            const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
+
+            const approveHash = await writeContractAsync({
+                address: USDC_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'approve',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                    outputs: [{ name: '', type: 'bool' }]
+                }],
+                functionName: 'approve',
+                args: [getContractAddress(), totalSeedWei],
+                gas: BigInt(100000),
+            });
+
+            if (publicClient) {
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60000 });
+                if (approveReceipt.status !== 'success') {
+                    throw new Error('USDC approval failed.');
+                }
+            }
+            console.log('[ADMIN CREATE] USDC Approved!');
 
             // 2. Create the bet via Permissionless API
             console.log('Creating prediction...');
@@ -297,16 +320,15 @@ export default function CreateCommunityBet() {
             });
 
             const data = await response.json();
-            console.log('[CREATE PAGE] API Response:', JSON.stringify(data));
+            console.log('[ADMIN CREATE] API Response:', JSON.stringify(data));
 
             if (!data.success) {
                 throw new Error(data.error || 'API failed to register bet');
             }
 
-            console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
+            console.log('[ADMIN CREATE] Bet created with ID:', data.predictionId);
 
-            // 3. Create on Smart Contract (CRITICAL FIX)
-            // The contract requires the prediction to exist before anyone (including admin) can bet/distribute.
+            // 3. Create on Smart Contract (Uses USDC transferFrom)
             try {
                 console.log('Registering prediction on-chain...');
                 const durationSeconds = formData.timeframe === '24h' ? 86400 :
@@ -320,11 +342,12 @@ export default function CreateCommunityBet() {
                         {
                             name: 'createPrediction',
                             type: 'function',
-                            stateMutability: 'payable',
+                            stateMutability: 'nonpayable',
                             inputs: [
                                 { name: '_id', type: 'string' },
                                 { name: '_target', type: 'uint256' },
-                                { name: '_deadline', type: 'uint256' }
+                                { name: '_deadline', type: 'uint256' },
+                                { name: '_seedAmount', type: 'uint256' }
                             ],
                             outputs: []
                         }
@@ -333,9 +356,9 @@ export default function CreateCommunityBet() {
                     args: [
                         data.predictionId,
                         BigInt(formData.targetValue || 0),
-                        BigInt(durationSeconds)
+                        BigInt(durationSeconds),
+                        totalSeedWei
                     ],
-                    value: parseEther(totalRequiredSeed.toString()),
                     gas: BigInt(500000),
                 });
 
@@ -348,8 +371,6 @@ export default function CreateCommunityBet() {
 
             } catch (contractError) {
                 console.error('Failed to create on contract:', contractError);
-                // We show an error but don't block the UI flow entirely, although this is critical.
-                // In production, we should probably revert the API call or retry.
                 showAlert('Partial Error', 'Bet saved to DB but failed on Blockchain. Please retry or contact dev.', 'error');
                 setIsSubmitting(false);
                 return;

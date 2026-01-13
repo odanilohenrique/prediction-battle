@@ -317,21 +317,40 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
     const handleSeedPool = async () => {
-        showConfirm('Seed Pool', 'This will place ETH liquidity on both sides (Dead Liquidity). This requires sending Native Base Sepolia ETH. Confirm?', async () => {
+        showConfirm('Seed Pool', 'This will place USDC liquidity on both sides (Dead Liquidity). You will need to approve USDC. Confirm?', async () => {
             setIsSubmitting(true);
             try {
-                // 1. Calculate Seed Amount (e.g. 10 USD -> 10 ETH for testnet logic consistency)
-                const seedTotal = 2; // Fixed Seed Amount for Admin Button usage
-                const amountInWei = parseEther(seedTotal.toString()); // Total Seed as ETH
+                const seedTotal = 2; // Fixed $2 seed ($1 per side)
+                const amountInWei = parseUnits(seedTotal.toString(), 6); // USDC has 6 decimals
 
-                // 2. Call Contract directly (One Tx)
+                // 1. Approve USDC
+                console.log('Approving USDC for seed...');
+                const approveHash = await writeContractAsync({
+                    address: USDC_ADDRESS as `0x${string}`,
+                    abi: [{
+                        name: 'approve',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                        outputs: [{ name: '', type: 'bool' }]
+                    }],
+                    functionName: 'approve',
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, amountInWei],
+                    gas: BigInt(100000),
+                });
+
+                if (publicClient) {
+                    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+                }
+                console.log('USDC Approved!');
+
+                // 2. Call Contract seedPrediction(id, amount)
                 console.log('Seeding Contract...');
                 const hash = await writeContractAsync({
                     address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'seedPrediction',
-                    args: [bet.id], // New Signature: Just ID, splits msg.value
-                    value: amountInWei,
+                    args: [bet.id, amountInWei],
                     gas: BigInt(300000),
                 });
 
@@ -341,8 +360,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                 // 3. Register in Backend (Split 50/50 logic for display)
                 const splitedSeed = seedTotal / 2;
-
-                // Helper to register
                 const registerSide = async (side: 'yes' | 'no') => {
                     await fetch('/api/predictions/bet', {
                         method: 'POST',

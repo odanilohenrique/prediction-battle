@@ -191,9 +191,44 @@ export default function CreateCommunityBet() {
 
         try {
 
-            // 1. Skip USDC Transaction (Using Native ETH in Contract Call now)
-            console.log('Skipping USDC tx, will use ETH in createPrediction...');
+            // 0. Verify Network
+            if (chainId !== EXPECTED_CHAIN_ID) {
+                try {
+                    if (switchChainAsync) {
+                        await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
+                    }
+                } catch (error) {
+                    showAlert('Wrong Network', 'Please switch to Base.', 'error');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
 
+            // 1. Approve USDC for the Contract
+            console.log('[CREATE PAGE] Approving USDC...');
+            const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
+
+            const approveHash = await writeContractAsync({
+                address: USDC_ADDRESS as `0x${string}`,
+                abi: [{
+                    name: 'approve',
+                    type: 'function',
+                    stateMutability: 'nonpayable',
+                    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                    outputs: [{ name: '', type: 'bool' }]
+                }],
+                functionName: 'approve',
+                args: [CURRENT_CONFIG.contractAddress as `0x${string}`, totalSeedWei],
+                gas: BigInt(100000),
+            });
+
+            if (publicClient) {
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60000 });
+                if (approveReceipt.status !== 'success') {
+                    throw new Error('USDC approval failed.');
+                }
+            }
+            console.log('[CREATE PAGE] USDC Approved!');
 
             // 2. Prepare Data
             console.log('Creating prediction...');
@@ -222,7 +257,7 @@ export default function CreateCommunityBet() {
                 finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType?.targetLabel || ''}?`;
             }
 
-            // 3. MAIN API CALL
+            // 3. MAIN API CALL (Register in Database)
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -260,7 +295,7 @@ export default function CreateCommunityBet() {
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
 
-            // 4. Create Prediction on Smart Contract (REQUIRED for betting to work)
+            // 4. Create Prediction on Smart Contract (Uses USDC transferFrom)
             if (CURRENT_CONFIG.contractAddress && data.predictionId) {
                 try {
                     console.log('[CREATE PAGE] Creating on-chain prediction...');
@@ -277,9 +312,8 @@ export default function CreateCommunityBet() {
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
                         functionName: 'createPrediction',
-                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)], // Removed address arg
-                        value: parseEther(totalRequiredSeed.toString()), // Send Seed as ETH
-                        gas: BigInt(500000), // Explicit gas limit
+                        args: [data.predictionId, BigInt(targetVal), BigInt(duration), totalSeedWei], // USDC seed amount
+                        gas: BigInt(500000),
                     });
                     console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
 
