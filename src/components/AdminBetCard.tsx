@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
-import { useAccount, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect } from 'wagmi';
 import { parseUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -83,6 +83,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const { switchChainAsync } = useSwitchChain();
+    const { connectors, connect } = useConnect();
     const publicClient = usePublicClient();
 
     // Configuration
@@ -487,8 +488,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             {/* Volume & Fighters - Top Right */}
                             {/* Volume & Fighters - Top Right */}
                             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                                <div className="text-center w-full md:w-auto">
-                                    <h3 className="text-xl md:text-2xl font-black text-white italic leading-tight drop-shadow-lg">
+                                <div className="text-center w-full md:w-auto flex-1">
+                                    <h3 className="text-lg md:text-xl font-black text-white italic leading-tight drop-shadow-lg opacity-90">
                                         {bet.castText || getBetTypeLabel()}
                                     </h3>
                                 </div>
@@ -504,12 +505,12 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </div>
                             </div>
 
-                            {/* Two Predictors Face-Off */}
-                            <div className="flex items-center justify-center gap-4 mb-6">
-                                {/* Player A */}
-                                <div className="flex flex-col items-center">
-                                    <a href={`https://warpcast.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player">
-                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                            {/* Two Predictors Face-Off - SYMMETRIC LAYOUT */}
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4 mb-6 w-full max-w-2xl mx-auto">
+                                {/* Player A (Left) */}
+                                <div className="flex flex-col items-center justify-start h-full">
+                                    <a href={`https://warpcast.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
+                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] relative">
                                             {bet.optionA.imageUrl ? (
                                                 <img src={bet.optionA.imageUrl} alt={bet.optionA.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
                                             ) : (
@@ -518,8 +519,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="mt-2 text-center">
-                                            <div className="text-sm md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors">
+                                        <div className="mt-2 text-center w-full">
+                                            <div className="text-sm md:text-xl font-black text-green-500 group-hover/player:text-green-400 transition-colors truncate max-w-[120px] md:max-w-[200px]">
                                                 {bet.optionA.label}
                                             </div>
                                             {bet.optionA?.referenceUrl && (
@@ -538,15 +539,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     </a>
                                 </div>
 
-                                {/* VS */}
-                                <div className="text-2xl md:text-5xl font-black text-white/20 italic px-2">
-                                    VS
+                                {/* VS (Center) */}
+                                <div className="flex items-center justify-center">
+                                    <div className="text-2xl md:text-5xl font-black text-white/20 italic select-none">
+                                        VS
+                                    </div>
                                 </div>
 
-                                {/* Player B */}
-                                <div className="flex flex-col items-center">
-                                    <a href={`https://warpcast.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player">
-                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                                {/* Player B (Right) */}
+                                <div className="flex flex-col items-center justify-start h-full">
+                                    <a href={`https://warpcast.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
+                                        <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] relative">
                                             {bet.optionB.imageUrl ? (
                                                 <img src={bet.optionB.imageUrl} alt={bet.optionB.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
                                             ) : (
@@ -555,8 +558,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="mt-2 text-center">
-                                            <div className="text-sm md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors">
+                                        <div className="mt-2 text-center w-full">
+                                            <div className="text-sm md:text-xl font-black text-red-500 group-hover/player:text-red-400 transition-colors truncate max-w-[120px] md:max-w-[200px]">
                                                 {bet.optionB.label}
                                             </div>
                                             {bet.optionB?.referenceUrl && (
@@ -938,14 +941,32 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     </div>
                                 </div>
 
-                                {/* Submit Button */}
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
-                                >
-                                    {isSubmitting ? 'INITIATING...' : 'CONFIRM ENTRY'}
-                                </button>
+                                {/* Submit Button or Connect Wallet */}
+                                {isConnected ? (
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                        className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
+                                    >
+                                        {isSubmitting ? 'INITIATING...' : 'CONFIRM ENTRY'}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
+                                            if (coinbaseConnector) {
+                                                connect({ connector: coinbaseConnector });
+                                            } else if (connectors.length > 0) {
+                                                connect({ connector: connectors[0] });
+                                            } else {
+                                                alert('No wallet connectors found. Please install a wallet.');
+                                            }
+                                        }}
+                                        className="w-full bg-white text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg hover:bg-gray-200 flex items-center justify-center gap-2"
+                                    >
+                                        <span>💳</span> CONNECT WALLET
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
