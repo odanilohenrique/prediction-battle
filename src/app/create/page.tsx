@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, parseEther } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -190,70 +190,10 @@ export default function CreateCommunityBet() {
         setIsSubmitting(true);
 
         try {
-            // 0. Verify Network
-            if (chainId !== EXPECTED_CHAIN_ID) {
-                try {
-                    if (switchChainAsync) {
-                        await switchChainAsync({ chainId: EXPECTED_CHAIN_ID });
-                    }
-                } catch (error) {
-                    showAlert('Wrong Network', 'Please switch to Base.', 'error');
-                    setIsSubmitting(false);
-                    return;
-                }
-            }
 
-            // 1. Send USDC Transaction (Seeding)
-            console.log('Sending seed transaction...');
-            const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
+            // 1. Skip USDC Transaction (Using Native ETH in Contract Call now)
+            console.log('Skipping USDC tx, will use ETH in createPrediction...');
 
-            let hash;
-            try {
-                hash = await writeContractAsync({
-                    address: USDC_ADDRESS as `0x${string}`,
-                    abi: [{
-                        name: 'transfer',
-                        type: 'function',
-                        stateMutability: 'nonpayable',
-                        inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-                        outputs: [{ name: '', type: 'bool' }]
-                    }],
-                    functionName: 'transfer',
-                    args: [HOUSE_ADDRESS as `0x${string}`, totalSeedWei],
-                    gas: BigInt(1000000),
-                });
-            } catch (err) {
-                // Check if user rejected
-                setIsSubmitting(false);
-                return;
-            }
-
-            console.log('Tx sent:', hash);
-            // Non-blocking notification
-            showModal({
-                title: 'Transaction Sent',
-                message: 'Waiting for blockchain confirmation...',
-                type: 'info',
-                confirmText: 'Okay'
-            });
-
-            if (!publicClient) throw new Error("Public Client missing");
-            const receipt = await publicClient.waitForTransactionReceipt({
-                hash,
-                timeout: 60000 // 60s timeout to prevent viem errors
-            });
-
-            if (receipt.status !== 'success') {
-                throw new Error('Transaction failed on-chain.');
-            }
-
-            // Update modal to success + processing
-            showModal({
-                title: 'Confirmed!',
-                message: 'Transaction confirmed on blockchain. Finalizing...',
-                type: 'success',
-                confirmText: 'Okay'
-            });
 
             // 2. Prepare Data
             console.log('Creating prediction...');
@@ -337,7 +277,8 @@ export default function CreateCommunityBet() {
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
                         functionName: 'createPrediction',
-                        args: [data.predictionId, BigInt(targetVal), BigInt(duration), address as `0x${string}`],
+                        args: [data.predictionId, BigInt(targetVal), BigInt(duration)], // Removed address arg
+                        value: parseEther(totalRequiredSeed.toString()), // Send Seed as ETH
                         gas: BigInt(500000), // Explicit gas limit
                     });
                     console.log('[CREATE PAGE] On-chain creation tx:', contractHash);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, parseEther } from 'viem';
 import { useModal } from '@/providers/ModalProvider';
 import { getContractAddress } from '@/lib/config';
 
@@ -207,38 +207,9 @@ export default function CreateCommunityBet() {
                 }
             }
 
-            // 1. Send USDC Transaction (Seeding)
-            console.log('Sending seed transaction...');
-            const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
 
-            const hash = await writeContractAsync({
-                address: USDC_ADDRESS as `0x${string}`,
-                abi: [{
-                    name: 'transfer',
-                    type: 'function',
-                    stateMutability: 'nonpayable',
-                    inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-                    outputs: [{ name: '', type: 'bool' }]
-                }],
-                functionName: 'transfer',
-                args: [HOUSE_ADDRESS as `0x${string}`, totalSeedWei],
-                // Manual gas limit to prevent estimation errors
-                // Manual gas limit to prevent estimation errors
-                gas: BigInt(1000000),
-            });
-
-            console.log('Tx sent:', hash);
-            // alert('⏳ Transaction sent! Waiting for confirmation...');
-
-            if (!publicClient) throw new Error("Public Client missing");
-            const receipt = await publicClient.waitForTransactionReceipt({
-                hash,
-                timeout: 60000
-            });
-
-            if (receipt.status !== 'success') {
-                throw new Error('Transaction failed on-chain.');
-            }
+            // 1. Skip USDC (Using Native ETH value in contract call)
+            console.log('Skipping USDC tx, using ETH value in createPrediction...');
 
             // 2. Create the bet via Permissionless API
             console.log('Creating prediction...');
@@ -349,12 +320,11 @@ export default function CreateCommunityBet() {
                         {
                             name: 'createPrediction',
                             type: 'function',
-                            stateMutability: 'nonpayable',
+                            stateMutability: 'payable',
                             inputs: [
                                 { name: '_id', type: 'string' },
                                 { name: '_target', type: 'uint256' },
-                                { name: '_deadline', type: 'uint256' },
-                                { name: '_creator', type: 'address' }
+                                { name: '_deadline', type: 'uint256' }
                             ],
                             outputs: []
                         }
@@ -363,9 +333,9 @@ export default function CreateCommunityBet() {
                     args: [
                         data.predictionId,
                         BigInt(formData.targetValue || 0),
-                        BigInt(durationSeconds),
-                        address as `0x${string}`
+                        BigInt(durationSeconds)
                     ],
+                    value: parseEther(totalRequiredSeed.toString()),
                     gas: BigInt(500000),
                 });
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, parseEther } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
@@ -46,6 +46,7 @@ interface AdminBet {
         username?: string; // User to verify (for follower/keyword bets)
         wordToMatch?: string; // If keyword type
     };
+    initialValue?: number;
 }
 
 interface AdminBetCardProps {
@@ -246,11 +247,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
             if (data.success) {
                 // Calculate potential win for the receipt
+                const numericAmount = submitAmount;
                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                const initialSeed = bet.initialValue || 0;
+
+                // Dead Liquidity: Subtract seed from share supply (denominator)
+                const netYes = Math.max(0, yesPool - initialSeed);
+                const netNo = Math.max(0, noPool - initialSeed);
+
                 const multiplier = choice === 'yes'
-                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + submitAmount)) // 75% pool after fees
-                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + submitAmount));
+                    ? (netYes + numericAmount <= 0 ? 2.00 : 1 + (noPool * 0.75) / (netYes + numericAmount))
+                    : (netNo + numericAmount <= 0 ? 2.00 : 1 + (yesPool * 0.75) / (netNo + numericAmount));
 
                 // Detect Battle Mode
                 const isBattle = !!(bet.optionA?.label && bet.optionB?.label);
@@ -309,61 +317,51 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
     const handleSeedPool = async () => {
-        showConfirm('Seed Pool', 'This will place $5 on YES and $5 on NO using your wallet to create initial liquidity. Confirm?', async () => {
+        showConfirm('Seed Pool', 'This will place ETH liquidity on both sides (Dead Liquidity). This requires sending Native Base Sepolia ETH. Confirm?', async () => {
             setIsSubmitting(true);
             try {
-                // 1. Seed Logic: Simply place two bets sequentially
-                // We'll treat this as two separate bet flows for simplicity, or we could batch if contract supported it.
-                // For MVP, we will do two loops of the betting logic.
+                // 1. Calculate Seed Amount (e.g. 10 USD -> 10 ETH for testnet logic consistency)
+                const seedTotal = 2; // Fixed Seed Amount for Admin Button usage
+                const amountInWei = parseEther(seedTotal.toString()); // Total Seed as ETH
 
-                const seedAmount = 5; // $5 USD
-                const amountInWei = parseUnits(seedAmount.toString(), 6);
+                // 2. Call Contract directly (One Tx)
+                console.log('Seeding Contract...');
+                const hash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'seedPrediction',
+                    args: [bet.id], // New Signature: Just ID, splits msg.value
+                    value: amountInWei,
+                    gas: BigInt(300000),
+                });
 
-                // Function to execute one side of the seed
-                const executeSeedSide = async (side: 'yes' | 'no') => {
-                    console.log(`Seeding ${side.toUpperCase()}...`);
-                    // Send USDC
-                    const hash = await writeContractAsync({
-                        address: USDC_ADDRESS as `0x${string}`,
-                        abi: [{
-                            name: 'transfer',
-                            type: 'function',
-                            stateMutability: 'nonpayable',
-                            inputs: [
-                                { name: 'to', type: 'address' },
-                                { name: 'amount', type: 'uint256' }
-                            ],
-                            outputs: [{ name: '', type: 'bool' }]
-                        }],
-                        functionName: 'transfer',
-                        args: [HOUSE_ADDRESS as `0x${string}`, amountInWei],
-                        gas: BigInt(200000),
-                    });
+                if (publicClient) {
+                    await publicClient.waitForTransactionReceipt({ hash });
+                }
 
-                    if (publicClient) {
-                        await publicClient.waitForTransactionReceipt({ hash });
-                    }
+                // 3. Register in Backend (Split 50/50 logic for display)
+                const splitedSeed = seedTotal / 2;
 
-                    // Register
+                // Helper to register
+                const registerSide = async (side: 'yes' | 'no') => {
                     await fetch('/api/predictions/bet', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             betId: bet.id,
                             choice: side,
-                            amount: seedAmount,
+                            amount: splitedSeed,
                             txHash: hash,
                             userAddress: address
                         }),
                     });
                 };
 
-                // Execute both sides
-                await executeSeedSide('yes');
-                await executeSeedSide('no');
+                await registerSide('yes');
+                await registerSide('no');
 
                 showAlert('Success', 'Pool Seeded Successfully! Liquidity injected.', 'success');
-                onBet();
+                onBet(); // Refresh
 
             } catch (error) {
                 console.error('Seeding failed:', error);
@@ -934,9 +932,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 const numericAmount = parseFloat(amount) || 0;
                                                 const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                 const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                const initialSeed = bet.initialValue || 0;
+
+                                                // Dead Liquidity Logic
+                                                const netYes = Math.max(0, yesPool - initialSeed);
+                                                const netNo = Math.max(0, noPool - initialSeed);
+
                                                 const multiplier = choice === 'yes'
-                                                    ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + numericAmount))
-                                                    : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + numericAmount));
+                                                    ? (netYes + numericAmount <= 0 ? 2.00 : 1 + (noPool * 0.75) / (netYes + numericAmount))
+                                                    : (netNo + numericAmount <= 0 ? 2.00 : 1 + (yesPool * 0.75) / (netNo + numericAmount));
+
                                                 return (numericAmount * multiplier).toFixed(2);
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
@@ -944,9 +949,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     const numericAmount = parseFloat(amount) || 0;
                                                     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
                                                     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                    const initialSeed = bet.initialValue || 0;
+                                                    const netYes = Math.max(0, yesPool - initialSeed);
+                                                    const netNo = Math.max(0, noPool - initialSeed);
+
                                                     const multiplier = choice === 'yes'
-                                                        ? (yesPool === 0 ? 1.75 : 1 + (noPool * 0.75) / (yesPool + numericAmount))
-                                                        : (noPool === 0 ? 1.75 : 1 + (yesPool * 0.75) / (noPool + numericAmount));
+                                                        ? (netYes + numericAmount <= 0 ? 2.00 : 1 + (noPool * 0.75) / (netYes + numericAmount))
+                                                        : (netNo + numericAmount <= 0 ? 2.00 : 1 + (yesPool * 0.75) / (netNo + numericAmount));
                                                     return multiplier.toFixed(2);
                                                 })()}x)
                                             </span>
