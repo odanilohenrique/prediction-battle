@@ -348,37 +348,67 @@ export default function PayoutsPage() {
 
                         return (
                             <div key={bet.id} className={`bg-surface border rounded-xl p-6 transition-colors ${isFullyPaid ? 'border-green-500/20 bg-green-900/5' : 'border-white/5'}`}>
+                                {/* Header matching Admin Dashboard */}
                                 <div className="flex flex-col md:flex-row md:items-start justify-between mb-6 gap-4">
-                                    <div className="space-y-2">
-                                        <div className="flex items-start gap-3">
-                                            <h3 className="text-xl font-bold text-white leading-tight">
-                                                {bet.question || bet.targetName || bet.id}
-                                            </h3>
+                                    <div className="flex-1 space-y-3">
+                                        {/* Top Row: User & Type & ID */}
+                                        <div className="flex items-center flex-wrap gap-3">
+                                            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                <span className="font-bold text-white">@{bet.username}</span>
+                                                <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">{bet.type}</span>
+                                            </div>
+                                            <div className="text-xs text-white/30 font-mono bg-black/20 px-2 py-1 rounded">
+                                                ID: {bet.id}
+                                            </div>
                                             {isFullyPaid && (
-                                                <span className="shrink-0 bg-green-500 text-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> Paid
+                                                <span className="shrink-0 bg-green-500 text-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                                                    <CheckCircle className="w-3 h-3" /> Paid Full
                                                 </span>
                                             )}
                                         </div>
+
+                                        {/* Middle Row: The Duel / Question */}
+                                        <div className="flex items-center gap-4 bg-black/20 p-3 rounded-xl border border-white/5">
+                                            {/* Player A */}
+                                            <div className="flex items-center gap-2">
+                                                {bet.optionA?.imageUrl ? (
+                                                    <img src={bet.optionA.imageUrl} className="w-8 h-8 rounded-full border-2 border-green-500" />
+                                                ) : <div className="w-8 h-8 bg-green-500/20 rounded-full border-2 border-green-500" />}
+                                                <span className="text-sm font-bold text-green-500">{bet.optionA?.label || 'YES'}</span>
+                                            </div>
+
+                                            <span className="text-white/20 font-black italic">VS</span>
+
+                                            {/* Player B */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-red-500">{bet.optionB?.label || 'NO'}</span>
+                                                {bet.optionB?.imageUrl ? (
+                                                    <img src={bet.optionB.imageUrl} className="w-8 h-8 rounded-full border-2 border-red-500" />
+                                                ) : <div className="w-8 h-8 bg-red-500/20 rounded-full border-2 border-red-500" />}
+                                            </div>
+                                        </div>
+
+                                        {/* Text Content */}
+                                        <h3 className="text-lg font-bold text-white leading-tight">
+                                            {bet.question || bet.castText || bet.targetName || `Prediction #${bet.id.substring(0, 8)}`}
+                                        </h3>
+
                                         <div className="flex flex-wrap items-center gap-3 text-sm text-textSecondary">
-                                            <span className="bg-white/5 px-2 py-1 rounded">
-                                                ID: <span className="font-mono">{bet.id.substring(0, 8)}...</span>
-                                            </span>
                                             <span className="flex items-center gap-1">
-                                                Result: <span className={bet.result === 'yes' ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>{bet.result?.toUpperCase()}</span>
+                                                Result: <span className={`font-black px-2 py-0.5 rounded ${bet.result === 'yes' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{bet.result?.toUpperCase()}</span>
                                             </span>
                                             <span className="w-1 h-1 bg-white/20 rounded-full" />
-                                            <span className="text-white font-bold">
+                                            <span className="text-white font-bold text-lg">
                                                 Pot: ${winnersPot.toFixed(2)}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="flex flex-wrap gap-2 justify-end">
+                                    <div className="flex flex-col gap-2 min-w-[140px]">
                                         <button
                                             onClick={() => handleForceResolve(bet)}
-                                            className="bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-500 text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors border border-yellow-700/30"
+                                            className="bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-500 text-xs px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors border border-yellow-700/30"
                                         >
                                             {resolvingContract === bet.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚠️ Fix Contract'}
                                         </button>
@@ -392,16 +422,16 @@ export default function PayoutsPage() {
                                                         try {
                                                             const res = await fetch('/api/admin/payouts/distribute', { method: 'POST', body: JSON.stringify({ predictionId: bet.id }) });
                                                             const d = await res.json();
-                                                            if (d.success) { showAlert('Success', `Tx: ${d.txHash}`, 'success'); fetchPayouts(); }
+                                                            if (d.success) { showAlert('Success', d.message || `Tx: ${d.txHash}`, 'success'); fetchPayouts(); }
                                                             else throw new Error(d.error);
                                                         } catch (e) {
                                                             showAlert('Failed', (e as Error).message, 'error');
-                                                            if (btn) { btn.innerHTML = '⚡ Distributed'; (btn as any).disabled = false; }
+                                                            if (btn) { btn.innerHTML = '⚡ Batch Distribute'; (btn as any).disabled = false; }
                                                         }
                                                     });
                                                 }}
                                                 id={`dist-btn-${bet.id}`}
-                                                className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-purple-900/20"
+                                                className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-bold shadow-lg shadow-purple-900/20"
                                             >
                                                 ⚡ Batch Distribute
                                             </button>
