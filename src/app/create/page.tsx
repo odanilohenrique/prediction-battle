@@ -302,34 +302,83 @@ export default function CreateCommunityBet() {
                     console.log('[CREATE PAGE] Contract Address:', CURRENT_CONFIG.contractAddress);
                     console.log('[CREATE PAGE] Prediction ID:', data.predictionId);
 
+                    // PRE-CHECK: Does this prediction already exist on-chain? (Recovery from previous timeout)
+                    if (publicClient) {
+                        try {
+                            const alreadyExists = await publicClient.readContract({
+                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'predictionExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
+                                functionName: 'predictionExists',
+                                args: [data.predictionId],
+                            });
+                            if (alreadyExists) {
+                                console.log('[CREATE PAGE] Prediction already exists on-chain! Skipping creation (recovery mode).');
+                                // Skip contract creation - it already succeeded in a previous attempt
+                            }
+                        } catch (checkError) {
+                            console.warn('[CREATE PAGE] Could not check if prediction exists, proceeding anyway:', checkError);
+                        }
+                    }
+
                     const TIMEFRAME_SECONDS: Record<string, number> = {
                         '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800, 'none': 31536000
                     };
                     const duration = TIMEFRAME_SECONDS[formData.timeframe] || 86400;
                     const targetVal = formData.noTargetValue || formData.betType === 'custom_text' ? 0 : formData.targetValue;
 
-                    const contractHash = await writeContractAsync({
-                        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                        abi: PredictionBattleABI.abi,
-                        functionName: 'createPrediction',
-                        args: [data.predictionId, BigInt(targetVal), BigInt(duration), totalSeedWei], // USDC seed amount
-                        gas: BigInt(500000),
-                    });
-                    console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
-
+                    // Check again if already exists to avoid the call
+                    let skipCreation = false;
                     if (publicClient) {
-                        const receipt = await publicClient.waitForTransactionReceipt({
-                            hash: contractHash,
-                            timeout: 180000
-                        });
-                        if (receipt.status !== 'success') {
-                            throw new Error('Contract transaction reverted');
-                        }
-                        console.log('[CREATE PAGE] On-chain creation confirmed!');
+                        try {
+                            const exists = await publicClient.readContract({
+                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'predictionExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
+                                functionName: 'predictionExists',
+                                args: [data.predictionId],
+                            });
+                            skipCreation = exists as boolean;
+                        } catch { }
                     }
+
+                    if (!skipCreation) {
+                        const contractHash = await writeContractAsync({
+                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                            abi: PredictionBattleABI.abi,
+                            functionName: 'createPrediction',
+                            args: [data.predictionId, BigInt(targetVal), BigInt(duration), totalSeedWei], // USDC seed amount
+                            gas: BigInt(500000),
+                        });
+                        console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
+
+                        if (publicClient) {
+                            const receipt = await publicClient.waitForTransactionReceipt({
+                                hash: contractHash,
+                                timeout: 180000
+                            });
+                            if (receipt.status !== 'success') {
+                                throw new Error('Contract transaction reverted');
+                            }
+                            console.log('[CREATE PAGE] On-chain creation confirmed!');
+                        }
+                    } // End of if (!skipCreation)
                 } catch (contractError: any) {
                     console.error('[CREATE PAGE] Contract creation failed:', contractError);
-                    const errorMsg = contractError?.shortMessage || contractError?.message || 'Unknown error';
+                    // Try to extract more useful error message
+                    let errorMsg = 'Unknown error';
+                    if (contractError?.shortMessage) {
+                        errorMsg = contractError.shortMessage;
+                    } else if (contractError?.cause?.shortMessage) {
+                        errorMsg = contractError.cause.shortMessage;
+                    } else if (contractError?.message) {
+                        // Try to find revert reason in message
+                        const match = contractError.message.match(/reverted with reason string '([^']+)'/);
+                        if (match) {
+                            errorMsg = match[1];
+                        } else {
+                            errorMsg = contractError.message;
+                        }
+                    }
+                    console.error('[CREATE PAGE] Extracted error:', errorMsg);
                     showAlert('On-Chain Creation Failed', `Bet was saved to DB but NOT created on blockchain: ${errorMsg}. Users will NOT be able to bet on this.`, 'error');
                     // Don't proceed - this is a critical failure
                     setIsSubmitting(false);
