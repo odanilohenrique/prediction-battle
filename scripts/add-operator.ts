@@ -27,8 +27,68 @@ const ABI = parseAbi([
 async function main() {
     console.log('=== Add Operator Script ===\n');
 
-    // Get private key from env
-    const privateKey = process.env.PRIVATE_KEY;
+    // Debug: Check if file exists and print content (masked)
+    const envPath = path.resolve(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+        console.log('✅ .env.local exists at:', envPath);
+        const content = fs.readFileSync(envPath, 'utf8');
+        console.log('--- CONTENT START ---');
+        content.split('\n').forEach(line => {
+            if (line.includes('PRIVATE')) {
+                const parts = line.split('=');
+                console.log(`${parts[0]}=${parts[1] ? parts[1].substring(0, 6) + '...' : '(no value)'}`);
+            } else if (line.trim()) {
+                console.log(line.substring(0, 10) + '...');
+            }
+        });
+        console.log('--- CONTENT END ---');
+    } else {
+        console.error('❌ .env.local DOES NOT EXIST at:', envPath);
+        console.log('Files in dir:', fs.readdirSync(process.cwd()));
+    }
+
+    // Manually read .env.local to avoid dotenv issues
+    let privateKey = process.env.PRIVATE_KEY;
+
+    if (!privateKey) {
+        try {
+            const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
+            // TRICK: Remove all spaces/invisible chars from each line to match "PRIVATE_KEY="
+            const lines = envContent.split('\n');
+            for (const line of lines) {
+                const cleanLine = line.replace(/\s/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); // Remove spaces and control chars
+                if (cleanLine.startsWith('PRIVATE_KEY=')) {
+                    // Extract value from original line based on assumption or just cleaner
+                    // Since the KEY has spaces, likely the VALUE is just the rest
+                    // But if key is "P R I V A T E _ K E Y =", value starts after '='
+                    const parts = line.split('=');
+                    if (parts.length >= 2) {
+                        const rawValue = parts.slice(1).join('=').trim();
+                        // Also clean value if it looks like "0 x 1 2 3" ??
+                        // Let's assume value is fine or user spaced it too.
+                        // Let's rely on the clean line part for the value if hex
+                        const cleanValue = cleanLine.split('=')[1];
+                        if (cleanValue && cleanValue.startsWith('0x')) {
+                            privateKey = cleanValue;
+                            console.log('✅ Found PRIVATE_KEY in .env.local (fuzzy parse)');
+                            break;
+                        } else if (rawValue.startsWith('0x')) {
+                            privateKey = rawValue;
+                            console.log('✅ Found PRIVATE_KEY in .env.local (fuzzy parse raw)');
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Could not read .env.local manually');
+        }
+    }
+
+
+    // Fallback locally just in case
+    // if (!privateKey) privateKey = process.env.OPERATOR_PRIVATE_KEY; 
+
     if (!privateKey) {
         console.error('❌ PRIVATE_KEY not found in .env.local');
         console.log('Make sure your .env.local has the PRIVATE_KEY of the contract ADMIN (deployer) wallet');
