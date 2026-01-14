@@ -420,10 +420,22 @@ export default function PayoutsPage() {
                                                         const btn = document.getElementById(`dist-btn-${bet.id}`);
                                                         if (btn) { btn.innerHTML = 'Processing...'; (btn as any).disabled = true; }
                                                         try {
-                                                            const res = await fetch('/api/admin/payouts/distribute', { method: 'POST', body: JSON.stringify({ predictionId: bet.id }) });
+                                                            const res = await fetch('/api/admin/payouts/distribute', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ predictionId: bet.id })
+                                                            });
+
+                                                            // Handle non-ok responses
+                                                            if (!res.ok) {
+                                                                const errorText = await res.text();
+                                                                console.error('API Error:', res.status, errorText);
+                                                                throw new Error(errorText || `Server Error (${res.status})`);
+                                                            }
+
                                                             const d = await res.json();
                                                             if (d.success) { showAlert('Success', d.message || `Tx: ${d.txHash}`, 'success'); fetchPayouts(); }
-                                                            else throw new Error(d.error);
+                                                            else throw new Error(d.error || 'Distribution failed');
                                                         } catch (e) {
                                                             showAlert('Failed', (e as Error).message, 'error');
                                                             if (btn) { btn.innerHTML = '⚡ Batch Distribute'; (btn as any).disabled = false; }
