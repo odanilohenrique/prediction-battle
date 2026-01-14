@@ -283,18 +283,15 @@ contract PredictionBattleUSDC {
             return;
         }
 
-        // Determine Eligible Shares (Excluding Seed)
-        uint256 eligibleShares = winningPoolTotal - winningSeed;
+        // Determine Eligible Shares
+        // CRITICAL FIX: To implement Dead Liquidity correctly, the user's share is calculated against
+        // the TOTAL winning pool (including seed). This ensures that if a user bets small against a large seed,
+        // they don't take the entire pot, but only their proportional share.
+        // The "share" of the Seed stays in the contract (surplus).
+        uint256 eligibleShares = winningPoolTotal; 
         
-        // If no eligible shares (only seed in pool), funds stay in contract/admin? 
-        // Logic: If only seed is in pot, distributablePot is locked or sent to admin?
-        // Current logic: we only distribute to winners list. If list is empty, returned above.
-        // If list is not empty but eligibleShares is somehow 0 (impossible if bettors exist), we check.
-        
+        // If simply nobody bet and nobody seeded (impossible due to creation logic), return.
         if (eligibleShares == 0) {
-             // This implies all money in winning side is Seed. No user bets.
-             // Thus distributablePot should probably go to Admin or carry over.
-             // For now, let's just mark paidOut.
              p.paidOut = true;
              return;
         }
@@ -318,7 +315,7 @@ contract PredictionBattleUSDC {
             if (betAmount > 0) {
                 /** 
                  * DEAD LIQUIDITY FORMULA:
-                 * Payout = (UserBet / EligibleShares) * DistributablePot
+                 * Payout = (UserBet / (TotalWinningBets + winningSeed)) * DistributablePot
                  */
                 uint256 payout = (betAmount * distributablePot) / eligibleShares;
                 require(usdcToken.transfer(winnerAddr, payout), "Transfer failed");
@@ -332,5 +329,10 @@ contract PredictionBattleUSDC {
             p.paidOut = true;
             emit DistributionCompleted(_id);
         }
+    }
+
+    // Admin function to withdraw dead liquidity / surplus from the contract
+    function withdrawSurplus(uint256 _amount) external onlyAdmin {
+        require(usdcToken.transfer(admin, _amount), "Withdraw failed");
     }
 }
