@@ -223,7 +223,7 @@ export default function CreateCommunityBet() {
             });
 
             if (publicClient) {
-                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60000 });
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 180000 });
                 if (approveReceipt.status !== 'success') {
                     throw new Error('USDC approval failed.');
                 }
@@ -320,7 +320,7 @@ export default function CreateCommunityBet() {
                     if (publicClient) {
                         const receipt = await publicClient.waitForTransactionReceipt({
                             hash: contractHash,
-                            timeout: 60000
+                            timeout: 180000
                         });
                         if (receipt.status !== 'success') {
                             throw new Error('Contract transaction reverted');

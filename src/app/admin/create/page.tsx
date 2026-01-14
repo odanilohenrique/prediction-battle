@@ -227,7 +227,7 @@ export default function CreateCommunityBet() {
             });
 
             if (publicClient) {
-                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60000 });
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 180000 });
                 if (approveReceipt.status !== 'success') {
                     throw new Error('USDC approval failed.');
                 }
@@ -365,7 +365,7 @@ export default function CreateCommunityBet() {
                 console.log('CreatePrediction Tx:', createHash);
 
                 if (publicClient) {
-                    await publicClient.waitForTransactionReceipt({ hash: createHash });
+                    await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
                 }
                 console.log('✅ On-chain creation confirmed');
 

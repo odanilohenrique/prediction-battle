@@ -151,7 +151,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                     });
 
                     if (publicClient) {
-                        await publicClient.waitForTransactionReceipt({ hash: createHash });
+                        await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
                     }
                     console.log('On-chain creation confirmed');
                 } catch (e) {
@@ -179,7 +179,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
             });
 
             if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash: approveHash });
+                await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 180000 });
             }
 
             // 4. Place Bet
@@ -193,7 +193,7 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
             });
 
             if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash: betHash });
+                await publicClient.waitForTransactionReceipt({ hash: betHash, timeout: 180000 });
             }
 
             // 5. Update Backend with TxHash (Bet Registration)
