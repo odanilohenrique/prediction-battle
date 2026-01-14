@@ -1002,13 +1002,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 ) : (
                                     <button
                                         onClick={() => {
-                                            const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
-                                            if (coinbaseConnector) {
-                                                connect({ connector: coinbaseConnector });
-                                            } else if (connectors.length > 0) {
-                                                connect({ connector: connectors[0] });
+                                            // Same priority as WalletButton: Rabby > Injected > MetaMask > Coinbase
+                                            const rabbyConnector = connectors.find(c => c.id === 'io.rabby');
+                                            const injectedConnector = connectors.find(c => c.id === 'injected');
+                                            const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
+                                            const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
+
+                                            const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
+
+                                            if (targetConnector) {
+                                                connect({ connector: targetConnector });
                                             } else {
-                                                alert('No wallet connectors found. Please install a wallet.');
+                                                alert('No wallet connectors found. Please install Rabby or MetaMask.');
                                             }
                                         }}
                                         className="w-full bg-white text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg hover:bg-gray-200 flex items-center justify-center gap-2"
