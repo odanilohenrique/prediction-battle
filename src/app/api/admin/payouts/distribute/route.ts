@@ -79,6 +79,40 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('[API] Distribution Error:', error);
+
+        // Handle "Already fully paid out" error specifically
+        const errorMsg = error.message?.toLowerCase() || '';
+        const shortMsg = error.shortMessage?.toLowerCase() || '';
+
+        if (errorMsg.includes('already fully paid out') || shortMsg.includes('paid out')) {
+            console.log(`[API] Contract reported paid out for ${predictionId}. Syncing DB...`);
+            try {
+                const { store } = await import('@/lib/store'); // Dynamic import to avoid cycles if any
+                const bet = await store.getBet(predictionId);
+
+                if (bet) {
+                    const winningOption = bet.result;
+                    if (winningOption === 'yes' || winningOption === 'no') {
+                        // Mark all on winning side as paid
+                        const updateList = (list: any[]) => list.map(p => ({ ...p, paid: true, txHash: 'CONTRACT_SYNC_AUTO' }));
+
+                        bet.participants[winningOption] = updateList(bet.participants[winningOption] || []);
+                        // Also update void logic impact if needed, but winningOption usually sufficient
+
+                        await store.saveBet(bet);
+                        console.log(`[API] Synced DB for ${predictionId}`);
+
+                        return NextResponse.json({
+                            success: true,
+                            message: 'Already paid out on-chain. Database synced.'
+                        });
+                    }
+                }
+            } catch (syncError) {
+                console.error('[API] Failed to sync DB:', syncError);
+            }
+        }
+
         return NextResponse.json({
             success: false,
             error: error.shortMessage || error.message || 'Unknown error'
