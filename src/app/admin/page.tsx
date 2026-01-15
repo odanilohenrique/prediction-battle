@@ -240,14 +240,14 @@ export default function AdminDashboard() {
                             hash = await writeContractAsync({
                                 address: targetContract as `0x${string}`,
                                 abi: PredictionBattleABI.abi,
-                                functionName: 'resolveVoid',
+                                functionName: 'voidMarket',
                                 args: [betId]
                             });
                         } else {
                             hash = await writeContractAsync({
                                 address: targetContract as `0x${string}`,
                                 abi: PredictionBattleABI.abi,
-                                functionName: 'resolvePrediction',
+                                functionName: 'resolveMarket',
                                 args: [betId, result === 'yes']
                             });
                         }
