@@ -150,3 +150,33 @@ export async function distributeWinningsOnChain(predictionId: string, batchSize:
         throw error;
     }
 }
+
+export async function claimReferralRewardsOnChain(waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+
+    console.log(`[OPERATOR] Claiming referral rewards...`);
+
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'claimReferralRewards',
+            args: [],
+        });
+
+        console.log(`[OPERATOR] Claim Tx Hash: ${hash}`);
+
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+
+            if (receipt.status !== 'success') {
+                throw new Error(`Transaction reverted: ${hash}`);
+            }
+        }
+
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to claim referral rewards:", error);
+        throw error;
+    }
+}

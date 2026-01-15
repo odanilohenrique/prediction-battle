@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Heart, Repeat2, MessageCircle, DollarSign, TrendingUp, Share2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Heart, Repeat2, MessageCircle, DollarSign, TrendingUp, Share2, Zap, Copy, Check } from 'lucide-react';
 import { Cast, MetricType, PredictionChoice } from '@/lib/types';
 
 interface PredictionModalProps {
@@ -52,6 +52,33 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showReceipt, setShowReceipt] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
+
+    // Referral & Boost State
+    const [referrer, setReferrer] = useState<string | null>(null);
+    const [boostMultiplier, setBoostMultiplier] = useState<number>(1.5);
+    const [linkCopied, setLinkCopied] = useState(false);
+
+    // Capture referrer from URL on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const ref = params.get('ref');
+            if (ref && ref.startsWith('0x') && ref.length === 42) {
+                setReferrer(ref);
+            }
+        }
+    }, []);
+
+    // Simulate boost decay (in real app, fetch from contract)
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setBoostMultiplier(prev => {
+                const newVal = prev - 0.01;
+                return newVal >= 1.0 ? newVal : 1.0;
+            });
+        }, 30000); // Decay every 30 seconds for demo
+        return () => clearInterval(timer);
+    }, []);
 
     // Calculate current value based on metric
     const currentValue = (() => {
@@ -182,14 +209,19 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                 await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 180000 });
             }
 
-            // 4. Place Bet
-            console.log('Placing bet...');
+            // 4. Place Bet with Referrer
+            console.log('Placing bet with referrer:', referrer || 'none');
             const betHash = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'placeBet',
-                args: [predictionId, choice === 'yes', amountInWei],
-                gas: BigInt(300000),
+                args: [
+                    predictionId,
+                    choice === 'yes',
+                    amountInWei,
+                    (referrer || '0x0000000000000000000000000000000000000000') as `0x${string}`
+                ],
+                gas: BigInt(350000),
             });
 
             if (publicClient) {
@@ -470,6 +502,14 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 ))}
                             </div>
 
+                            {/* Boost Indicator */}
+                            {boostMultiplier > 1.0 && (
+                                <div className="flex items-center gap-2 text-sm text-yellow-400 bg-yellow-400/10 rounded-lg px-3 py-2">
+                                    <Zap className="w-4 h-4" />
+                                    <span>⚡ Multiplicador de Shares: <strong>{boostMultiplier.toFixed(2)}x</strong> (Caindo!)</span>
+                                </div>
+                            )}
+
                             {/* Summary */}
                             <div className="bg-darkGray rounded-xl p-4 space-y-2">
                                 <div className="text-sm font-medium text-textSecondary">Summary</div>
@@ -528,6 +568,31 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
                                 <Share2 className="w-4 h-4" />
                                 Share Prediction
                             </button>
+
+                            {/* Invite Friends Button */}
+                            {address && (
+                                <button
+                                    onClick={() => {
+                                        const url = `${window.location.origin}${window.location.pathname}?ref=${address}`;
+                                        navigator.clipboard.writeText(url);
+                                        setLinkCopied(true);
+                                        setTimeout(() => setLinkCopied(false), 2000);
+                                    }}
+                                    className="w-full bg-surface border border-primary/30 hover:border-primary/50 text-textSecondary hover:text-textPrimary font-medium py-2 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                                >
+                                    {linkCopied ? (
+                                        <>
+                                            <Check className="w-4 h-4 text-green-500" />
+                                            Link Copiado!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-4 h-4" />
+                                            Convidar Amigos (5% Referral)
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
