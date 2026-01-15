@@ -28,35 +28,27 @@ export function getOperatorClient() {
     return client;
 }
 
-// Check if prediction is resolved on-chain
+// Check if prediction is resolved on-chain (V2: getMarketInfo)
 export async function isPredictionResolved(predictionId: string): Promise<boolean> {
     const client = getOperatorClient();
     try {
-        // predictions mapping: (id) -> (question, outcome, deadline, resolved, ...)
-        // We need to know the index of 'resolved' in the struct or use the generated read function
+        // V2: getMarketInfo returns (creator, deadline, resolved, result, totalYes, totalNo, totalSharesYes, totalSharesNo)
         const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'predictions',
+            functionName: 'getMarketInfo',
             args: [predictionId],
         }) as any[];
 
-        // Struct: (question, outcome, deadline, resolved, totalPot, ...)
-        // Usually resolved is a boolean. Let's inspect the ABI or assume standard order.
-        // Based on typical solidity:
-        // struct Prediction { string question; ... bool resolved; ... }
-        // The array returned maps to the struct fields.
-        // Let's assume index 3 (0:question, 1:outcome(enum), 2:deadline, 3:resolved)
-        // Adjust if ABI differs. FOR SAFETY: Use the returned object/array.
-
-        // If viem returns an array: [question, outcome, deadline, resolved, ...]
-        if (Array.isArray(data) && typeof data[3] === 'boolean') {
-            return data[3];
+        // V2 struct order: [creator, deadline, resolved, result, totalYes, totalNo, ...]
+        // Index 2 is 'resolved' (boolean)
+        if (Array.isArray(data) && typeof data[2] === 'boolean') {
+            return data[2];
         }
 
         return false;
     } catch (error) {
-        console.error("Failed to check prediction status:", error);
+        console.error("Failed to check market status:", error);
         return false;
     }
 }
