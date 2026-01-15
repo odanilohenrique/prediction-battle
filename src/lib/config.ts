@@ -71,14 +71,20 @@ export const TESTNET_FAUCETS = {
 };
 
 /**
- * FEE STRUCTURE (defined in smart contract):
- * - Platform Fee: 20% (goes to admin wallet)
+ * FEE STRUCTURE (defined in smart contract V2):
+ * - House Fee: 10% (goes to admin wallet) - or 15% if no referrer
  * - Creator Fee: 5% (goes to market creator wallet)
- * - Winners Pool: 75% (distributed to winners)
+ * - Referrer Fee: 5% (goes to referrer if valid)
+ * - Net Bet: 80% (goes to pool)
  * 
- * MULTIPLIER for UI: 1.75x max (since 75% of pool goes to winners)
+ * BOOST CONFIG:
+ * - Max Weight: 1.5x (early bets)
+ * - Min Weight: 1.0x (after bonus period)
  */
-export const PLATFORM_FEE_PERCENT = 20;
+export const HOUSE_FEE_PERCENT = 10;
 export const CREATOR_FEE_PERCENT = 5;
-export const WINNERS_POOL_PERCENT = 75;
-export const MAX_MULTIPLIER = 1.75;
+export const REFERRER_FEE_PERCENT = 5;
+export const NET_BET_PERCENT = 80;
+export const MAX_BOOST_MULTIPLIER = 1.5;
+export const MIN_BOOST_MULTIPLIER = 1.0;
+

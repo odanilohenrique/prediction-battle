@@ -4,8 +4,8 @@ import path from 'path';
 // @ts-ignore
 import solc from 'solc';
 
-const CONTRACT_FILENAME = 'PredictionBattleUSDC.sol';
-const CONTRACT_NAME = 'PredictionBattleUSDC';
+const CONTRACT_FILENAME = 'PredictionBattleV2.sol';
+const CONTRACT_NAME = 'PredictionBattleV2';
 const SOURCES_DIR = path.resolve(process.cwd(), 'contracts');
 // Saving to BOTH locations to be safe/consistent
 const OUTPUT_DIR_1 = path.resolve(process.cwd(), 'src/lib/abi');
