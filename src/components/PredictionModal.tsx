@@ -164,16 +164,25 @@ export default function PredictionModal({ cast, onClose }: PredictionModalProps)
             const predictionId = data.predictionId;
             const shareUrl = `${window.location.origin}/prediction/${predictionId}`;
 
-            // 2. Create on Chain
-            console.log('Creating prediction on-chain:', predictionId);
+            // 2. Create on Chain (V2: createMarket)
+            console.log('Creating market on-chain:', predictionId);
             if (CURRENT_CONFIG.contractAddress) {
                 try {
                     const duration = TIMEFRAME_SECONDS[timeframe] || 86400;
+                    const bonusDuration = Math.floor(duration / 4); // 25% of duration for boost period
+                    const seedAmount = parseUnits('0', 6); // No seed for user-created predictions
+
                     const createHash = await writeContractAsync({
                         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                         abi: PredictionBattleABI.abi,
-                        functionName: 'createPrediction',
-                        args: [predictionId, BigInt(targetValue), BigInt(duration), address as `0x${string}`],
+                        functionName: 'createMarket',
+                        args: [
+                            predictionId,
+                            `Will hit ${targetValue} ${metric}?`, // question
+                            seedAmount,
+                            BigInt(duration),
+                            BigInt(bonusDuration)
+                        ],
                         gas: BigInt(500000),
                     });
 

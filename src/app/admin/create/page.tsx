@@ -336,33 +336,37 @@ export default function CreateCommunityBet() {
                         formData.timeframe === '6h' ? 21600 :
                             formData.timeframe === '7d' ? 604800 : 86400;
 
+                const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
+
                 const createHash = await writeContractAsync({
                     address: getContractAddress(),
                     abi: [
                         {
-                            name: 'createPrediction',
+                            name: 'createMarket',
                             type: 'function',
                             stateMutability: 'nonpayable',
                             inputs: [
                                 { name: '_id', type: 'string' },
-                                { name: '_target', type: 'uint256' },
-                                { name: '_deadline', type: 'uint256' },
-                                { name: '_seedAmount', type: 'uint256' }
+                                { name: '_question', type: 'string' },
+                                { name: '_usdcSeedAmount', type: 'uint256' },
+                                { name: '_duration', type: 'uint256' },
+                                { name: '_bonusDuration', type: 'uint256' }
                             ],
                             outputs: []
                         }
                     ],
-                    functionName: 'createPrediction',
+                    functionName: 'createMarket',
                     args: [
                         data.predictionId,
-                        BigInt(formData.targetValue || 0),
+                        finalQuestion,
+                        totalSeedWei,
                         BigInt(durationSeconds),
-                        totalSeedWei
+                        BigInt(bonusDuration)
                     ],
                     gas: BigInt(500000),
                 });
 
-                console.log('CreatePrediction Tx:', createHash);
+                console.log('CreateMarket Tx:', createHash);
 
                 if (publicClient) {
                     await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
