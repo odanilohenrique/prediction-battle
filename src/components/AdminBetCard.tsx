@@ -205,8 +205,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'placeBet',
-                    args: [bet.id, choice === 'yes', amountInWei],
-                    gas: BigInt(300000),
+                    args: [
+                        bet.id,
+                        choice === 'yes',
+                        amountInWei,
+                        '0x0000000000000000000000000000000000000000' as `0x${string}` // No referrer
+                    ],
+                    gas: BigInt(350000),
                 });
                 console.log('PlaceBet tx sent:', hash);
 
