@@ -6,7 +6,7 @@ const { privateKeyToAccount } = require('viem/accounts');
 const { baseSepolia } = require('viem/chains');
 const PredictionBattleABI = require('../src/lib/abi/PredictionBattle.json');
 
-const CONTRACT_ADDRESS = '0x1e57a200b5aa90e44701e4bba0b70a02c7d074c4';
+const CONTRACT_ADDRESS = '0xfdb080e141a8fecee5d904bfec4bcd24af4338f2';
 const NEW_OPERATOR = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02';
 
 function loadPrivateKey() {
