@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, Clock, Users, DollarSign, TrendingUp, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useWriteContract } from 'wagmi';
 
 interface BetMonitor {
     id: string;
@@ -62,13 +63,13 @@ export default function MonitorPage() {
                 const hash = await writeContractAsync({
                     address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
                     abi: [{
-                        name: 'resolveVoid',
+                        name: 'voidMarket',
                         type: 'function',
                         stateMutability: 'nonpayable',
                         inputs: [{ name: '_id', type: 'string' }],
                         outputs: []
                     }],
-                    functionName: 'resolveVoid',
+                    functionName: 'voidMarket',
                     args: [betId],
                 });
                 showAlert('Void Tx Sent', `Hash: ${hash}`, 'success');
@@ -86,13 +87,13 @@ export default function MonitorPage() {
                 const hash = await writeContractAsync({
                     address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
                     abi: [{
-                        name: 'resolvePrediction',
+                        name: 'resolveMarket',
                         type: 'function',
                         stateMutability: 'nonpayable',
                         inputs: [{ name: '_id', type: 'string' }, { name: '_result', type: 'bool' }],
                         outputs: []
                     }],
-                    functionName: 'resolvePrediction',
+                    functionName: 'resolveMarket',
                     args: [betId, result],
                 });
                 showAlert('Resolve Tx Sent', `Hash: ${hash}`, 'success');
@@ -105,6 +106,7 @@ export default function MonitorPage() {
     }
 
     const [loading, setLoading] = useState(true);
+    const [bets, setBets] = useState<BetMonitor[]>([]);
     const [selectedBet, setSelectedBet] = useState<BetMonitor | null>(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [showExpired, setShowExpired] = useState(false);

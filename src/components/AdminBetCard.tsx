@@ -425,7 +425,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 const hash = await writeContractAsync({
                     address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
-                    functionName: 'resolveVoid',
+                    functionName: 'voidMarket',
                     args: [bet.id],
                 });
 

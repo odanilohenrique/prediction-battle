@@ -61,16 +61,17 @@ export async function isPredictionResolved(predictionId: string): Promise<boolea
     }
 }
 
+// V2 function: resolveMarket
 export async function resolvePredictionOnChain(predictionId: string, result: boolean, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 
-    console.log(`[OPERATOR] Resolving bet ${predictionId} on-chain with result: ${result}`);
+    console.log(`[OPERATOR] Resolving market ${predictionId} on-chain with result: ${result}`);
 
     try {
         const hash = await client.writeContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'resolvePrediction',
+            functionName: 'resolveMarket',
             args: [predictionId, result],
         });
 
@@ -92,16 +93,17 @@ export async function resolvePredictionOnChain(predictionId: string, result: boo
     }
 }
 
+// V2 function: voidMarket
 export async function resolveVoidOnChain(predictionId: string, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 
-    console.log(`[OPERATOR] Voiding bet ${predictionId} on-chain`);
+    console.log(`[OPERATOR] Voiding market ${predictionId} on-chain`);
 
     try {
         const hash = await client.writeContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'resolveVoid',
+            functionName: 'voidMarket',
             args: [predictionId],
         });
 

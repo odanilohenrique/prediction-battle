@@ -249,7 +249,7 @@ export default function PayoutsPage() {
                 const hash = await writeContractAsync({
                     address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
-                    functionName: 'resolvePrediction',
+                    functionName: 'resolveMarket',
                     args: [bet.id, intendedResult],
                 });
 
