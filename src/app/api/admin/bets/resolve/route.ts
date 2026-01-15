@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { isAdmin } from '@/lib/config';
-import { resolvePredictionOnChain, distributeWinningsOnChain, isPredictionResolved, resolveVoidOnChain } from '@/lib/contracts';
+import { resolvePredictionOnChain, isPredictionResolved, resolveVoidOnChain } from '@/lib/contracts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,32 +26,34 @@ export async function POST(req: NextRequest) {
         const winBool = result === 'yes';
 
         try {
-            // 2. Execute On-Chain Logic
+            // 2. Execute On-Chain Logic (V2: resolveMarket / voidMarket)
             const alreadyResolved = await isPredictionResolved(betId);
 
             if (alreadyResolved) {
                 console.log(`[ADMIN] Bet ${betId} already resolved on-chain. Skipping tx.`);
             } else {
                 if (result === 'void') {
-                    console.log(`[ADMIN] Voiding ${betId} manually`);
+                    console.log(`[ADMIN] Voiding ${betId} manually via voidMarket`);
                     await resolveVoidOnChain(betId);
                 } else {
-                    console.log(`[ADMIN] Resolving ${betId} manually -> ${result}`);
+                    console.log(`[ADMIN] Resolving ${betId} manually via resolveMarket -> ${result}`);
                     await resolvePredictionOnChain(betId, winBool);
                 }
             }
 
-            // Distribute only if not just voided? 
-            // Voiding sets paidOut=false initially, but distributeWinnings handles refunds too.
-            // Actually, resolveVoid emits PredictionVoided. distributeWinnings handles both Resolved and Voided structs.
-            console.log(`[ADMIN] Distributing payouts for ${betId}`);
-            await distributeWinningsOnChain(betId, 50);
+            // V2 NOTE: Distribution is user-initiated via claimReward()
+            // No batch distributeWinnings in V2 - each user claims their own reward
+            console.log(`[ADMIN] Market ${betId} resolved. Users can now call claimReward().`);
 
         } catch (chainError) {
             console.error('Blockchain Resolution Failed:', chainError);
-            // Decide: Do we stop or continue to update DB? 
-            // Best to FAIL here so the Admin knows something went wrong.
-            return NextResponse.json({ success: false, error: `Blockchain Error: ${chainError}` }, { status: 500 });
+            // Check if it's "already resolved" - if so, still update DB
+            const errorMsg = String(chainError).toLowerCase();
+            if (errorMsg.includes('already') || errorMsg.includes('resolved')) {
+                console.log(`[ADMIN] Bet ${betId} was already resolved. Continuing to update DB.`);
+            } else {
+                return NextResponse.json({ success: false, error: `Blockchain Error: ${chainError}` }, { status: 500 });
+            }
         }
 
         // 3. Update Status in DB
