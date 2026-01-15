@@ -332,8 +332,8 @@ export default function CreateCommunityBet() {
                         try {
                             const exists = await publicClient.readContract({
                                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'predictionExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
-                                functionName: 'predictionExists',
+                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'marketExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
+                                functionName: 'marketExists',
                                 args: [data.predictionId],
                             });
                             skipCreation = exists as boolean;
@@ -341,11 +341,18 @@ export default function CreateCommunityBet() {
                     }
 
                     if (!skipCreation) {
+                        const bonusDuration = Math.floor(duration / 4); // 25% for boost
                         const contractHash = await writeContractAsync({
                             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                             abi: PredictionBattleABI.abi,
-                            functionName: 'createPrediction',
-                            args: [data.predictionId, BigInt(targetVal), BigInt(duration), totalSeedWei], // USDC seed amount
+                            functionName: 'createMarket',
+                            args: [
+                                data.predictionId,
+                                finalQuestion, // question string
+                                totalSeedWei,  // USDC seed amount
+                                BigInt(duration),
+                                BigInt(bonusDuration)
+                            ],
                             gas: BigInt(500000),
                         });
                         console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
