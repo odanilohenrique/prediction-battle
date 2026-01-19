@@ -138,6 +138,7 @@ export async function getProposalInfo(predictionId: string) {
             bondAmount: data[3] as bigint,
             disputeDeadline: data[4] as bigint,
             canFinalize: data[5] as boolean,
+            evidenceUrl: data[6] as string, // V3.1
         };
     } catch (error) {
         console.error("Failed to get proposal info:", error);

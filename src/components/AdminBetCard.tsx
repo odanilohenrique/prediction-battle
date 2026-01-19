@@ -919,10 +919,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
                                     : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
                                     }`}
-                                title={isMarketProposed ? "Ver status da verificação" : "Verificar resultado"}
+                                title={isMarketProposed ? "View verification status" : "Verify outcome"}
                             >
                                 <Shield className="w-4 h-4" />
-                                {isMarketProposed ? 'Em Verificação' : 'Verificar'}
+                                {isMarketProposed ? 'Verifying' : 'Verify'}
                             </button>
                         )}
 

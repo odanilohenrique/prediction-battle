@@ -45,6 +45,7 @@ interface VerificationModalProps {
         proposedResult: boolean;
         disputeDeadline: bigint;
         canFinalize: boolean;
+        evidenceUrl?: string; // V3.1
     } | null;
     onSuccess: () => void;
 }
@@ -62,6 +63,7 @@ export default function VerificationModal({
 }: VerificationModalProps) {
     const [mounted, setMounted] = useState(false);
     const [selectedResult, setSelectedResult] = useState<'yes' | 'no'>('yes');
+    const [evidenceLink, setEvidenceLink] = useState(''); // Evidence State
     const [step, setStep] = useState<'select' | 'approve' | 'propose' | 'success'>('select');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -102,11 +104,11 @@ export default function VerificationModal({
         if (!proposalInfo?.disputeDeadline) return null;
         const now = BigInt(Math.floor(Date.now() / 1000));
         const remaining = proposalInfo.disputeDeadline - now;
-        if (remaining <= 0) return 'Expirado';
+        if (remaining <= 0) return 'Expired';
         const hours = Number(remaining) / 3600;
-        if (hours >= 1) return `${hours.toFixed(1)}h restantes`;
+        if (hours >= 1) return `${hours.toFixed(1)}h remaining`;
         const minutes = Number(remaining) / 60;
-        return `${Math.floor(minutes)}min restantes`;
+        return `${Math.floor(minutes)}min remaining`;
     };
 
     const handleApproveAndPropose = async () => {
@@ -143,7 +145,8 @@ export default function VerificationModal({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'proposeOutcome',
-                args: [marketId, selectedResult === 'yes']
+                functionName: 'proposeOutcome',
+                args: [marketId, selectedResult === 'yes', evidenceLink] // V3.1: Add evidence
             });
 
             await publicClient.waitForTransactionReceipt({ hash: proposeTx });
@@ -242,7 +245,7 @@ export default function VerificationModal({
                     <Shield className="w-8 h-8 text-primary" />
                     <div>
                         <h3 className="text-xl font-black text-white">
-                            {isProposed ? 'Verificação em Andamento' : 'Verificar Resultado'}
+                            {isProposed ? 'Verification in Progress' : 'Verify Outcome'}
                         </h3>
                         <p className="text-xs text-textSecondary">ID: {marketId}</p>
                     </div>
@@ -257,8 +260,8 @@ export default function VerificationModal({
                 {step === 'success' ? (
                     <div className="flex flex-col items-center py-8">
                         <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-                        <h4 className="text-lg font-bold text-white">Sucesso!</h4>
-                        <p className="text-sm text-textSecondary">Transação confirmada</p>
+                        <h4 className="text-lg font-bold text-white">Success!</h4>
+                        <p className="text-sm text-textSecondary">Transaction confirmed</p>
                     </div>
                 ) : isProposed && proposalInfo ? (
                     // Proposal View (for PROPOSED state)
@@ -266,18 +269,23 @@ export default function VerificationModal({
                         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <Clock className="w-4 h-4 text-yellow-500" />
-                                <span className="text-yellow-500 font-bold text-sm">Aguardando Finalização</span>
+                                <span className="text-yellow-500 font-bold text-sm">Dispute Window Open</span>
                             </div>
                             <p className="text-xs text-textSecondary">
-                                Resultado proposto: <span className={`font-bold ${proposalInfo.proposedResult ? 'text-green-500' : 'text-red-500'}`}>
-                                    {proposalInfo.proposedResult ? 'SIM' : 'NÃO'}
+                                Proposed Result: <span className={`font-bold ${proposalInfo.proposedResult ? 'text-green-500' : 'text-red-500'}`}>
+                                    {proposalInfo.proposedResult ? 'YES' : 'NO'}
                                 </span>
                             </p>
                             <p className="text-xs text-textSecondary mt-1">
-                                Por: {proposalInfo.proposer.substring(0, 6)}...{proposalInfo.proposer.substring(38)}
+                                By: {proposalInfo.proposer.substring(0, 6)}...{proposalInfo.proposer.substring(38)}
                             </p>
+                            {proposalInfo.evidenceUrl && (
+                                <p className="text-xs text-textSecondary mt-1 truncate">
+                                    Evidence: <a href={proposalInfo.evidenceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{proposalInfo.evidenceUrl}</a>
+                                </p>
+                            )}
                             <p className="text-xs text-white/40 mt-1">
-                                Janela de disputa: {getTimeRemaining()}
+                                Time Remaining: {getTimeRemaining()}
                             </p>
                         </div>
 
@@ -295,7 +303,8 @@ export default function VerificationModal({
                                 className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-                                Disputar (É Mentira)
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                                Dispute (It's Fake/Wrong)
                             </button>
                         )}
 
@@ -307,7 +316,7 @@ export default function VerificationModal({
                                 className="w-full py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                Finalizar Verificação
+                                Finalize Verification
                             </button>
                         )}
                     </div>
@@ -316,7 +325,7 @@ export default function VerificationModal({
                     <div className="space-y-4">
                         {/* Result Selection */}
                         <div>
-                            <p className="text-xs text-textSecondary mb-2">Qual foi o resultado?</p>
+                            <p className="text-xs text-textSecondary mb-2">What was the outcome?</p>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => setSelectedResult('yes')}
@@ -326,7 +335,7 @@ export default function VerificationModal({
                                         : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
-                                    SIM ✓
+                                    YES ✓
                                 </button>
                                 <button
                                     onClick={() => setSelectedResult('no')}
@@ -336,7 +345,7 @@ export default function VerificationModal({
                                         : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
-                                    NÃO ✗
+                                    NO ✗
                                 </button>
                             </div>
                         </div>
@@ -345,32 +354,43 @@ export default function VerificationModal({
                         <div className="bg-black/30 rounded-xl p-4 border border-white/5 space-y-2">
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
-                                    <DollarSign className="w-3 h-3" /> Garantia (Bond)
+                                    <DollarSign className="w-3 h-3" /> Bond Required
                                 </span>
                                 <span className="text-sm font-bold text-white">${bondFormatted} USDC</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3" /> Recompensa (se honesto)
+                                    <CheckCircle className="w-3 h-3" /> Reward (if honest)
                                 </span>
                                 <span className="text-sm font-bold text-green-500">+${rewardFormatted} USDC</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Janela de disputa
+                                    <Clock className="w-3 h-3" /> Dispute Window
                                 </span>
-                                <span className="text-sm font-bold text-yellow-500">12 horas</span>
+                                <span className="text-sm font-bold text-yellow-500">12 hours</span>
                             </div>
                         </div>
 
-                        {/* Warning */}
                         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
                             <div className="flex items-start gap-2">
                                 <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
                                 <p className="text-xs text-yellow-500/80">
-                                    Se você mentir e for disputado, perderá 100% da garantia.
+                                    If you lie and get disputed, you will lose 100% of your bond.
                                 </p>
                             </div>
+                        </div>
+
+                        {/* Evidence Input */}
+                        <div>
+                            <label className="text-xs text-textSecondary mb-1 block">Proof / Evidence Link (Required)</label>
+                            <input
+                                type="url"
+                                placeholder="https://warpcast.com/..."
+                                value={evidenceLink}
+                                onChange={(e) => setEvidenceLink(e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50"
+                            />
                         </div>
 
                         {error && (
@@ -386,22 +406,23 @@ export default function VerificationModal({
                                 disabled={isLoading}
                                 className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 font-bold hover:bg-white/5 transition-colors disabled:opacity-50"
                             >
-                                Cancelar
+                                Cancel
                             </button>
                             <button
                                 onClick={handleApproveAndPropose}
-                                disabled={isLoading}
+                                disabled={isLoading || !evidenceLink} // Require evidence
                                 className="flex-1 py-3 bg-primary hover:bg-white text-black font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        {step === 'approve' ? 'Aprovando...' : 'Enviando...'}
+                                        {step === 'approve' ? 'Approving...' : 'Sending...'}
                                     </>
                                 ) : (
                                     <>
                                         <Shield className="w-4 h-4" />
-                                        Reportar & Ganhar
+                                        <Shield className="w-4 h-4" />
+                                        Report & Earn
                                     </>
                                 )}
                             </button>
@@ -412,7 +433,7 @@ export default function VerificationModal({
                     <div className="text-center py-8">
                         <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
                         <p className="text-textSecondary text-sm">
-                            Este mercado não está pronto para verificação.
+                            This market is not ready for verification.
                         </p>
                     </div>
                 )}
