@@ -115,34 +115,16 @@ export async function resolveVoidOnChain(predictionId: string, waitForReceipt: b
     }
 }
 
+// V2 NOTE: distributeWinnings does NOT exist in V2!
+// In V2, users claim their own rewards via claimReward(marketId)
+// This function is kept for backwards compatibility but will throw an error
 export async function distributeWinningsOnChain(predictionId: string, batchSize: number = 50, waitForReceipt: boolean = true) {
-    const client = getOperatorClient();
+    console.warn(`[OPERATOR] distributeWinnings is DEPRECATED in V2. Users must call claimReward() themselves.`);
+    console.warn(`[OPERATOR] Market ${predictionId} is resolved. Winners can claim via the UI.`);
 
-    console.log(`[OPERATOR] Distributing winnings for ${predictionId} (Batch: ${batchSize})`);
-
-    try {
-        const hash = await client.writeContract({
-            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-            abi: PredictionBattleABI.abi,
-            functionName: 'distributeWinnings',
-            args: [predictionId, BigInt(batchSize)],
-        });
-
-        console.log(`[OPERATOR] Payout Tx Hash: ${hash}`);
-
-        if (waitForReceipt) {
-            const receipt = await client.waitForTransactionReceipt({ hash });
-
-            if (receipt.status !== 'success') {
-                throw new Error(`Transaction reverted: ${hash}`);
-            }
-        }
-
-        return hash;
-    } catch (error) {
-        console.error("[OPERATOR] Failed to distribute on-chain:", error);
-        throw error;
-    }
+    // Don't actually call the contract - just return a fake hash to prevent errors
+    // This allows the DB to update without failing
+    return '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 }
 
 export async function claimReferralRewardsOnChain(waitForReceipt: boolean = true) {

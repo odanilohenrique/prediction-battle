@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store } from '@/lib/store';
 import { getCastStats, getUserStats, getUserRecentCasts, getUserByUsername } from '@/lib/neynar';
-import { resolvePredictionOnChain, distributeWinningsOnChain } from '@/lib/contracts';
+import { resolvePredictionOnChain } from '@/lib/contracts';
 
 export const dynamic = 'force-dynamic'; // Prevent caching
 

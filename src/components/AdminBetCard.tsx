@@ -320,76 +320,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
     const handleSeedPool = async () => {
-        showConfirm('Seed Pool', 'This will place USDC liquidity on both sides (Dead Liquidity). You will need to approve USDC. Confirm?', async () => {
-            setIsSubmitting(true);
-            try {
-                const seedTotal = 2; // Fixed $2 seed ($1 per side)
-                const amountInWei = parseUnits(seedTotal.toString(), 6); // USDC has 6 decimals
-
-                // 1. Approve USDC
-                console.log('Approving USDC for seed...');
-                const approveHash = await writeContractAsync({
-                    address: USDC_ADDRESS as `0x${string}`,
-                    abi: [{
-                        name: 'approve',
-                        type: 'function',
-                        stateMutability: 'nonpayable',
-                        inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
-                        outputs: [{ name: '', type: 'bool' }]
-                    }],
-                    functionName: 'approve',
-                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, amountInWei],
-                    gas: BigInt(100000),
-                });
-
-                if (publicClient) {
-                    await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 180000 });
-                }
-                console.log('USDC Approved!');
-
-                // 2. Call Contract seedPrediction(id, amount)
-                console.log('Seeding Contract...');
-                const hash = await writeContractAsync({
-                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                    abi: PredictionBattleABI.abi,
-                    functionName: 'seedPrediction',
-                    args: [bet.id, amountInWei],
-                    gas: BigInt(300000),
-                });
-
-                if (publicClient) {
-                    await publicClient.waitForTransactionReceipt({ hash, timeout: 180000 });
-                }
-
-                // 3. Register in Backend (Split 50/50 logic for display)
-                const splitedSeed = seedTotal / 2;
-                const registerSide = async (side: 'yes' | 'no') => {
-                    await fetch('/api/predictions/bet', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            betId: bet.id,
-                            choice: side,
-                            amount: splitedSeed,
-                            txHash: hash,
-                            userAddress: address
-                        }),
-                    });
-                };
-
-                await registerSide('yes');
-                await registerSide('no');
-
-                showAlert('Success', 'Pool Seeded Successfully! Liquidity injected.', 'success');
-                onBet(); // Refresh
-
-            } catch (error) {
-                console.error('Seeding failed:', error);
-                showAlert('Seed Failed', (error as Error).message, 'error');
-            } finally {
-                setIsSubmitting(false);
-            }
-        });
+        // V2 NOTE: seedPrediction does NOT exist in V2!
+        // In V2, seed is provided during createMarket() call.
+        // This button should inform the user instead of trying to seed.
+        showAlert(
+            'V2 Contract',
+            'In the V2 contract, pools are seeded during market creation. There is no separate seedPrediction function. If you need to add liquidity, you can place bets on both sides.',
+            'info'
+        );
     };
 
     const handleDelete = async () => {
