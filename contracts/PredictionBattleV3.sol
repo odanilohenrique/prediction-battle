@@ -70,6 +70,7 @@ contract PredictionBattleV3 {
         bool proposedResult;
         uint256 proposalTime;
         uint256 bondAmount;
+        string evidenceUrl; // V3.1: Evidence link
         
         // Pool Tracking (USDC - 6 decimals)
         uint256 totalYes;
@@ -121,7 +122,7 @@ contract PredictionBattleV3 {
     event OperatorUpdated(address indexed operator, bool status);
     
     // V3 Events
-    event OutcomeProposed(string indexed id, address indexed proposer, bool proposedResult, uint256 bondAmount, uint256 disputeDeadline);
+    event OutcomeProposed(string indexed id, address indexed proposer, bool proposedResult, uint256 bondAmount, uint256 disputeDeadline, string evidenceUrl);
     event OutcomeDisputed(string indexed id, address indexed disputer, address indexed slashedProposer, uint256 slashedAmount);
     event OutcomeFinalized(string indexed id, address indexed proposer, uint256 rewardAmount);
     event MarketLocked(string indexed id);
@@ -304,8 +305,9 @@ contract PredictionBattleV3 {
      * @notice Propose an outcome (anyone can call, requires bond)
      * @param _marketId The market to report on
      * @param _result The proposed result (true = YES, false = NO)
+     * @param _evidenceUrl Link to proof (image/post)
      */
-    function proposeOutcome(string memory _marketId, bool _result) external {
+    function proposeOutcome(string memory _marketId, bool _result, string memory _evidenceUrl) external {
         require(marketExists[_marketId], "Market does not exist");
         Market storage m = markets[_marketId];
         
@@ -322,12 +324,13 @@ contract PredictionBattleV3 {
         m.proposedResult = _result;
         m.proposalTime = block.timestamp;
         m.bondAmount = bondAmount;
+        m.evidenceUrl = _evidenceUrl;
         m.state = MarketState.PROPOSED;
         
         // Store bond in proposer's locked balance (for tracking)
         bondBalance[msg.sender] += bondAmount;
         
-        emit OutcomeProposed(_marketId, msg.sender, _result, bondAmount, block.timestamp + DISPUTE_WINDOW);
+        emit OutcomeProposed(_marketId, msg.sender, _result, bondAmount, block.timestamp + DISPUTE_WINDOW, _evidenceUrl);
     }
     
     /**
@@ -353,6 +356,7 @@ contract PredictionBattleV3 {
         m.proposedResult = false;
         m.proposalTime = 0;
         m.bondAmount = 0;
+        m.evidenceUrl = "";
         
         // Smart Reset: Check if deadline passed or not
         if (block.timestamp < m.deadline) {
@@ -579,7 +583,8 @@ contract PredictionBattleV3 {
         uint256 proposalTime,
         uint256 bondAmount,
         uint256 disputeDeadline,
-        bool canFinalize
+        bool canFinalize,
+        string memory evidenceUrl
     ) {
         Market storage m = markets[_marketId];
         uint256 deadline = m.proposalTime > 0 ? m.proposalTime + DISPUTE_WINDOW : 0;
@@ -590,7 +595,8 @@ contract PredictionBattleV3 {
             m.proposalTime,
             m.bondAmount,
             deadline,
-            finalizeable
+            finalizeable,
+            m.evidenceUrl
         );
     }
     
