@@ -59,9 +59,9 @@ if (fs.existsSync(envPath)) {
 
 console.log('Final Loaded Key Length:', loadedPrivateKey.length);
 
-// Configuration for USDC Contract V2
-const CONTRACT_FILENAME = 'PredictionBattleV2.sol';
-const CONTRACT_NAME = 'PredictionBattleV2';
+// Configuration for V3 Contract (Decentralized Verification)
+const CONTRACT_FILENAME = 'PredictionBattleV3.sol';
+const CONTRACT_NAME = 'PredictionBattleV3';
 const SOURCES_DIR = path.resolve(process.cwd(), 'contracts');
 const OUTPUT_DIR = path.resolve(process.cwd(), 'src/lib/abi');
 
