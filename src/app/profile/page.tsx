@@ -1,14 +1,55 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Skull, Activity, Users, Crown, Clock, Edit3, Save, X, Calendar, ChevronDown, ChevronUp, Link as LinkIcon, Upload, ImageIcon } from 'lucide-react';
+import { Coins, ArrowLeft, Trophy, Skull, Activity, Users, Crown, Clock, Edit3, Save, X, Calendar, ChevronDown, ChevronUp, Link as LinkIcon, Upload, ImageIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { useModal } from '@/providers/ModalProvider';
+import { CURRENT_CONFIG } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import { parseEther } from 'viem';
 
 export default function ProfilePage() {
     const { showAlert } = useModal();
     const { address, isConnected } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+    const publicClient = usePublicClient();
+
+    // Creator Fees Logic
+    const [isClaimingFees, setIsClaimingFees] = useState(false);
+
+    const { data: creatorBalance, refetch: refetchCreatorBalance } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'creatorBalance',
+        args: [address || '0x0000000000000000000000000000000000000000'],
+        query: {
+            enabled: !!address,
+        }
+    }) as { data: bigint | undefined, refetch: () => void };
+
+    const handleClaimCreatorFees = async () => {
+        if (!isConnected || !address) return;
+        setIsClaimingFees(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'claimCreatorRewards',
+                args: [],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+            }
+            showAlert('Success', 'Creator fees claimed successfully!', 'success');
+            refetchCreatorBalance();
+        } catch (error) {
+            console.error('Claim Fees error:', error);
+            showAlert('Error', (error as Error).message, 'error');
+        } finally {
+            setIsClaimingFees(false);
+        }
+    };
 
     // Profile Data
     const [displayName, setDisplayName] = useState('');
@@ -239,6 +280,45 @@ export default function ProfilePage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Creator Earnings Section */}
+                        {creatorBalance && creatorBalance > BigInt(0) && (
+                            <div className="mb-8">
+                                <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                                    <div className="flex items-center gap-6 relative z-10">
+                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                                            <Crown className="w-8 h-8 text-black" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-white italic uppercase tracking-wide">Creator Earnings</h3>
+                                            <p className="text-white/60 text-sm">Accumulated fees from your prediction markets (5%)</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-2 relative z-10 w-full md:w-auto">
+                                        <div className="text-3xl font-black text-white flex items-center gap-2">
+                                            <span className="text-yellow-500">$</span>
+                                            {(Number(creatorBalance) / 1000000).toFixed(2)}
+                                            <span className="text-sm font-bold text-white/40 uppercase tracking-widest mt-2">USDC</span>
+                                        </div>
+                                        <button
+                                            onClick={handleClaimCreatorFees}
+                                            disabled={isClaimingFees}
+                                            className="w-full md:w-auto px-8 py-3 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        >
+                                            {isClaimingFees ? (
+                                                <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                            ) : (
+                                                <Coins className="w-5 h-5" />
+                                            )}
+                                            {isClaimingFees ? 'Claiming...' : 'Claim Winnings'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
