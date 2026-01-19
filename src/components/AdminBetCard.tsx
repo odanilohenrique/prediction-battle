@@ -93,6 +93,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // Claim Check Logic
     const winningSide = bet.result === 'yes'; // true for yes, false for no
+
+    // 1. Get User Shares
     const { data: userBetInfo, refetch: refetchUserBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -100,15 +102,47 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         args: [
             bet.id,
             address || '0x0000000000000000000000000000000000000000',
-            bet.result === 'yes' // Check the winning side
+            winningSide // Check the winning side
         ],
         query: {
             enabled: !!address && bet.status !== 'active' && (bet.result === 'yes' || bet.result === 'no'),
         }
     }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
 
-    const [claimAmount, claimShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
-    const canClaim = bet.status !== 'active' && claimShares > BigInt(0) && !hasClaimed;
+    // Contract returns: (amount, shares, referrer, claimed)
+    const [originalBetAmount, userShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
+
+    // 2. Get Market Info for Total Shares (needed for payout calc)
+    const { data: marketInfo } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getMarketInfo',
+        args: [bet.id],
+        query: {
+            enabled: !!address && bet.status !== 'active' && userShares > BigInt(0),
+        }
+    }) as { data: [string, bigint, boolean, boolean, bigint, bigint, bigint, bigint] | undefined };
+
+    // MarketInfo: [creator, deadline, resolved, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
+
+    // 3. Calculate Actual Payout
+    let calculatedPayout = BigInt(0);
+    if (marketInfo && userShares > BigInt(0)) {
+        const [, , , , totalYes, totalNo, totalSharesYes, totalSharesNo] = marketInfo;
+        const totalPool = totalYes + totalNo;
+        const totalOppositePool = winningSide ? totalNo : totalYes;
+        // V2 Payout Logic: (shares * totalPool) / totalSharesWinning
+        // Note: Fees are already deducted from pool during placement, so totalYes/No represent net pools? 
+        // Actually V2 fees are taken from valid bets. totalYes/totalNo track the NET pool.
+
+        const totalSharesWinning = winningSide ? totalSharesYes : totalSharesNo;
+
+        if (totalSharesWinning > BigInt(0)) {
+            calculatedPayout = (userShares * totalPool) / totalSharesWinning;
+        }
+    }
+
+    const canClaim = bet.status !== 'active' && userShares > BigInt(0) && !hasClaimed;
 
     // Configuration
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
@@ -774,13 +808,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                         {canClaim ? (
                             <ClaimButton
-                                amount={claimShares > BigInt(0) ? (Number(claimShares) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
+                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
                                 onClick={handleClaim}
                                 loading={isSubmitting}
                             />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
                             <ClaimButton
-                                amount={claimShares > BigInt(0) ? (Number(claimShares) / 1000000).toFixed(2) : '0.00'}
+                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (hasClaimed && originalBetAmount > BigInt(0) ? 'PAID' : '0.00')}
                                 onClick={() => { }}
                                 disabled={true}
                             />
