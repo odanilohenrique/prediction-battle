@@ -157,10 +157,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined, refetch: () => void };
 
-    // V3: Get Market Info ALWAYS (for state checking)
-    // This hook runs independently to check market state for verification UI
-    // V3: Get Market Info ALWAYS (for state checking)
-    // This hook runs independently to check market state for verification UI
+
     const { data: marketInfoV3, refetch: refetchMarketInfoV3 } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -180,6 +177,12 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const isMarketProposed = marketStateV3 === 2; // PROPOSED
     const isMarketResolved = marketStateV3 === 3; // RESOLVED
 
+    // Helper: Check if expired locally
+    const isExpired = Date.now() >= bet.expiresAt;
+
+    // Can Verify if: Locked, Proposed OR (Open AND Expired)
+    const canVerify = isMarketLocked || isMarketProposed || (isMarketOpen && isExpired);
+
     // V3: Get Required Bond
     const { data: requiredBond } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
@@ -187,7 +190,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         functionName: 'getRequiredBond',
         args: [bet.id],
         query: {
-            enabled: isMarketLocked || isMarketProposed,
+            enabled: canVerify,
         }
     }) as { data: bigint | undefined };
 
@@ -198,7 +201,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         functionName: 'getReporterReward',
         args: [bet.id],
         query: {
-            enabled: isMarketLocked || isMarketProposed,
+            enabled: canVerify,
         }
     }) as { data: bigint | undefined };
 
@@ -910,8 +913,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
 
-                        {/* V3: Verify Button - For LOCKED or PROPOSED markets */}
-                        {address && (isMarketLocked || isMarketProposed) && (
+                        {/* V3: Verify Button - For LOCKED, PROPOSED or OPEN+EXPIRED markets */}
+                        {address && canVerify && (
                             <button
                                 onClick={() => setShowVerificationModal(true)}
                                 className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketProposed
