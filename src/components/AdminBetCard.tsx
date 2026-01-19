@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
-import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -37,6 +37,8 @@ interface AdminBet {
     creatorAddress?: string;
     creatorDisplayName?: string;
     status?: string;
+    result?: string; // yes | no
+    question?: string; // V2 market question
     // Automated Verification Metadata
     verification?: {
         enabled: boolean;
@@ -86,6 +88,25 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { switchChainAsync } = useSwitchChain();
     const { connectors, connect } = useConnect();
     const publicClient = usePublicClient();
+
+    // Claim Check Logic
+    const winningSide = bet.result === 'yes'; // true for yes, false for no
+    const { data: userBetInfo, refetch: refetchUserBet } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getUserBet',
+        args: [
+            bet.id,
+            address || '0x0000000000000000000000000000000000000000',
+            bet.result === 'yes' // Check the winning side
+        ],
+        query: {
+            enabled: !!address && bet.status !== 'active' && (bet.result === 'yes' || bet.result === 'no'),
+        }
+    }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
+
+    const [claimAmount, claimShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
+    const canClaim = bet.status !== 'active' && claimShares > BigInt(0) && !hasClaimed;
 
     // Configuration
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
@@ -354,6 +375,38 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 setIsDeleting(false);
             }
         });
+    };
+
+    const handleClaim = async () => {
+        if (!isConnected || !address) {
+            showAlert('Wallet Required', 'Please connect your wallet to claim.', 'warning');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            console.log('Claiming reward for:', bet.id);
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'claimReward',
+                args: [bet.id],
+            });
+
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 180000 });
+            }
+
+            showAlert('Success', 'Reward claimed successfully! View your wallet.', 'success');
+            refetchUserBet();
+            // Optimistically update UI or hide button? 
+            // refetchUserBet should handle it if reactive.
+        } catch (error) {
+            console.error('Claim error:', error);
+            showAlert('Claim Failed', (error as Error).message, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleVoid = async () => {
@@ -710,13 +763,28 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
 
-                        {bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
+                        {canClaim ? (
+                            <button
+                                onClick={handleClaim}
+                                disabled={isSubmitting}
+                                className="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)] transform hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 animate-pulse"
+                            >
+                                {isSubmitting ? (
+                                    'CLAIMING...'
+                                ) : (
+                                    <>
+                                        <DollarSign className="w-6 h-6" />
+                                        CLAIM WINNINGS
+                                    </>
+                                )}
+                            </button>
+                        ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
                             <button
                                 disabled
                                 className="w-full bg-red-500/10 text-red-500 font-black py-4 rounded-xl cursor-not-allowed border border-red-500/20 uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
                             >
-                                <span>🚫</span>
-                                {bet.status !== 'active' ? 'BATTLE RESOLVED' : 'BATTLE EXPIRED'}
+                                <span>{hasClaimed ? '✅' : '🚫'}</span>
+                                {hasClaimed ? 'REWARD CLAIMED' : (bet.status !== 'active' ? 'BATTLE RESOLVED' : 'BATTLE EXPIRED')}
                             </button>
                         ) : (
                             <button
@@ -725,7 +793,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             >
                                 JOIN BATTLE
                             </button>
-                        )}
+                        ))}
                     </div>
                 </div>
             </div >
