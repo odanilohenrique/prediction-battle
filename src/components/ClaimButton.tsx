@@ -7,9 +7,11 @@ interface ClaimButtonProps {
     onClick: () => void;
     disabled?: boolean;
     loading?: boolean;
+    label?: string;
+    subtext?: string;
 }
 
-export default function ClaimButton({ amount, onClick, disabled, loading }: ClaimButtonProps) {
+export default function ClaimButton({ amount, onClick, disabled, loading, label, subtext }: ClaimButtonProps) {
     return (
         <button
             onClick={onClick}
@@ -44,20 +46,20 @@ export default function ClaimButton({ amount, onClick, disabled, loading }: Clai
                     </div>
                     <div className="text-left">
                         <div className={`text-xs font-bold uppercase tracking-wider ${disabled ? 'text-white/40' : 'text-green-100'}`}>
-                            {disabled ? 'Reward Claimed' : 'Claim Winnings'}
+                            {label || (disabled ? 'Reward Claimed' : 'Claim Winnings')}
                         </div>
                         <div className={`text-lg font-black leading-none ${disabled ? 'text-white/60' : 'text-white drop-shadow-sm'}`}>
-                            {disabled ? 'PAID' : 'GET PAID'}
+                            {subtext || (disabled ? 'PAID' : 'GET PAID')}
                         </div>
                     </div>
                 </div>
 
                 {/* Right Side: Amount */}
-                {!disabled && !loading && (
+                {(!loading && (amount !== '0.00' || (!disabled && amount === '0.00'))) && (
                     <div className="flex flex-col items-end">
                         <div className="text-xs text-green-100 font-medium mb-0.5 flex items-center gap-1">
                             <Sparkles className="w-3 h-3 text-yellow-300" />
-                            YOU WON
+                            {disabled ? 'TOTAL WON' : 'YOU WON'}
                         </div>
                         <div className="text-xl font-black text-white drop-shadow-md tracking-tight">
                             ${amount}
