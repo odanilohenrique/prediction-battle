@@ -177,11 +177,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const isMarketProposed = marketStateV3 === 2; // PROPOSED
     const isMarketResolved = marketStateV3 === 3; // RESOLVED
 
-    // Helper: Check if expired locally
-    const isExpired = Date.now() >= bet.expiresAt;
-
-    // Can Verify if: Locked, Proposed OR (Open AND Expired)
-    const canVerify = isMarketLocked || isMarketProposed || (isMarketOpen && isExpired);
+    // Can Verify if: OPEN, LOCKED, or PROPOSED (i.e., not RESOLVED)
+    // V3 Update: Anyone can propose at any time (Early Resolution)
+    const canVerify = marketStateV3 !== 3; // 3 = RESOLVED
 
     // V3: Get Required Bond
     const { data: requiredBond } = useReadContract({
