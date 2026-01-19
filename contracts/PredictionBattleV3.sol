@@ -309,8 +309,8 @@ contract PredictionBattleV3 {
         require(marketExists[_marketId], "Market does not exist");
         Market storage m = markets[_marketId];
         
-        // V3: Only LOCKED markets can receive proposals
-        require(m.state == MarketState.LOCKED, "Market must be LOCKED");
+        // V3: Can propose if OPEN (early resolution) or LOCKED (after deadline)
+        require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Market not active");
         
         uint256 bondAmount = getRequiredBond(_marketId);
         

@@ -62,7 +62,7 @@ export default function VerificationModal({
 }: VerificationModalProps) {
     const [mounted, setMounted] = useState(false);
     const [selectedResult, setSelectedResult] = useState<'yes' | 'no'>('yes');
-    const [step, setStep] = useState<'select' | 'lock' | 'approve' | 'propose' | 'success'>('select');
+    const [step, setStep] = useState<'select' | 'approve' | 'propose' | 'success'>('select');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -116,18 +116,6 @@ export default function VerificationModal({
         setError(null);
 
         try {
-            // Step 0: Lock Market (if still OPEN)
-            if (isMarketOpen) {
-                setStep('lock');
-                const lockTx = await writeContractAsync({
-                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                    abi: PredictionBattleABI.abi,
-                    functionName: 'lockMarket',
-                    args: [marketId]
-                });
-                await publicClient.waitForTransactionReceipt({ hash: lockTx });
-            }
-
             // Step 1: Check current allowance
             setStep('approve');
             const allowance = await publicClient.readContract({
@@ -324,7 +312,7 @@ export default function VerificationModal({
                         )}
                     </div>
                 ) : showProposeView ? (
-                    // Propose View (for LOCKED or OPEN+Expired state)
+                    // Propose View (for OPEN, LOCKED or REFUNDED state)
                     <div className="space-y-4">
                         {/* Result Selection */}
                         <div>
@@ -408,7 +396,7 @@ export default function VerificationModal({
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        {step === 'lock' ? 'Encerrando Mercado...' : step === 'approve' ? 'Aprovando...' : 'Enviando...'}
+                                        {step === 'approve' ? 'Aprovando...' : 'Enviando...'}
                                     </>
                                 ) : (
                                     <>
