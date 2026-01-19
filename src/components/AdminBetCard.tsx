@@ -398,9 +398,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             }
 
             showAlert('Success', 'Reward claimed successfully! View your wallet.', 'success');
+
+            // Register claim in DB asynchronously
+            fetch('/api/predictions/claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ betId: bet.id, userAddress: address })
+            }).catch(err => console.error('Failed to register claim in DB', err));
+
             refetchUserBet();
-            // Optimistically update UI or hide button? 
-            // refetchUserBet should handle it if reactive.
+            router.refresh();
         } catch (error) {
             console.error('Claim error:', error);
             showAlert('Claim Failed', (error as Error).message, 'error');
