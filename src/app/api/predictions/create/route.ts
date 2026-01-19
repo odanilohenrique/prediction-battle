@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
                 expiresAt,
                 status: 'active',
                 totalPot: requiredSeed, // Initial Pot is the Seed
-                participantCount: 2, // 2 Entries (Yes + No)
+                participantCount: 0, // Starts at 0 (Seed doesn't count as user participant)
                 participants: {
                     yes: [],
                     no: [],
@@ -158,21 +158,9 @@ export async function POST(request: NextRequest) {
                 } : undefined
             };
 
-            // Seed YES Side
-            bet.participants.yes.push({
-                userId,
-                choice: 'yes',
-                amount: entryLimit,
-                timestamp: now
-            });
-
-            // Seed NO Side
-            bet.participants.no.push({
-                userId,
-                choice: 'no',
-                amount: entryLimit,
-                timestamp: now
-            });
+            // Seed Liquidity (Dead Liquidity) is tracked via initialValue/totalPot
+            // We do NOT add the creator as a participant because V2 seed does not generate shares.
+            // Creator only gets fees, not payout from the seed itself.
         }
 
         // Save to Redis

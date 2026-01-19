@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import ClaimButton from './ClaimButton';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther } from 'viem';
@@ -771,28 +773,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         )}
 
                         {canClaim ? (
-                            <button
+                            <ClaimButton
+                                amount={userBet?.claimAmount ? (Number(userBet.claimAmount) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
                                 onClick={handleClaim}
-                                disabled={isSubmitting}
-                                className="w-full bg-green-500 hover:bg-green-400 text-black font-black py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)] transform hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 animate-pulse"
-                            >
-                                {isSubmitting ? (
-                                    'CLAIMING...'
-                                ) : (
-                                    <>
-                                        <DollarSign className="w-6 h-6" />
-                                        CLAIM WINNINGS
-                                    </>
-                                )}
-                            </button>
+                                loading={isSubmitting}
+                            />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
-                            <button
-                                disabled
-                                className="w-full bg-red-500/10 text-red-500 font-black py-4 rounded-xl cursor-not-allowed border border-red-500/20 uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
-                            >
-                                <span>{hasClaimed ? '✅' : '🚫'}</span>
-                                {hasClaimed ? 'REWARD CLAIMED' : (bet.status !== 'active' ? 'BATTLE RESOLVED' : 'BATTLE EXPIRED')}
-                            </button>
+                            <ClaimButton
+                                amount={userBet?.claimAmount ? (Number(userBet.claimAmount) / 1000000).toFixed(2) : '0.00'}
+                                onClick={() => { }}
+                                disabled={true}
+                            />
                         ) : (
                             <button
                                 onClick={() => setIsBattleModalOpen(true)}
