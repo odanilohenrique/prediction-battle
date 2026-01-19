@@ -157,11 +157,28 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined, refetch: () => void };
 
-    // V3: Get Market State (state is index 2 in getMarketInfo return)
+    // V3: Get Market Info ALWAYS (for state checking)
+    // This hook runs independently to check market state for verification UI
+    // V3: Get Market Info ALWAYS (for state checking)
+    // This hook runs independently to check market state for verification UI
+    const { data: marketInfoV3, refetch: refetchMarketInfoV3 } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getMarketInfo',
+        args: [bet.id],
+        query: {
+            enabled: true, // Always fetch to check V3 state
+            refetchInterval: 10000, // Refresh every 10s
+        }
+    }) as { data: [string, bigint, number, boolean, bigint, bigint, bigint, bigint] | undefined, refetch: () => void };
+
+    // V3: Get Market State from dedicated hook
     // MarketInfo V3: [creator, deadline, state, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
-    const marketStateV3 = marketInfo ? Number((marketInfo as any)[2]) : 0;
-    const isMarketLocked = marketStateV3 === 1;  // LOCKED
+    const marketStateV3 = marketInfoV3 ? Number(marketInfoV3[2]) : 0;
+    const isMarketOpen = marketStateV3 === 0;     // OPEN
+    const isMarketLocked = marketStateV3 === 1;   // LOCKED
     const isMarketProposed = marketStateV3 === 2; // PROPOSED
+    const isMarketResolved = marketStateV3 === 3; // RESOLVED
 
     // V3: Get Required Bond
     const { data: requiredBond } = useReadContract({
@@ -932,8 +949,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         ))}
                     </div>
 
-                    {/* Creator Fees Section */}
-                    {creatorBalance && creatorBalance > BigInt(0) && (
+                    {/* Creator Fees Section - Only visible to the creator of this market */}
+                    {creatorBalance && creatorBalance > BigInt(0) && bet.creatorAddress && address && bet.creatorAddress.toLowerCase() === address.toLowerCase() && (
                         <div className="mt-4 pt-4 border-t border-white/5">
                             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center justify-between">
                                 <div>
@@ -1255,6 +1272,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 proposalInfo={parsedProposalInfo}
                 onSuccess={() => {
                     refetchProposalInfo();
+                    refetchMarketInfoV3();
                     onBet();
                 }}
             />
