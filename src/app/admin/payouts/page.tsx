@@ -213,59 +213,73 @@ export default function PayoutsPage() {
                                 </div>
 
                                 <div className="space-y-2 bg-black/20 rounded-xl p-4 border border-white/5">
-                                    <h4 className="text-xs font-bold text-textSecondary uppercase tracking-wider mb-2">Winners List ({winners.length})</h4>
+                                    {/* Filter out Creator/Seed wallet to prevent confusion about "Unpaid Service Fees" */}
+                                    {(() => {
+                                        const visibleWinners = winners.filter((w: any) => {
+                                            const creator = (bet.creatorAddress || bet.creator || '').toLowerCase();
+                                            return w.userId.toLowerCase() !== creator;
+                                        });
 
-                                    {winners.length === 0 ? (
-                                        <p className="text-sm text-textSecondary italic">No winners.</p>
-                                    ) : (
-                                        winners.map((winner: any, i: number) => {
-                                            const isPaid = winner.paid; // claimed
-                                            const key = `${bet.id}-${winner.userId}`;
-                                            const share = winner.amount + (winner.amount / totalWinningStake) * totalLosingStake; // rough estimate
+                                        return (
+                                            <>
+                                                <h4 className="text-xs font-bold text-textSecondary uppercase tracking-wider mb-2">
+                                                    Winners List ({visibleWinners.length})
+                                                    <span className="text-[10px] text-white/20 ml-1">(Seed Hidden)</span>
+                                                </h4>
 
-                                            return (
-                                                <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPaid ? 'bg-green-900/10 border-green-500/20' : 'bg-white/5 border-white/5'}`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-white/40'}`}>
-                                                            {i + 1}
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm font-mono text-white">{winner.userId}</div>
-                                                            <div className="text-xs text-textSecondary">Bet: ${winner.amount}</div>
-                                                        </div>
-                                                    </div>
+                                                {visibleWinners.length === 0 ? (
+                                                    <p className="text-sm text-textSecondary italic">No winners (or only seed liquidity).</p>
+                                                ) : (
+                                                    visibleWinners.map((winner: any, i: number) => {
+                                                        const isPaid = winner.paid; // claimed
+                                                        const key = `${bet.id}-${winner.userId}`;
 
-                                                    <div className="flex items-center gap-3">
-                                                        {isPaid ? (
-                                                            <span className="flex items-center gap-1 text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded">
-                                                                <CheckCircle className="w-3 h-3" /> CLAIMED
-                                                            </span>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded flex items-center gap-1">
-                                                                    <Clock className="w-3 h-3" /> UNCLAIMED
-                                                                </span>
-                                                                <button
-                                                                    onClick={() => checkClaimStatus(bet, winner)}
-                                                                    disabled={verifying[key]}
-                                                                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/60 hover:text-white transition-colors"
-                                                                    title="Verify on Blockchain"
-                                                                >
-                                                                    <RefreshCw className={`w-3 h-3 ${verifying[key] ? 'animate-spin' : ''}`} />
-                                                                </button>
+                                                        return (
+                                                            <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPaid ? 'bg-green-900/10 border-green-500/20' : 'bg-white/5 border-white/5'}`}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-white/40'}`}>
+                                                                        {i + 1}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-sm font-mono text-white">{winner.userId}</div>
+                                                                        <div className="text-xs text-textSecondary">Bet: ${winner.amount}</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-3">
+                                                                    {isPaid ? (
+                                                                        <span className="flex items-center gap-1 text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded">
+                                                                            <CheckCircle className="w-3 h-3" /> CLAIMED
+                                                                        </span>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded flex items-center gap-1">
+                                                                                <Clock className="w-3 h-3" /> UNCLAIMED
+                                                                            </span>
+                                                                            <button
+                                                                                onClick={() => checkClaimStatus(bet, winner)}
+                                                                                disabled={verifying[key]}
+                                                                                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/60 hover:text-white transition-colors"
+                                                                                title="Verify on Blockchain"
+                                                                            >
+                                                                                <RefreshCw className={`w-3 h-3 ${verifying[key] ? 'animate-spin' : ''}`} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )
-                                        })
-                                    )}
+                                                        );
+                                                    })
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
-                            </div>
-                        );
+                                );
                     })}
-                </div>
-            )}
+                            </div>
+                        )
+                    }
         </div>
-    );
+            );
 }
