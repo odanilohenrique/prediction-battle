@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ClaimButton from './ClaimButton';
-import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
