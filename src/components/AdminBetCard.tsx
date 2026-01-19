@@ -142,6 +142,40 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }
 
+    // 4. Check Creator Balance (Global accumulated fees)
+    const { data: creatorBalance, refetch: refetchCreatorBalance } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'creatorBalance',
+        args: [address || '0x0000000000000000000000000000000000000000'],
+        query: {
+            enabled: !!address,
+        }
+    }) as { data: bigint | undefined, refetch: () => void };
+
+    const handleClaimCreatorFees = async () => {
+        if (!isConnected || !address) return;
+        setIsSubmitting(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'claimCreatorRewards',
+                args: [],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+            }
+            showAlert('Success', 'Creator fees claimed successfully!', 'success');
+            refetchCreatorBalance();
+        } catch (error) {
+            console.error('Claim Fees error:', error);
+            showAlert('Error', (error as Error).message, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const canClaim = bet.status !== 'active' && userShares > BigInt(0) && !hasClaimed;
 
     // Configuration
@@ -829,6 +863,37 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         ))}
                     </div>
+
+                    {/* Creator Fees Section */}
+                    {creatorBalance && creatorBalance > BigInt(0) && (
+                        <div className="mt-4 pt-4 border-t border-white/5">
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs text-yellow-500/80 font-bold uppercase tracking-wider mb-1">
+                                        Creator Earnings Available
+                                    </div>
+                                    <div className="text-xl font-black text-white">
+                                        ${(Number(creatorBalance) / 1000000).toFixed(2)}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleClaimCreatorFees}
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition-colors text-sm shadow-lg flex items-center gap-2"
+                                >
+                                    {isSubmitting ? '...' : (
+                                        <>
+                                            <Coins className="w-4 h-4" />
+                                            CLAIM FEES
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-white/40 mt-2 text-center">
+                                *These are accumulated fees from all your markets (5% of pot). Does not include seed liquidity.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div >
 
