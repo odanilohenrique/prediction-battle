@@ -814,9 +814,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
                             <ClaimButton
-                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (hasClaimed && originalBetAmount > BigInt(0) ? 'PAID' : '0.00')}
+                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
                                 onClick={() => { }}
                                 disabled={true}
+                                label={hasClaimed ? 'Reward Claimed' : 'No Winnings'}
+                                subtext={hasClaimed ? 'PAID' : 'NOT ELIGIBLE'}
                             />
                         ) : (
                             <button
