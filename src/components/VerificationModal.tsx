@@ -62,7 +62,7 @@ export default function VerificationModal({
 }: VerificationModalProps) {
     const [mounted, setMounted] = useState(false);
     const [selectedResult, setSelectedResult] = useState<'yes' | 'no'>('yes');
-    const [step, setStep] = useState<'select' | 'approve' | 'propose' | 'success'>('select');
+    const [step, setStep] = useState<'select' | 'lock' | 'approve' | 'propose' | 'success'>('select');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +73,10 @@ export default function VerificationModal({
     const isAdminUser = address ? isAdmin(address) : false;
     const isLocked = currentState === 1;  // LOCKED
     const isProposed = currentState === 2; // PROPOSED
+    const isMarketOpen = currentState === 0; // OPEN (but expired if modal is open)
+
+    // Treat OPEN as LOCKED for UI purposes (initial verification step)
+    const showProposeView = isLocked || isMarketOpen;
 
     useEffect(() => {
         setMounted(true);
@@ -112,6 +116,18 @@ export default function VerificationModal({
         setError(null);
 
         try {
+            // Step 0: Lock Market (if still OPEN)
+            if (isMarketOpen) {
+                setStep('lock');
+                const lockTx = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'lockMarket',
+                    args: [marketId]
+                });
+                await publicClient.waitForTransactionReceipt({ hash: lockTx });
+            }
+
             // Step 1: Check current allowance
             setStep('approve');
             const allowance = await publicClient.readContract({
@@ -307,8 +323,8 @@ export default function VerificationModal({
                             </button>
                         )}
                     </div>
-                ) : isLocked ? (
-                    // Propose View (for LOCKED state)
+                ) : showProposeView ? (
+                    // Propose View (for LOCKED or OPEN+Expired state)
                     <div className="space-y-4">
                         {/* Result Selection */}
                         <div>
@@ -318,8 +334,8 @@ export default function VerificationModal({
                                     onClick={() => setSelectedResult('yes')}
                                     disabled={isLoading}
                                     className={`py-3 rounded-xl font-bold transition-all ${selectedResult === 'yes'
-                                            ? 'bg-green-500 text-black'
-                                            : 'bg-white/5 text-white/60 hover:bg-white/10'
+                                        ? 'bg-green-500 text-black'
+                                        : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
                                     SIM ✓
@@ -328,8 +344,8 @@ export default function VerificationModal({
                                     onClick={() => setSelectedResult('no')}
                                     disabled={isLoading}
                                     className={`py-3 rounded-xl font-bold transition-all ${selectedResult === 'no'
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-white/5 text-white/60 hover:bg-white/10'
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
                                     NÃO ✗
@@ -392,7 +408,7 @@ export default function VerificationModal({
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        {step === 'approve' ? 'Aprovando...' : 'Enviando...'}
+                                        {step === 'lock' ? 'Encerrando Mercado...' : step === 'approve' ? 'Aprovando...' : 'Enviando...'}
                                     </>
                                 ) : (
                                     <>
