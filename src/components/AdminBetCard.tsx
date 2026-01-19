@@ -774,13 +774,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                         {canClaim ? (
                             <ClaimButton
-                                amount={userBet?.claimAmount ? (Number(userBet.claimAmount) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
+                                amount={claimShares > BigInt(0) ? (Number(claimShares) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
                                 onClick={handleClaim}
                                 loading={isSubmitting}
                             />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
                             <ClaimButton
-                                amount={userBet?.claimAmount ? (Number(userBet.claimAmount) / 1000000).toFixed(2) : '0.00'}
+                                amount={claimShares > BigInt(0) ? (Number(claimShares) / 1000000).toFixed(2) : '0.00'}
                                 onClick={() => { }}
                                 disabled={true}
                             />
