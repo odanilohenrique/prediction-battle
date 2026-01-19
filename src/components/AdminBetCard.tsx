@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ClaimButton from './ClaimButton';
-import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins, Shield } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther } from 'viem';
+import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
+import VerificationModal from './VerificationModal';
 
 interface AdminBet {
     id: string;
@@ -76,6 +77,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Viral Receipt State
     const [showReceipt, setShowReceipt] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
+
+    // V3: Verification Modal State
+    const [showVerificationModal, setShowVerificationModal] = useState(false);
 
     // Calculate percentages
     const totalYes = bet.participants.yes.length;
@@ -152,6 +156,55 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             enabled: !!address,
         }
     }) as { data: bigint | undefined, refetch: () => void };
+
+    // V3: Get Market State (state is index 2 in getMarketInfo return)
+    // MarketInfo V3: [creator, deadline, state, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
+    const marketStateV3 = marketInfo ? Number((marketInfo as any)[2]) : 0;
+    const isMarketLocked = marketStateV3 === 1;  // LOCKED
+    const isMarketProposed = marketStateV3 === 2; // PROPOSED
+
+    // V3: Get Required Bond
+    const { data: requiredBond } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getRequiredBond',
+        args: [bet.id],
+        query: {
+            enabled: isMarketLocked || isMarketProposed,
+        }
+    }) as { data: bigint | undefined };
+
+    // V3: Get Reporter Reward
+    const { data: reporterReward } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getReporterReward',
+        args: [bet.id],
+        query: {
+            enabled: isMarketLocked || isMarketProposed,
+        }
+    }) as { data: bigint | undefined };
+
+    // V3: Get Proposal Info
+    const { data: proposalInfo, refetch: refetchProposalInfo } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getProposalInfo',
+        args: [bet.id],
+        query: {
+            enabled: isMarketProposed,
+        }
+    }) as { data: [string, boolean, bigint, bigint, bigint, boolean] | undefined, refetch: () => void };
+
+    // Parse proposal info if available
+    const parsedProposalInfo = proposalInfo ? {
+        proposer: proposalInfo[0],
+        proposedResult: proposalInfo[1],
+        proposalTime: proposalInfo[2],
+        bondAmount: proposalInfo[3],
+        disputeDeadline: proposalInfo[4],
+        canFinalize: proposalInfo[5],
+    } : null;
 
     const handleClaimCreatorFees = async () => {
         if (!isConnected || !address) return;
@@ -840,6 +893,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
 
+                        {/* V3: Verify Button - For LOCKED or PROPOSED markets */}
+                        {address && (isMarketLocked || isMarketProposed) && (
+                            <button
+                                onClick={() => setShowVerificationModal(true)}
+                                className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketProposed
+                                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
+                                    : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+                                    }`}
+                                title={isMarketProposed ? "Ver status da verificação" : "Verificar resultado"}
+                            >
+                                <Shield className="w-4 h-4" />
+                                {isMarketProposed ? 'Em Verificação' : 'Verificar'}
+                            </button>
+                        )}
+
                         {canClaim ? (
                             <ClaimButton
                                 amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
@@ -1173,6 +1241,22 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     onBet(); // Refresh only when closing receipt
                 }}
                 data={receiptData || { username: '', amount: 0, potentialWin: 0, multiplier: 0, choice: 'YES', targetName: '' }}
+            />
+
+            {/* V3: Verification Modal */}
+            <VerificationModal
+                isOpen={showVerificationModal}
+                onClose={() => setShowVerificationModal(false)}
+                marketId={bet.id}
+                marketQuestion={bet.question || `@${bet.username} - ${bet.type}`}
+                requiredBond={requiredBond || BigInt(1000000)}
+                reporterReward={reporterReward || BigInt(0)}
+                currentState={marketStateV3}
+                proposalInfo={parsedProposalInfo}
+                onSuccess={() => {
+                    refetchProposalInfo();
+                    onBet();
+                }}
             />
 
             {/* Rules Modal */}
