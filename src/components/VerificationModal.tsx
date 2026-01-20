@@ -144,6 +144,16 @@ export default function VerificationModal({
         setError(null);
 
         try {
+            // Step 0: Get FRESH Bond amount directly from contract
+            const activeBond = await publicClient.readContract({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'getRequiredBond',
+                args: [marketId]
+            }) as bigint;
+
+            console.log('Fresh bond required:', formatUnits(activeBond, 6));
+
             // Upload Image first if exists
             let finalEvidence = evidenceLink;
             if (evidenceImage) {
@@ -153,15 +163,14 @@ export default function VerificationModal({
                     finalEvidence = `${evidenceLink}\nImage: ${imageUrl}`;
                 } catch (uploadErr) {
                     console.error('Upload failed:', uploadErr);
-                    // Decide if we want to block or continue. Let's warn but continue with just link if user wants? 
-                    // No, fail safe.
                     throw new Error('Image upload failed. Please try again or remove the image.');
                 } finally {
                     setIsUploading(false);
                 }
             }
 
-            // Step 1: Check current allowance
+            // Step 1: Check current allowance with FRESH bond + 10% BUFFER
+            // Buffer prevents race conditions if bond grows slightly during tx flow
             setStep('approve');
             const allowance = await publicClient.readContract({
                 address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
@@ -170,13 +179,16 @@ export default function VerificationModal({
                 args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
             }) as bigint;
 
+            const requiredWithBuffer = (activeBond * 110n) / 100n; // 10% buffer
+
             // If allowance is insufficient, approve
-            if (allowance < requiredBond) {
+            if (allowance < activeBond) {
+                console.log(`Approving with buffer. Required: ${activeBond}, Buffer: ${requiredWithBuffer}`);
                 const approveTx = await writeContractAsync({
                     address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
                     abi: USDC_ABI,
                     functionName: 'approve',
-                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredBond * BigInt(2)]
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer * BigInt(2)]
                 });
 
                 const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
@@ -185,14 +197,21 @@ export default function VerificationModal({
                 }
             }
 
-            // Step 2: Propose outcome
+            // Step 2: SIMULATE Outcome Proposal first
+            // This catches specific contract reverts (like "Market not active") BEFORE the user signs
             setStep('propose');
-            const proposeTx = await writeContractAsync({
+
+            console.log('Simulating proposal...');
+            const { request } = await publicClient.simulateContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'proposeOutcome',
-                args: [marketId, selectedResult === 'yes', finalEvidence] // V3.1: Add evidence
+                args: [marketId, selectedResult === 'yes', finalEvidence],
+                account: address
             });
+
+            // If simulation succeeds, write the contract using the validated request
+            const proposeTx = await writeContractAsync(request);
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash: proposeTx });
 
@@ -208,7 +227,16 @@ export default function VerificationModal({
 
         } catch (err: any) {
             console.error('Verification failed:', err);
-            setError(err.message || 'Transação falhou');
+
+            // Extract meaningful error message from simulation or wallet
+            let msg = err.message || 'Transaction failed';
+
+            // Common specialized errors
+            if (msg.includes('Market not active')) msg = "Market is not open for verification yet/anymore.";
+            if (msg.includes('Bond transfer failed')) msg = "Could not transfer USDC bond (Check balance/allowance).";
+            if (msg.includes('User rejected')) msg = "User rejected the transaction.";
+
+            setError(msg);
             setStep('select');
         } finally {
             setIsLoading(false);
