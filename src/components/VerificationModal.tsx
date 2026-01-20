@@ -64,8 +64,10 @@ export default function VerificationModal({
     const [mounted, setMounted] = useState(false);
     const [selectedResult, setSelectedResult] = useState<'yes' | 'no'>('yes');
     const [evidenceLink, setEvidenceLink] = useState(''); // Evidence State
+    const [evidenceImage, setEvidenceImage] = useState<File | null>(null); // Image State
     const [step, setStep] = useState<'select' | 'approve' | 'propose' | 'success'>('select');
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const { address } = useAccount();
@@ -86,6 +88,7 @@ export default function VerificationModal({
             document.body.style.overflow = 'hidden';
             setStep('select');
             setError(null);
+            setEvidenceImage(null);
         } else {
             document.body.style.overflow = 'unset';
         }
@@ -111,6 +114,29 @@ export default function VerificationModal({
         return `${Math.floor(minutes)}min remaining`;
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setEvidenceImage(e.target.files[0]);
+        }
+    };
+
+    const uploadImage = async (file: File): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to upload image');
+        }
+
+        const data = await response.json();
+        return data.url;
+    };
+
     const handleApproveAndPropose = async () => {
         if (!address || !publicClient) return;
 
@@ -118,6 +144,23 @@ export default function VerificationModal({
         setError(null);
 
         try {
+            // Upload Image first if exists
+            let finalEvidence = evidenceLink;
+            if (evidenceImage) {
+                setIsUploading(true);
+                try {
+                    const imageUrl = await uploadImage(evidenceImage);
+                    finalEvidence = `${evidenceLink}\nImage: ${imageUrl}`;
+                } catch (uploadErr) {
+                    console.error('Upload failed:', uploadErr);
+                    // Decide if we want to block or continue. Let's warn but continue with just link if user wants? 
+                    // No, fail safe.
+                    throw new Error('Image upload failed. Please try again or remove the image.');
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+
             // Step 1: Check current allowance
             setStep('approve');
             const allowance = await publicClient.readContract({
@@ -136,7 +179,10 @@ export default function VerificationModal({
                     args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredBond * BigInt(2)]
                 });
 
-                await publicClient.waitForTransactionReceipt({ hash: approveTx });
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
+                if (approveReceipt.status !== 'success') {
+                    throw new Error('USDC Approval failed on-chain');
+                }
             }
 
             // Step 2: Propose outcome
@@ -145,11 +191,14 @@ export default function VerificationModal({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'proposeOutcome',
-                functionName: 'proposeOutcome',
-                args: [marketId, selectedResult === 'yes', evidenceLink] // V3.1: Add evidence
+                args: [marketId, selectedResult === 'yes', finalEvidence] // V3.1: Add evidence
             });
 
-            await publicClient.waitForTransactionReceipt({ hash: proposeTx });
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: proposeTx });
+
+            if (receipt.status !== 'success') {
+                throw new Error('Transaction execution failed on-chain. The proposal was reverted.');
+            }
 
             setStep('success');
             setTimeout(() => {
@@ -163,6 +212,7 @@ export default function VerificationModal({
             setStep('select');
         } finally {
             setIsLoading(false);
+            setIsUploading(false);
         }
     };
 
@@ -180,7 +230,10 @@ export default function VerificationModal({
                 args: [marketId]
             });
 
-            await publicClient.waitForTransactionReceipt({ hash: disputeTx });
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: disputeTx });
+            if (receipt.status !== 'success') {
+                throw new Error('Dispute transaction failed on-chain.');
+            }
 
             setStep('success');
             setTimeout(() => {
@@ -210,7 +263,10 @@ export default function VerificationModal({
                 args: [marketId]
             });
 
-            await publicClient.waitForTransactionReceipt({ hash: finalizeTx });
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: finalizeTx });
+            if (receipt.status !== 'success') {
+                throw new Error('Finalize transaction failed on-chain.');
+            }
 
             setStep('success');
             setTimeout(() => {
@@ -224,6 +280,34 @@ export default function VerificationModal({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Helper to extract image URL from evidence string if present
+    const parseEvidence = (evidence: string) => {
+        if (!evidence) return { link: '', image: '' };
+        const parts = evidence.split('\nImage: ');
+        return {
+            link: parts[0],
+            image: parts.length > 1 ? parts[1] : ''
+        };
+    };
+
+    const EvidenceDisplay = ({ evidenceUrl }: { evidenceUrl: string }) => {
+        const { link, image } = parseEvidence(evidenceUrl);
+        return (
+            <div className="flex flex-col gap-1">
+                {link && (
+                    <p className="text-xs text-textSecondary mt-1 truncate">
+                        Evidence: <a href={link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link}</a>
+                    </p>
+                )}
+                {image && (
+                    <p className="text-xs text-textSecondary mt-1 truncate">
+                        Image: <a href={image} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Image</a>
+                    </p>
+                )}
+            </div>
+        );
     };
 
     const modalContent = (
@@ -279,11 +363,7 @@ export default function VerificationModal({
                             <p className="text-xs text-textSecondary mt-1">
                                 By: {proposalInfo.proposer.substring(0, 6)}...{proposalInfo.proposer.substring(38)}
                             </p>
-                            {proposalInfo.evidenceUrl && (
-                                <p className="text-xs text-textSecondary mt-1 truncate">
-                                    Evidence: <a href={proposalInfo.evidenceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{proposalInfo.evidenceUrl}</a>
-                                </p>
-                            )}
+                            {proposalInfo.evidenceUrl && <EvidenceDisplay evidenceUrl={proposalInfo.evidenceUrl} />}
                             <p className="text-xs text-white/40 mt-1">
                                 Time Remaining: {getTimeRemaining()}
                             </p>
@@ -302,7 +382,6 @@ export default function VerificationModal({
                                 disabled={isLoading}
                                 className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
                                 Dispute (It's Fake/Wrong)
                             </button>
@@ -384,13 +463,26 @@ export default function VerificationModal({
                         {/* Evidence Input */}
                         <div>
                             <label className="text-xs text-textSecondary mb-1 block">Proof / Evidence Link (Required)</label>
-                            <input
-                                type="url"
-                                placeholder="https://warpcast.com/..."
-                                value={evidenceLink}
-                                onChange={(e) => setEvidenceLink(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50"
-                            />
+                            <div className="space-y-2">
+                                <input
+                                    type="url"
+                                    placeholder="https://warpcast.com/..."
+                                    value={evidenceLink}
+                                    onChange={(e) => setEvidenceLink(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/50"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="text-white text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-black hover:file:bg-white transition-all w-full bg-black/40 rounded-lg border border-white/10"
+                                    />
+                                </div>
+                                {evidenceImage && (
+                                    <p className="text-xs text-green-400">Image selected: {evidenceImage.name}</p>
+                                )}
+                            </div>
                         </div>
 
                         {error && (
@@ -410,17 +502,16 @@ export default function VerificationModal({
                             </button>
                             <button
                                 onClick={handleApproveAndPropose}
-                                disabled={isLoading || !evidenceLink} // Require evidence
+                                disabled={isLoading || !evidenceLink} // Require at least link
                                 className="flex-1 py-3 bg-primary hover:bg-white text-black font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        {step === 'approve' ? 'Approving...' : 'Sending...'}
+                                        {isUploading ? 'Uploading...' : step === 'approve' ? 'Approving...' : 'Sending...'}
                                     </>
                                 ) : (
                                     <>
-                                        <Shield className="w-4 h-4" />
                                         <Shield className="w-4 h-4" />
                                         Report & Earn
                                     </>
