@@ -912,7 +912,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         )}
 
                         {/* V3: Verify Button - For LOCKED, PROPOSED or OPEN+EXPIRED markets */}
-                        {address && canVerify && (
+                        {address && canVerify && marketInfoV3 && marketInfoV3[0] !== '0x0000000000000000000000000000000000000000' ? (
                             <button
                                 onClick={() => setShowVerificationModal(true)}
                                 className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketProposed
@@ -924,6 +924,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 <Shield className="w-4 h-4" />
                                 {isMarketProposed ? 'Verifying' : 'Verify'}
                             </button>
+                        ) : (address && canVerify && marketInfoV3 && marketInfoV3[0] === '0x0000000000000000000000000000000000000000') && (
+                            <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="text-sm font-bold">Off-Chain / V2</span>
+                            </div>
                         )}
 
                         {canClaim ? (
