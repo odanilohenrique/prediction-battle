@@ -212,7 +212,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         query: {
             enabled: isMarketProposed,
         }
-    }) as { data: [string, boolean, bigint, bigint, bigint, boolean] | undefined, refetch: () => void };
+    }) as { data: [string, boolean, bigint, bigint, bigint, boolean, string] | undefined, refetch: () => void };
 
     // Parse proposal info if available
     const parsedProposalInfo = proposalInfo ? {
@@ -222,6 +222,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         bondAmount: proposalInfo[3],
         disputeDeadline: proposalInfo[4],
         canFinalize: proposalInfo[5],
+        evidenceUrl: proposalInfo[6],
     } : null;
 
     const handleClaimCreatorFees = async () => {
@@ -946,13 +947,37 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 subtext={hasClaimed ? 'PAID' : 'NOT ELIGIBLE'}
                             />
                         ) : isMarketProposed ? (
-                            <button
-                                disabled
-                                className="w-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black py-3 rounded-xl transition-all uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                <Shield className="w-5 h-5 animate-pulse" />
-                                VERIFICATION IN PROGRESS
-                            </button>
+                            <div className="w-full flex flex-col gap-2">
+                                <button
+                                    disabled
+                                    className="w-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black py-3 rounded-xl transition-all uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    <Shield className="w-5 h-5 animate-pulse" />
+                                    VERIFICATION IN PROGRESS
+                                </button>
+
+                                {parsedProposalInfo && (
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/60 font-bold uppercase">Proposed Result:</span>
+                                            <span className={`font-black px-2 py-0.5 rounded text-sm ${parsedProposalInfo.proposedResult ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                                {parsedProposalInfo.proposedResult ? 'YES' : 'NO'}
+                                            </span>
+                                        </div>
+                                        {parsedProposalInfo.evidenceUrl && (
+                                            <a
+                                                href={parsedProposalInfo.evidenceUrl.startsWith('http') ? parsedProposalInfo.evidenceUrl : `https://${parsedProposalInfo.evidenceUrl}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="block w-full text-center py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded-lg transition-colors font-bold flex items-center justify-center gap-2"
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                                REVIEW EVIDENCE
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <button
                                 onClick={() => setIsBattleModalOpen(true)}
