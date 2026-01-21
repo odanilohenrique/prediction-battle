@@ -945,6 +945,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 label={hasClaimed ? 'Reward Claimed' : 'No Winnings'}
                                 subtext={hasClaimed ? 'PAID' : 'NOT ELIGIBLE'}
                             />
+                        ) : isMarketProposed ? (
+                            <button
+                                disabled
+                                className="w-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black py-3 rounded-xl transition-all uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                <Shield className="w-5 h-5 animate-pulse" />
+                                VERIFICATION IN PROGRESS
+                            </button>
                         ) : (
                             <button
                                 onClick={() => setIsBattleModalOpen(true)}
