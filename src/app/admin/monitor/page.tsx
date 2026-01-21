@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, Clock, Users, DollarSign, TrendingUp, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useWriteContract } from 'wagmi';
+import AdminBetRow from '@/components/AdminBetRow';
 
 interface BetMonitor {
     id: string;
@@ -81,29 +82,7 @@ export default function MonitorPage() {
         });
     }
 
-    async function handleResolve(betId: string, result: boolean) {
-        showConfirm('Confirm Resolution', `Resolve as ${result ? 'YES' : 'NO'}?`, async () => {
-            try {
-                const hash = await writeContractAsync({
-                    address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
-                    abi: [{
-                        name: 'resolveMarket',
-                        type: 'function',
-                        stateMutability: 'nonpayable',
-                        inputs: [{ name: '_id', type: 'string' }, { name: '_result', type: 'bool' }],
-                        outputs: []
-                    }],
-                    functionName: 'resolveMarket',
-                    args: [betId, result],
-                });
-                showAlert('Resolve Tx Sent', `Hash: ${hash}`, 'success');
-                fetchBets();
-            } catch (e) {
-                console.error(e);
-                showAlert('Error', 'Error resolving: ' + (e as Error).message, 'error');
-            }
-        });
-    }
+
 
     const [loading, setLoading] = useState(true);
     const [bets, setBets] = useState<BetMonitor[]>([]);
@@ -223,7 +202,16 @@ export default function MonitorPage() {
                         </h2>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 border border-yellow-500/20 rounded-2xl bg-yellow-500/5">
-                                {pendingBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))}
+                                {pendingBets.map(bet => (
+                                    <AdminBetRow
+                                        key={bet.id}
+                                        bet={bet}
+                                        selectedBet={selectedBet}
+                                        setSelectedBet={setSelectedBet}
+                                        fetchBets={fetchBets}
+                                        handleVoid={handleVoid}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -248,7 +236,16 @@ export default function MonitorPage() {
                                 <p className="text-textSecondary">All quiet on the front.</p>
                             </div>
                         ) : (
-                            liveBets.map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))
+                            liveBets.map(bet => (
+                                <AdminBetRow
+                                    key={bet.id}
+                                    bet={bet}
+                                    selectedBet={selectedBet}
+                                    setSelectedBet={setSelectedBet}
+                                    fetchBets={fetchBets}
+                                    handleVoid={handleVoid}
+                                />
+                            ))
                         )}
                     </div>
                 </div>
@@ -265,7 +262,16 @@ export default function MonitorPage() {
                         </button>
                         {showExpired && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {completedBets.slice(0, 10).map(bet => renderBet(bet, selectedBet, setSelectedBet, fetchBets, handleResolve, handleVoid))}
+                                {completedBets.slice(0, 10).map(bet => (
+                                    <AdminBetRow
+                                        key={bet.id}
+                                        bet={bet}
+                                        selectedBet={selectedBet}
+                                        setSelectedBet={setSelectedBet}
+                                        fetchBets={fetchBets}
+                                        handleVoid={handleVoid}
+                                    />
+                                ))}
                             </div>
                         )}
                     </div>
@@ -285,171 +291,4 @@ const formatTimestamp = (ts: number) => {
 };
 
 // Helper component extracted for cleaner rendering
-function renderBet(bet: BetMonitor, selectedBet: BetMonitor | null, setSelectedBet: any, fetchBets: any, handleResolve: any, handleVoid: any) {
 
-    const timeInfo = formatTimeRemaining(bet.expiresAt);
-    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-
-    // Reuse formatTimeRemaining helper from parent scope (need to move helper outside or duplicate logic if extracting function)
-    const isExpired = Date.now() > bet.expiresAt;
-
-    return (
-        <div
-            key={bet.id}
-            className={`bg-surface border rounded-2xl p-6 transition-all cursor-pointer hover:border-primary/50 relative overflow-hidden ${isExpired && bet.status === 'active' ? 'border-yellow-500/50' : 'border-darkGray'
-                } ${selectedBet?.id === bet.id ? 'ring-2 ring-primary' : ''}`}
-            onClick={() => setSelectedBet(selectedBet?.id === bet.id ? null : bet)}
-        >
-            {/* Status Badge */}
-            <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold ${bet.status === 'completed' ? 'bg-white/10 text-white' :
-                isExpired ? 'bg-yellow-500/20 text-yellow-500 animate-pulse' : 'bg-green-500/20 text-green-500'
-                }`}>
-                {bet.status === 'completed' ? 'RESOLVED' : isExpired ? 'PENDING RESOLUTION' : 'LIVE'}
-            </div>
-
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4 pr-20">
-                <div className="flex items-center gap-3">
-                    {bet.pfpUrl ? (
-                        <img
-                            src={bet.pfpUrl}
-                            alt={bet.username}
-                            className="w-12 h-12 rounded-full object-cover border-2 border-primary/30"
-                        />
-                    ) : (
-                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl">
-                            🎯
-                        </div>
-                    )}
-                    <div>
-                        <h3 className="font-bold text-textPrimary">
-                            {bet.displayName || `@${bet.username}`}
-                        </h3>
-                        <p className="text-sm text-textSecondary">@{bet.username}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Question/Type */}
-            {bet.castText && (
-                <p className="text-textPrimary font-medium mb-3 bg-darkGray/30 p-3 rounded-xl">
-                    "{bet.castText}"
-                </p>
-            )}
-
-            {/* Time & Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-                <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-textSecondary" />
-                    <span className={isExpired ? 'text-yellow-500' : 'text-textPrimary'}>
-                        {isExpired ? 'Expired' : timeInfo.text}
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-textSecondary" />
-                    <span className="text-textPrimary">{bet.participantCount} bettors</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-primary" />
-                    <span className="text-primary font-bold">${bet.totalPot.toFixed(2)}</span>
-                </div>
-            </div>
-
-            {/* Pool Distribution */}
-            <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                    <span className="text-green-500 font-bold">YES: ${yesPool.toFixed(2)} ({bet.participants.yes.length})</span>
-                    <span className="text-red-500 font-bold">NO: ${noPool.toFixed(2)} ({bet.participants.no.length})</span>
-                </div>
-                <div className="h-3 bg-darkGray rounded-full overflow-hidden flex">
-                    <div
-                        className="h-full bg-gradient-to-r from-green-500 to-green-400"
-                        style={{ width: `${yesPool + noPool > 0 ? (yesPool / (yesPool + noPool)) * 100 : 50}%` }}
-                    />
-                    <div
-                        className="h-full bg-gradient-to-r from-red-400 to-red-500"
-                        style={{ width: `${yesPool + noPool > 0 ? (noPool / (yesPool + noPool)) * 100 : 50}%` }}
-                    />
-                </div>
-            </div>
-
-            {/* Cast Link */}
-            {(bet.castUrl || bet.castHash) && (
-                <a
-                    href={bet.castUrl || `https://warpcast.com/${bet.username}/${bet.castHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-4 inline-flex items-center gap-2 text-primary hover:text-secondary text-sm"
-                >
-                    <ExternalLink className="w-4 h-4" />
-                    View Original Cast
-                </a>
-            )}
-
-            {/* Expanded Details */}
-            {selectedBet?.id === bet.id && (
-                <div className="mt-6 pt-6 border-t border-darkGray space-y-4">
-                    {/* Resolution Actions (Only for Expired Active Bets) */}
-                    {isExpired && bet.status === 'active' && (
-                        <div className="flex gap-2 mb-4">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleResolve(bet.id, true); }}
-                                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg"
-                            >
-                                Resolve YES
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleResolve(bet.id, false); }}
-                                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg"
-                            >
-                                Resolve NO
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleVoid(bet.id); }}
-                                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg"
-                            >
-                                VOID / DRAW
-                            </button>
-                        </div>
-                    )}
-
-                    <h4 className="font-bold text-textPrimary">📋 Participant History</h4>
-
-                    {/* YES Bets */}
-                    {bet.participants.yes.length > 0 && (
-                        <div>
-                            <h5 className="text-sm font-bold text-green-500 mb-2">✅ YES Bets</h5>
-                            <div className="space-y-1">
-                                {bet.participants.yes.map((p, i) => (
-                                    <div key={i} className="flex justify-between text-xs bg-green-500/10 px-3 py-2 rounded-lg">
-                                        <span className="text-textSecondary font-mono">{p.userId.slice(0, 10)}...</span>
-                                        <span className="text-green-500 font-bold">${p.amount.toFixed(2)}</span>
-                                        <span className="text-textSecondary">{new Date(p.timestamp).toLocaleTimeString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* NO Bets */}
-                    {bet.participants.no.length > 0 && (
-                        <div>
-                            <h5 className="text-sm font-bold text-red-500 mb-2">❌ NO Bets</h5>
-                            <div className="space-y-1">
-                                {bet.participants.no.map((p, i) => (
-                                    <div key={i} className="flex justify-between text-xs bg-red-500/10 px-3 py-2 rounded-lg">
-                                        <span className="text-textSecondary font-mono">{p.userId.slice(0, 10)}...</span>
-                                        <span className="text-red-500 font-bold">${p.amount.toFixed(2)}</span>
-                                        <span className="text-textSecondary">{new Date(p.timestamp).toLocaleTimeString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
