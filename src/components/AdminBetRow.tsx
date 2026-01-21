@@ -137,10 +137,35 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         });
     };
 
+    const handleFinalize = async () => {
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'finalizeOutcome',
+                args: [bet.id],
+            });
+            showAlert('Payouts Unlocked', `Tx: ${hash}`, 'success');
+            if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
+            fetchBets();
+        } catch (error) {
+            console.error(error);
+            showAlert('Error', (error as Error).message, 'error');
+        }
+    };
+
     const timeInfo = formatTimeRemaining(bet.expiresAt);
     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
     const isExpired = Date.now() > bet.expiresAt;
+
+    // Mock AdminBet object for ValidationModal (it expects different shape)
+    const mockBetForModal: any = {
+        ...bet,
+        minBet: 0,
+        maxBet: 0,
+        participants: { yes: [], no: [] } // Simplify for modal props if needed
+    };
 
     return (
         <>
@@ -154,7 +179,7 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
                     isMarketProposed ? 'bg-purple-500/20 text-purple-500 animate-pulse' :
                         isExpired ? 'bg-yellow-500/20 text-yellow-500' : 'bg-green-500/20 text-green-500'
                     }`}>
-                    {bet.status === 'completed' || isMarketResolved ? 'RESOLVED' : isMarketProposed ? 'VERIFYING' : isExpired ? 'PENDING' : 'LIVE'}
+                    {bet.status === 'completed' || isMarketResolved ? 'RESOLVED' : isMarketProposed ? (parsedProposalInfo?.canFinalize ? 'RESOLVED (LOCKED)' : 'VERIFYING') : isExpired ? 'PENDING' : 'LIVE'}
                 </div>
 
                 {/* Header */}
@@ -214,10 +239,10 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
                             <div className="grid grid-cols-1 gap-3">
                                 {/* If PROPOSED: Show Dispute Logic */}
                                 {isMarketProposed && parsedProposalInfo && (
-                                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
-                                        <h4 className="font-bold text-purple-400 mb-2 flex items-center gap-2">
+                                    <div className={`border rounded-xl p-4 ${parsedProposalInfo.canFinalize ? 'bg-green-500/10 border-green-500/20' : 'bg-purple-500/10 border-purple-500/20'}`}>
+                                        <h4 className={`font-bold mb-2 flex items-center gap-2 ${parsedProposalInfo.canFinalize ? 'text-green-500' : 'text-purple-400'}`}>
                                             <Shield className="w-4 h-4" />
-                                            Active Proposal
+                                            {parsedProposalInfo.canFinalize ? 'Resolution Confirmed' : 'Active Proposal'}
                                         </h4>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="text-white/60">Proposed Result:</span>
@@ -235,13 +260,23 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
                                                 View Evidence ↗
                                             </a>
                                         )}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDispute(); }}
-                                            className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <AlertTriangle className="w-4 h-4" />
-                                            DISPUTE / REJECT
-                                        </button>
+                                        {parsedProposalInfo.canFinalize ? (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleFinalize(); }}
+                                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <DollarSign className="w-4 h-4" />
+                                                🔓 UNLOCK PAYOUTS
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDispute(); }}
+                                                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <AlertTriangle className="w-4 h-4" />
+                                                DISPUTE / REJECT
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
