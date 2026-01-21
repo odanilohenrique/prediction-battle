@@ -91,9 +91,29 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         }
     }) as { data: [string, boolean, bigint, bigint, bigint, boolean, string] | undefined };
 
+    // V3: Get Required Bond
+    const { data: requiredBond } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getRequiredBond',
+        args: [bet.id],
+    }) as { data: bigint | undefined };
+
+    // V3: Get Reporter Reward
+    const { data: reporterReward } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'getReporterReward',
+        args: [bet.id],
+    }) as { data: bigint | undefined };
+
     const parsedProposalInfo = proposalInfo ? {
         proposer: proposalInfo[0],
         proposedResult: proposalInfo[1],
+        proposalTime: proposalInfo[2],
+        bondAmount: proposalInfo[3],
+        disputeDeadline: proposalInfo[4],
+        canFinalize: proposalInfo[5],
         evidenceUrl: proposalInfo[6],
     } : null;
 
@@ -117,24 +137,10 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         });
     };
 
-    // Helper to trigger internal propose via VerificationModal if needed, OR explicit admin propose?
-    // Admin likely expects instant buttons for YES/NO.
-    // However, proposeOutcome requires BOND and Evidence. 
-    // Maybe we should just open the VerificationModal for them?
-    const openVerification = () => setShowVerificationModal(true);
-
     const timeInfo = formatTimeRemaining(bet.expiresAt);
     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
     const isExpired = Date.now() > bet.expiresAt;
-
-    // Mock AdminBet object for ValidationModal (it expects different shape)
-    const mockBetForModal: any = {
-        ...bet,
-        minBet: 0,
-        maxBet: 0,
-        participants: { yes: [], no: [] } // Simplify for modal props if needed
-    };
 
     return (
         <>
@@ -266,8 +272,14 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
             {/* Verification Modal for Admins (Proposing) */}
             {showVerificationModal && (
                 <VerificationModal
-                    bet={mockBetForModal} // Pass minimal needed
+                    isOpen={showVerificationModal}
                     onClose={() => setShowVerificationModal(false)}
+                    marketId={bet.id}
+                    marketQuestion={bet.castText || 'Market Verification'}
+                    requiredBond={requiredBond || BigInt(0)}
+                    reporterReward={reporterReward || BigInt(0)}
+                    currentState={marketStateV3}
+                    proposalInfo={parsedProposalInfo}
                     onSuccess={() => {
                         setShowVerificationModal(false);
                         fetchBets();
