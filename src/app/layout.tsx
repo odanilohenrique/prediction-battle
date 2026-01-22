@@ -38,11 +38,14 @@ export default function RootLayout({
                 <FarcasterMiniAppProvider>
                     <OnchainProviders>
                         <ModalProvider>
-                            <div className="flex flex-col min-h-screen">
-                                <div className="flex-grow">
+                            <div className="flex min-h-screen bg-[#0a0a0a]"> {/* Dark bg enforced */}
+                                <NavigationWrapper />
+                                <main className="flex-1 md:ml-64 pt-16 md:pt-0 pb-20 md:pb-0 min-h-screen">
                                     {children}
-                                </div>
-                                <Footer />
+                                    <div className="md:ml-0">
+                                        <Footer />
+                                    </div>
+                                </main>
                             </div>
                         </ModalProvider>
                     </OnchainProviders>
@@ -50,4 +53,9 @@ export default function RootLayout({
             </body>
         </html>
     );
+}
+
+import Navigation from "@/components/Navigation";
+function NavigationWrapper() {
+    return <Navigation />;
 }
