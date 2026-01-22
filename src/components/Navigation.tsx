@@ -103,10 +103,10 @@ export default function Navigation() {
                 {/* Footer / Wallet Area - Constrained and Centered */}
                 <div className="p-4 border-t border-white/5 bg-black/40 flex flex-col gap-3">
                     <div className="w-full">
-                        <NetworkToggle />
-                    </div>
-                    <div className="w-full">
                         <WalletButton />
+                    </div>
+                    <div className="w-full flex justify-end">
+                        <NetworkToggle />
                     </div>
                 </div>
             </aside>
