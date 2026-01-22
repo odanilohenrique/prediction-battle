@@ -8,7 +8,7 @@ import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle,
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 
@@ -80,6 +80,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // V3: Verification Modal State
     const [showVerificationModal, setShowVerificationModal] = useState(false);
+
+    // Referral State
+    const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const ref = params.get('ref');
+            if (ref) {
+                if (ref.startsWith('0x') && ref.length === 42) {
+                    setReferrerAddress(ref);
+                } else {
+                    fetch(`/api/referral/resolve?code=${ref}`)
+                        .then(res => res.json())
+                        .then(data => { if (data.success && data.address) setReferrerAddress(data.address); })
+                        .catch(err => console.error('Referral resolve error:', err));
+                }
+            }
+        }
+    }, []);
 
     // Calculate percentages
     const totalYes = bet.participants.yes.length;
@@ -372,7 +392,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         bet.id,
                         choice === 'yes',
                         amountInWei,
-                        '0x0000000000000000000000000000000000000000' as `0x${string}` // No referrer
+                        (referrerAddress || '0x0000000000000000000000000000000000000000') as `0x${string}`
                     ],
                     gas: BigInt(350000),
                 });
