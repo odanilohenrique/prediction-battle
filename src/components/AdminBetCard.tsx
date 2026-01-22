@@ -8,7 +8,7 @@ import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle,
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 

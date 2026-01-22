@@ -165,24 +165,29 @@ function claimWinnings(bytes32 id) external;`}</pre>
                                 </thead>
                                 <tbody>
                                     <tr className="border-b border-white/5">
-                                        <td className="p-3">Platform Fee</td>
-                                        <td className="p-3 text-primary font-bold">2%</td>
+                                        <td className="p-3">Platform Fee (Total)</td>
+                                        <td className="p-3 text-primary font-bold">20%</td>
+                                        <td className="p-3">Split below ↓</td>
+                                    </tr>
+                                    <tr className="border-b border-white/5 bg-white/5">
+                                        <td className="p-3 pl-6">↳ House Share</td>
+                                        <td className="p-3 text-orange-400 font-bold">15%</td>
                                         <td className="p-3">Protocol Treasury</td>
                                     </tr>
-                                    <tr className="border-b border-white/5">
-                                        <td className="p-3">Creator Fee</td>
-                                        <td className="p-3 text-green-400 font-bold">1%</td>
-                                        <td className="p-3">Market Creator Wallet</td>
+                                    <tr className="border-b border-white/5 bg-white/5">
+                                        <td className="p-3 pl-6">↳ Referral Pool</td>
+                                        <td className="p-3 text-purple-400 font-bold">5%</td>
+                                        <td className="p-3">Referrers (proportional)</td>
                                     </tr>
                                     <tr>
-                                        <td className="p-3">Referral Fee</td>
-                                        <td className="p-3 text-purple-400 font-bold">1%</td>
-                                        <td className="p-3">Referrer Wallet</td>
+                                        <td className="p-3">Creator Fee</td>
+                                        <td className="p-3 text-green-400 font-bold">5%</td>
+                                        <td className="p-3">Market Creator Wallet</td>
                                     </tr>
                                 </tbody>
                             </table>
                             <p className="text-xs text-white/40">
-                                Fees are deducted from the winning pool upon claim. Losers receive nothing; their entire stake goes to winners (minus fees).
+                                Fees are deducted from the total pool upon resolution. Referral fees are distributed proportionally based on the bet amounts of each referrer's invitees. Winners receive 75% of the total pool.
                             </p>
                         </div>
                     </section>

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload, Loader2, Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { CURRENT_CONFIG, getContractAddress } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
 
 // Mock Top Handles
 const TOP_100_HANDLES = [
