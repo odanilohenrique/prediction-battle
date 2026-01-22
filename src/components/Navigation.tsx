@@ -105,7 +105,8 @@ export default function Navigation() {
                     <div className="w-full">
                         <WalletButton />
                     </div>
-                    <div className="w-full flex justify-end">
+                    {/* Centered Network Toggle */}
+                    <div className="w-full flex justify-center pt-1 scale-90 origin-top">
                         <NetworkToggle />
                     </div>
                 </div>

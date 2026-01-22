@@ -62,28 +62,26 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
 
     if (isLoggedIn) {
         return (
-            <div className="flex items-center gap-2">
-                {/* Profile Link */}
-
-
+            <div className="flex items-center gap-2 w-full">
                 {/* Identity Badge */}
-                <div className="flex items-center gap-2 bg-surface border border-darkGray rounded-xl px-3 py-2">
-                    <Wallet className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-textPrimary">
+                <div className="flex-1 flex items-center justify-center gap-1.5 bg-surface border border-darkGray rounded-lg px-2 py-2 min-w-0">
+                    <Wallet className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs font-bold text-textPrimary truncate">
                         {isWebAuthenticated || isMiniAppAuthenticated
                             ? getFarcasterName()
                             : (address && formatAddress(address))}
                     </span>
                 </div>
 
-                {/* Logout - Only for wallet/web auth, not Mini App */}
+                {/* Logout - Compact */}
                 {(!isMiniAppAuthenticated) && (
                     <button
                         onClick={handleDisconnect}
-                        className="flex items-center gap-2 bg-darkGray hover:bg-red-500/20 hover:text-red-400 text-textPrimary px-3 py-2 rounded-xl transition-colors"
+                        className="flex items-center justify-center gap-1.5 bg-darkGray hover:bg-red-500/20 hover:text-red-400 text-textPrimary px-2 py-2 rounded-lg transition-colors shrink-0"
+                        title="Logout"
                     >
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm font-medium hidden sm:inline">Logout</span>
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold sm:inline">Exit</span>
                     </button>
                 )}
             </div>
