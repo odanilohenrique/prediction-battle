@@ -435,8 +435,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
             if (data.success) {
                 const numericAmount = submitAmount;
-                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                 const initialSeed = bet.initialValue || 0;
 
                 // DEAD LIQUIDITY FORMULA
@@ -854,8 +854,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         <div className="flex justify-between mt-2 text-xs font-mono text-white/60">
                             <span>MULT: <span className="text-green-400">
                                 {(() => {
-                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                                    const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                                     const initialSeed = bet.initialValue || 0;
                                     const seedPerSide = initialSeed / 2;
 
@@ -879,8 +879,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </span></span>
                             <span>MULT: <span className="text-red-400">
                                 {(() => {
-                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                    const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                                    const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                                     const initialSeed = bet.initialValue || 0;
                                     const seedPerSide = initialSeed / 2;
 
@@ -1218,8 +1218,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <div className="text-3xl font-black text-white flex items-end gap-2">
                                             ${(() => {
                                                 const numericAmount = parseFloat(amount) || 0;
-                                                const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                                const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                                                const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                                                 const initialSeed = bet.initialValue || 0;
                                                 const seedPerSide = initialSeed / 2;
 
@@ -1245,8 +1245,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
                                                 ({(() => {
-                                                    const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
-                                                    const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                                                    const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                                                    const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                                                     const initialSeed = bet.initialValue || 0;
                                                     const seedPerSide = initialSeed / 2;
 
