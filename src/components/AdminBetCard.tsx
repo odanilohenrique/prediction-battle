@@ -102,8 +102,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     }, []);
 
     // Calculate percentages
-    const totalYes = bet.participants.yes.length;
-    const totalNo = bet.participants.no.length;
+    const totalYes = bet?.participants?.yes?.length || 0;
+    const totalNo = bet?.participants?.no?.length || 0;
     const totalVotes = totalYes + totalNo;
     const yesPercent = totalVotes > 0 ? (totalYes / totalVotes) * 100 : 50;
     const noPercent = totalVotes > 0 ? (totalNo / totalVotes) * 100 : 50;
