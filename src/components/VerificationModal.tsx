@@ -195,6 +195,28 @@ export default function VerificationModal({
                 if (approveReceipt.status !== 'success') {
                     throw new Error('USDC Approval failed on-chain');
                 }
+
+                // 1.1 Wait for RPC to reflect the allowance update (fix for "exceeds allowance" on immediate simulate)
+                console.log('Waiting for allowance to propagate...');
+                let synced = false;
+                for (let i = 0; i < 10; i++) { // Wait up to 10 seconds
+                    const currentAllowance = await publicClient.readContract({
+                        address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
+                        abi: USDC_ABI,
+                        functionName: 'allowance',
+                        args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
+                    }) as bigint;
+
+                    if (currentAllowance >= activeBond) {
+                        synced = true;
+                        break;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
+                if (!synced) {
+                    console.warn('Proceeding with simulation but allowance fetch did not update yet. Might revert.');
+                }
             }
 
             // Step 2: SIMULATE Outcome Proposal first
