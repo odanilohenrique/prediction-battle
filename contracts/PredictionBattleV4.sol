@@ -29,7 +29,7 @@ contract PredictionBattleV4 {
     // Fee configuration (in basis points, 10000 = 100%)
     uint256 public platformFeeBps = 2000;   // 20% platform fee
     uint256 public creatorFeeBps = 500;     // 5% creator fee
-    uint256 public referralShareBps = 2500; // 25% of platform fee goes to referrals (= 5% of total)
+    uint256 public referralShareBps = 2500; // 25% of platform fee goes to referrals
 
     struct Prediction {
         string id;
@@ -53,9 +53,9 @@ contract PredictionBattleV4 {
 
     // Referral tracking per prediction
     struct ReferralInfo {
-        address[] referrers;                    // List of unique referrers
-        mapping(address => uint256) totals;     // referrer => total amount referred
-        uint256 totalReferredAmount;            // Sum of all referred bets
+        address[] referrers;
+        mapping(address => uint256) totals;
+        uint256 totalReferredAmount;
     }
 
     mapping(string => Prediction) public predictions;
@@ -101,9 +101,9 @@ contract PredictionBattleV4 {
     }
 
     function setFees(uint256 _platformFeeBps, uint256 _creatorFeeBps, uint256 _referralShareBps) external onlyAdmin {
-        require(_platformFeeBps <= 3000, "Platform fee too high"); // Max 30%
-        require(_creatorFeeBps <= 1000, "Creator fee too high");   // Max 10%
-        require(_referralShareBps <= 5000, "Referral share too high"); // Max 50% of platform fee
+        require(_platformFeeBps <= 3000, "Platform fee too high");
+        require(_creatorFeeBps <= 1000, "Creator fee too high");
+        require(_referralShareBps <= 5000, "Referral share too high");
         platformFeeBps = _platformFeeBps;
         creatorFeeBps = _creatorFeeBps;
         referralShareBps = _referralShareBps;
@@ -121,10 +121,6 @@ contract PredictionBattleV4 {
         p.id = _id;
         p.target = _target;
         p.deadline = block.timestamp + _duration;
-        p.resolved = false;
-        p.isVoid = false;
-        p.processedIndex = 0;
-        p.paidOut = false;
         p.creator = msg.sender;
         
         uint256 seedPerSide = _seedAmount / 2;
@@ -157,13 +153,6 @@ contract PredictionBattleV4 {
 
     // ============ Betting ============
 
-    /**
-     * @notice Place a bet on a prediction
-     * @param _id Prediction ID
-     * @param _vote true = YES, false = NO
-     * @param _amount Amount of USDC to bet
-     * @param _referrer Address of the referrer (use address(0) if none)
-     */
     function placeBet(string memory _id, bool _vote, uint256 _amount, address _referrer) external {
         require(predictionExists[_id], "Does not exist");
         Prediction storage p = predictions[_id];
@@ -172,7 +161,6 @@ contract PredictionBattleV4 {
 
         require(usdcToken.transferFrom(msg.sender, address(this), _amount), "USDC transfer failed");
 
-        // Track bet
         if (_vote) {
             if (p.yesBets[msg.sender] == 0) {
                 p.yesBettors.push(msg.sender);
@@ -211,44 +199,47 @@ contract PredictionBattleV4 {
         p.result = _result;
 
         uint256 totalPool = p.totalYes + p.totalNo;
-        
-        // Calculate fees
         uint256 platformFee = (totalPool * platformFeeBps) / 10000;
         uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
-        
-        // Split platform fee between admin and referrers
         uint256 referralPool = (platformFee * referralShareBps) / 10000;
-        uint256 adminFee = platformFee - referralPool;
         
-        // Pay admin
-        require(usdcToken.transfer(admin, adminFee), "Admin fee failed");
+        // Pay admin (platform fee minus referral pool)
+        usdcToken.transfer(admin, platformFee - referralPool);
         
-        // Pay referrers proportionally
-        ReferralInfo storage refInfo = referralInfo[_id];
-        if (refInfo.totalReferredAmount > 0 && referralPool > 0) {
-            for (uint256 i = 0; i < refInfo.referrers.length; i++) {
-                address ref = refInfo.referrers[i];
-                uint256 refAmount = refInfo.totals[ref];
-                uint256 refPayout = (refAmount * referralPool) / refInfo.totalReferredAmount;
-                if (refPayout > 0) {
-                    require(usdcToken.transfer(ref, refPayout), "Referral fee failed");
-                    emit ReferralPaid(_id, ref, refPayout);
-                }
-            }
-        } else {
-            // No referrals, admin gets full platform fee
-            require(usdcToken.transfer(admin, referralPool), "Unclaimed referral to admin");
-        }
+        // Pay referrers
+        _distributeReferralFees(_id, referralPool);
         
         // Pay creator
         if (p.creator != address(0)) {
-            require(usdcToken.transfer(p.creator, creatorFee), "Creator fee failed");
+            usdcToken.transfer(p.creator, creatorFee);
         } else {
-            require(usdcToken.transfer(admin, creatorFee), "Legacy creator fee");
+            usdcToken.transfer(admin, creatorFee);
         }
 
-        uint256 totalFees = platformFee + creatorFee;
-        emit PredictionResolved(_id, _result, totalPool - totalFees, totalFees);
+        emit PredictionResolved(_id, _result, totalPool - platformFee - creatorFee, platformFee + creatorFee);
+    }
+
+    function _distributeReferralFees(string memory _id, uint256 _referralPool) internal {
+        ReferralInfo storage refInfo = referralInfo[_id];
+        
+        if (refInfo.totalReferredAmount == 0 || _referralPool == 0) {
+            // No referrals, admin gets the referral pool too
+            usdcToken.transfer(admin, _referralPool);
+            return;
+        }
+
+        uint256 totalReferred = refInfo.totalReferredAmount;
+        
+        for (uint256 i = 0; i < refInfo.referrers.length; i++) {
+            address ref = refInfo.referrers[i];
+            uint256 refAmount = refInfo.totals[ref];
+            uint256 refPayout = (refAmount * _referralPool) / totalReferred;
+            
+            if (refPayout > 0) {
+                usdcToken.transfer(ref, refPayout);
+                emit ReferralPaid(_id, ref, refPayout);
+            }
+        }
     }
 
     function resolveVoid(string memory _id) external onlyAdminOrOperator {
@@ -262,7 +253,7 @@ contract PredictionBattleV4 {
         uint256 totalPool = p.totalYes + p.totalNo;
         uint256 fee = (totalPool * platformFeeBps) / 10000;
 
-        require(usdcToken.transfer(admin, fee), "Platform fee failed");
+        usdcToken.transfer(admin, fee);
 
         emit PredictionVoided(_id, totalPool - fee, fee);
     }
@@ -274,109 +265,101 @@ contract PredictionBattleV4 {
         require(p.resolved, "Not resolved");
         require(!p.paidOut, "Already paid out");
 
+        if (p.isVoid) {
+            _distributeVoid(_id, _batchSize);
+        } else {
+            _distributeNormal(_id, _batchSize);
+        }
+    }
+
+    function _distributeVoid(string memory _id, uint256 _batchSize) internal {
+        Prediction storage p = predictions[_id];
+        
+        uint256 totalPool = p.totalYes + p.totalNo;
+        uint256 platformFee = (totalPool * platformFeeBps) / 10000;
+        uint256 distributablePot = totalPool - platformFee;
+        
+        uint256 totalBettors = p.yesBettors.length + p.noBettors.length;
+        uint256 endIndex = p.processedIndex + _batchSize;
+        if (endIndex > totalBettors) endIndex = totalBettors;
+
+        for (uint256 i = p.processedIndex; i < endIndex; i++) {
+            (address userAddr, uint256 betAmount) = _getBettorInfo(p, i);
+            _clearBet(p, userAddr, i < p.yesBettors.length);
+
+            if (betAmount > 0) {
+                uint256 refund = (betAmount * distributablePot) / totalPool;
+                usdcToken.transfer(userAddr, refund);
+                emit PayoutDistributed(_id, userAddr, refund);
+            }
+        }
+        
+        p.processedIndex = endIndex;
+        if (p.processedIndex >= totalBettors) {
+            p.paidOut = true;
+            emit DistributionCompleted(_id);
+        }
+    }
+
+    function _distributeNormal(string memory _id, uint256 _batchSize) internal {
+        Prediction storage p = predictions[_id];
+        
         uint256 totalPool = p.totalYes + p.totalNo;
         uint256 platformFee = (totalPool * platformFeeBps) / 10000;
         uint256 creatorFee = (totalPool * creatorFeeBps) / 10000;
+        uint256 distributablePot = totalPool - platformFee - creatorFee;
         
-        uint256 distributablePot;
-        
-        if (p.isVoid) {
-            distributablePot = totalPool - platformFee;
-        } else {
-            distributablePot = totalPool - platformFee - creatorFee;
-        }
-        
-        // --- VOID LOGIC ---
-        if (p.isVoid) {
-            uint256 totalYesCount = p.yesBettors.length;
-            uint256 totalNoCount = p.noBettors.length;
-            uint256 totalBettors = totalYesCount + totalNoCount;
-            
-            uint256 endIndex = p.processedIndex + _batchSize;
-            if (endIndex > totalBettors) endIndex = totalBettors;
+        bool isYesWinner = p.result;
+        uint256 winningPool = isYesWinner ? p.totalYes : p.totalNo;
+        address[] storage winners = isYesWinner ? p.yesBettors : p.noBettors;
 
-            for (uint256 i = p.processedIndex; i < endIndex; i++) {
-                address userAddr;
-                uint256 betAmount;
-                
-                if (i < totalYesCount) {
-                    userAddr = p.yesBettors[i];
-                    betAmount = p.yesBets[userAddr];
-                    p.yesBets[userAddr] = 0; 
-                } else {
-                    uint256 noIndex = i - totalYesCount;
-                    userAddr = p.noBettors[noIndex];
-                    betAmount = p.noBets[userAddr];
-                    p.noBets[userAddr] = 0;
-                }
-
-                if (betAmount > 0) {
-                    uint256 refund = (betAmount * distributablePot) / totalPool;
-                    require(usdcToken.transfer(userAddr, refund), "Transfer failed");
-                    emit PayoutDistributed(_id, userAddr, refund);
-                }
-            }
-            
-            p.processedIndex = endIndex;
-            if (p.processedIndex >= totalBettors) {
-                p.paidOut = true;
-                emit DistributionCompleted(_id);
-            }
-            return;
-        }
-
-        // --- NORMAL LOGIC ---
-        address[] memory winners;
-        uint256 winningPoolTotal;
-        
-        if (p.result) {
-            winners = p.yesBettors;
-            winningPoolTotal = p.totalYes;
-        } else {
-            winners = p.noBettors;
-            winningPoolTotal = p.totalNo;
-        }
-
-        if (winners.length == 0) {
+        if (winners.length == 0 || winningPool == 0) {
             p.paidOut = true;
             return;
         }
 
-        uint256 eligibleShares = winningPoolTotal;
-        
-        if (eligibleShares == 0) {
-            p.paidOut = true;
-            return;
-        }
+        uint256 endIndex = p.processedIndex + _batchSize;
+        if (endIndex > winners.length) endIndex = winners.length;
 
-        uint256 totalWinners = winners.length;
-        uint256 endNormalIndex = p.processedIndex + _batchSize;
-        if (endNormalIndex > totalWinners) endNormalIndex = totalWinners;
-
-        for (uint256 i = p.processedIndex; i < endNormalIndex; i++) {
+        for (uint256 i = p.processedIndex; i < endIndex; i++) {
             address winnerAddr = winners[i];
-            uint256 betAmount;
+            uint256 betAmount = isYesWinner ? p.yesBets[winnerAddr] : p.noBets[winnerAddr];
             
-            if (p.result) {
-                betAmount = p.yesBets[winnerAddr];
-                p.yesBets[winnerAddr] = 0; 
+            if (isYesWinner) {
+                p.yesBets[winnerAddr] = 0;
             } else {
-                betAmount = p.noBets[winnerAddr];
                 p.noBets[winnerAddr] = 0;
             }
 
             if (betAmount > 0) {
-                uint256 payout = (betAmount * distributablePot) / eligibleShares;
-                require(usdcToken.transfer(winnerAddr, payout), "Transfer failed");
+                uint256 payout = (betAmount * distributablePot) / winningPool;
+                usdcToken.transfer(winnerAddr, payout);
                 emit PayoutDistributed(_id, winnerAddr, payout);
             }
         }
 
-        p.processedIndex = endNormalIndex;
-
-        if (p.processedIndex >= totalWinners) {
+        p.processedIndex = endIndex;
+        if (p.processedIndex >= winners.length) {
             p.paidOut = true;
             emit DistributionCompleted(_id);
+        }
+    }
+
+    function _getBettorInfo(Prediction storage p, uint256 index) internal view returns (address, uint256) {
+        if (index < p.yesBettors.length) {
+            address user = p.yesBettors[index];
+            return (user, p.yesBets[user]);
+        } else {
+            address user = p.noBettors[index - p.yesBettors.length];
+            return (user, p.noBets[user]);
+        }
+    }
+
+    function _clearBet(Prediction storage p, address user, bool isYes) internal {
+        if (isYes) {
+            p.yesBets[user] = 0;
+        } else {
+            p.noBets[user] = 0;
         }
     }
 
@@ -392,6 +375,6 @@ contract PredictionBattleV4 {
     }
 
     function withdrawSurplus(uint256 _amount) external onlyAdmin {
-        require(usdcToken.transfer(admin, _amount), "Withdraw failed");
+        usdcToken.transfer(admin, _amount);
     }
 }
