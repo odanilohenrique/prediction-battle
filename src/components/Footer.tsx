@@ -3,7 +3,7 @@ import { Twitter, Github, BookOpen, Map, FileText } from 'lucide-react';
 
 export default function Footer() {
     return (
-        <footer className="w-full border-t border-white/5 bg-black/40 mt-auto backdrop-blur-sm">
+        <footer className="w-full border-t border-white/5 bg-black/40 backdrop-blur-sm">
             <div className="max-w-4xl mx-auto px-6 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                     {/* Brand */}
