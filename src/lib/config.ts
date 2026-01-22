@@ -2,7 +2,7 @@
 
 // V4 Contract with on-chain referral system
 // IMPORTANT: Update this address after deploying PredictionBattleV4.sol
-const TESTNET_CONTRACT_ADDRESS_V4 = '0x4c86ae8355468eea52d0b82d12ac54a69483b65b'; // TODO: Deploy V4 and update
+const TESTNET_CONTRACT_ADDRESS_V4 = '0x7e4e361f506f8186f239e71d89964187ae863dc8'; // TODO: Deploy V4 and update
 const MAINNET_CONTRACT_ADDRESS_V4 = ''; // TODO: Deploy to mainnet
 
 export const TESTNET_CONFIG = {
