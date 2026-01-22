@@ -34,29 +34,29 @@ export default function Navigation() {
         <>
             {/* DESKTOP SIDEBAR */}
             <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 z-50 bg-black/40 backdrop-blur-xl border-r border-white/5">
-                {/* Logo Area */}
-                <div className="p-6 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden shrink-0">
+                {/* Logo Area - Adjusted to fill area and center */}
+                <div className="p-8 flex flex-col items-center justify-center gap-4 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+                    <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden shrink-0 ring-4 ring-white/5">
                         <Image
                             src="/icon.png"
                             alt="Logo"
-                            width={40}
-                            height={40}
+                            width={80}
+                            height={80}
                             className="object-cover"
                         />
                     </div>
-                    <div>
-                        <h1 className="text-xs font-black text-white italic tracking-wide uppercase leading-none">
+                    <div className="text-center">
+                        <h1 className="text-xl font-black text-white italic tracking-widest uppercase leading-none mb-1">
                             BATTLE
                         </h1>
-                        <h1 className="text-xs font-black text-primary italic tracking-wide uppercase leading-none">
+                        <h1 className="text-xl font-black text-primary italic tracking-widest uppercase leading-none">
                             ARENA
                         </h1>
                     </div>
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
                     {NAV_ITEMS.map((item) => {
                         const isActive = pathname === item.href;
 
@@ -100,10 +100,14 @@ export default function Navigation() {
                     })}
                 </div>
 
-                {/* Footer / Wallet Area */}
-                <div className="p-4 border-t border-white/5 bg-black/20 flex flex-col gap-3">
-                    <NetworkToggle />
-                    <WalletButton />
+                {/* Footer / Wallet Area - Constrained and Centered */}
+                <div className="p-4 border-t border-white/5 bg-black/40 flex flex-col gap-3">
+                    <div className="w-full">
+                        <NetworkToggle />
+                    </div>
+                    <div className="w-full">
+                        <WalletButton />
+                    </div>
                 </div>
             </aside>
 
