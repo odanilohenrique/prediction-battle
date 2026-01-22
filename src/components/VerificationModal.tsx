@@ -425,17 +425,15 @@ export default function VerificationModal({
                             </div>
                         )}
 
-                        {/* Admin Actions */}
-                        {isAdminUser && (
-                            <button
-                                onClick={handleDispute}
-                                disabled={isLoading}
-                                className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-                                Dispute (It's Fake/Wrong)
-                            </button>
-                        )}
+                        {/* Admin Actions - Now Open for Everyone to Dispute */}
+                        <button
+                            onClick={handleDispute}
+                            disabled={isLoading}
+                            className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                            Dispute (It's Fake/Wrong)
+                        </button>
 
                         {/* Finalize Button (anyone can call after window) */}
                         {proposalInfo.canFinalize && (

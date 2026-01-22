@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { Flame, Trophy, Crown, Users, Plus, Clock } from 'lucide-react';
 import AdminBetCard from '@/components/AdminBetCard';
 import { isAdmin } from '@/lib/config';
-import RoadmapSection from '@/components/RoadmapSection';
 
 export default function Home() {
     const [battles, setBattles] = useState<any[]>([]);
@@ -164,10 +163,7 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* Roadmap Section */}
-                <div className="mt-20 border-t border-white/5 pt-10">
-                    <RoadmapSection />
-                </div>
+                {/* Roadmap Section Removed */}
             </div>
         </main>
     );
