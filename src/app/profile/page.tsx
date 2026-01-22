@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
 import { parseEther } from 'viem';
 
 export default function ProfilePage() {

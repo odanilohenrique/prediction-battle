@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Clock, Users, DollarSign, ExternalLink, Shield, AlertTriangle } from 'lucide-react';
 import { useReadContract, useWriteContract, usePublicClient, useAccount } from 'wagmi';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
 import { CURRENT_CONFIG } from '@/lib/config';
 import { useModal } from '@/providers/ModalProvider';
 import VerificationModal from './VerificationModal';

@@ -5,7 +5,7 @@ import { useAccount, useReadContract, usePublicClient } from 'wagmi';
 import { TrendingUp, Wallet, CheckCircle, Clock, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
 import { createPublicClient, http } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 
