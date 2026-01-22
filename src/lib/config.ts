@@ -1,9 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
-// V4 Contract with on-chain referral system
-// IMPORTANT: Update this address after deploying PredictionBattleV4.sol
-const TESTNET_CONTRACT_ADDRESS_V4 = '0x7e4e361f506f8186f239e71d89964187ae863dc8'; // TODO: Deploy V4 and update
-const MAINNET_CONTRACT_ADDRESS_V4 = ''; // TODO: Deploy to mainnet
+// New deployed contract with creator fee + void support + early resolution + evidence (V3.1)
+const TESTNET_CONTRACT_ADDRESS = '0x8d02345ce3b0a73d8168a655fc23c93881ccf87c';
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
@@ -16,7 +14,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: TESTNET_CONTRACT_ADDRESS_V4,
+    contractAddress: TESTNET_CONTRACT_ADDRESS,
 };
 
 export const MAINNET_CONFIG = {
@@ -30,7 +28,7 @@ export const MAINNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base Mainnet
-    contractAddress: MAINNET_CONTRACT_ADDRESS_V4,
+    contractAddress: '', // To be deployed
 };
 
 // For now, always use testnet
@@ -38,10 +36,10 @@ export const CURRENT_CONFIG = TESTNET_CONFIG;
 
 // Helper that NEVER returns empty - use this everywhere
 export function getContractAddress(): `0x${string}` {
-    const addr = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || TESTNET_CONTRACT_ADDRESS_V4;
+    const addr = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || TESTNET_CONTRACT_ADDRESS;
     if (!addr || addr.length < 10) {
         console.warn('[CONFIG] Contract address missing, using hardcoded fallback');
-        return TESTNET_CONTRACT_ADDRESS_V4 as `0x${string}`;
+        return TESTNET_CONTRACT_ADDRESS as `0x${string}`;
     }
     return addr as `0x${string}`;
 }
@@ -73,24 +71,20 @@ export const TESTNET_FAUCETS = {
 };
 
 /**
- * FEE STRUCTURE (PredictionBattleV4.sol):
+ * FEE STRUCTURE (defined in smart contract V2):
+ * - House Fee: 10% (goes to admin wallet) - or 15% if no referrer
+ * - Creator Fee: 5% (goes to market creator wallet)
+ * - Referrer Fee: 5% (goes to referrer if valid)
+ * - Net Bet: 80% (goes to pool)
  * 
- * Total Pool = 100%
- * 
- * Platform Fee: 20% of total pool
- *   - 75% to Admin (15% of total)
- *   - 25% to Referral Pool (5% of total, distributed proportionally)
- * 
- * Creator Fee: 5% of total pool
- * 
- * Winners Pool: 75% of total pool
- * 
- * Referral Distribution:
- *   Each referrer gets: (referred_amount / total_referred) * referral_pool
+ * BOOST CONFIG:
+ * - Max Weight: 1.5x (early bets)
+ * - Min Weight: 1.0x (after bonus period)
  */
-export const PLATFORM_FEE_PERCENT = 20;
+export const HOUSE_FEE_PERCENT = 10;
 export const CREATOR_FEE_PERCENT = 5;
-export const REFERRAL_SHARE_PERCENT = 25; // 25% of platform fee = 5% of total
-export const HOUSE_NET_PERCENT = 15; // 75% of platform fee = 15% of total
-export const WINNERS_POOL_PERCENT = 75;
+export const REFERRER_FEE_PERCENT = 5;
+export const NET_BET_PERCENT = 80;
+export const MAX_BOOST_MULTIPLIER = 1.5;
+export const MIN_BOOST_MULTIPLIER = 1.0;
 

@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CURRENT_CONFIG, isAdmin } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattleV4.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 
 // USDC Contract ABI (minimal for approve)
 const USDC_ABI = [
