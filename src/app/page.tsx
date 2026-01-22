@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Sword, Flame, Trophy, Crown, Users, Plus, Clock } from 'lucide-react';
+import { Flame, Trophy, Crown, Users, Plus, Clock } from 'lucide-react';
 import AdminBetCard from '@/components/AdminBetCard';
-import WalletButton from '@/components/WalletButton';
 import { isAdmin } from '@/lib/config';
-import NetworkToggle from '@/components/NetworkToggle';
+import RoadmapSection from '@/components/RoadmapSection';
 
 export default function Home() {
     const [battles, setBattles] = useState<any[]>([]);
@@ -45,23 +43,7 @@ export default function Home() {
     }
 
     // Debug logging - CRITICAL for fixing visibility
-    console.log('[HOME] Filtering Battles...');
-    console.log(`[HOME] Total raw bets: ${battles.length}`);
-
-    battles.forEach(b => {
-        const isOfficial = b.status === 'active' && (!b.creatorAddress || isAdmin(b.creatorAddress));
-        const hasCreator = !!b.creatorAddress;
-        const isCommunity = b.status === 'active' && hasCreator;
-
-        console.log(`[HOME] Bet ${b.id.slice(0, 8)}:
-            - Status: ${b.status}
-            - Creator: ${b.creatorAddress || 'None'}
-            - Is Admin? ${b.creatorAddress ? isAdmin(b.creatorAddress) : 'N/A'}
-            - Expires: ${new Date(b.expiresAt).toISOString()} (${b.expiresAt > Date.now() ? 'Future' : 'Expired'})
-            - -> Official? ${isOfficial}
-            - -> Community? ${isCommunity}
-        `);
-    });
+    // console.log('[HOME] Filtering Battles...');
 
     // Helper to determine if a bet is truly active (status active AND time remaining)
     const isTrulyActive = (b: any) => b.status === 'active' && Date.now() < new Date(b.expiresAt).getTime();
@@ -83,40 +65,11 @@ export default function Home() {
 
     return (
         <main className="bg-transparent">
-            {/* Header */}
-            <header className="glass sticky top-0 z-40 border-b border-white/5">
-                <div className="max-w-2xl mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12 md:w-12 md:h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
-                                    <Image
-                                        src="/icon.png"
-                                        alt="Logo"
-                                        width={48}
-                                        height={48}
-                                        className="object-cover"
-                                    />
-                                </div>
-                                <div className="text-center">
-                                    <h1 className="text-[10px] font-black text-white italic tracking-wide uppercase leading-none">
-                                        BATTLE ARENA
-                                    </h1>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <NetworkToggle />
-                            <WalletButton />
-                        </div>
-                    </div>
-                </div>
-            </header>
+            {/* Header was removed as it's now in Navigation/Layout */}
 
             {/* Main Content */}
-            <div className="max-w-2xl mx-auto px-4 py-8">
+            <div className="max-w-3xl mx-auto px-4 py-8">
 
-                {/* Tabs */}
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                     <button
@@ -210,6 +163,11 @@ export default function Home() {
                         )}
                     </div>
                 )}
+
+                {/* Roadmap Section */}
+                <div className="mt-20 border-t border-white/5 pt-10">
+                    <RoadmapSection />
+                </div>
             </div>
         </main>
     );
