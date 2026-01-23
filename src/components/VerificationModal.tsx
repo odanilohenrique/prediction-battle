@@ -273,12 +273,76 @@ export default function VerificationModal({
         setError(null);
 
         try {
-            const disputeTx = await writeContractAsync({
+            // Step 0: Get FRESH Bond amount directly from contract
+            // Disputing typically requires matching the bond or a specific amount. 
+            // We use getRequiredBond which usually returns the current required bond.
+            const activeBond = await publicClient.readContract({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'getRequiredBond',
+                args: [marketId]
+            }) as bigint;
+
+            console.log('Fresh bond required for dispute:', formatUnits(activeBond, 6));
+
+            // Step 1: Check current allowance with FRESH bond + 10% BUFFER
+            setStep('approve');
+            const allowance = await publicClient.readContract({
+                address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
+                abi: USDC_ABI,
+                functionName: 'allowance',
+                args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
+            }) as bigint;
+
+            const requiredWithBuffer = (activeBond * 110n) / 100n; // 10% buffer
+
+            // If allowance is insufficient, approve
+            if (allowance < activeBond) {
+                console.log(`Approving for dispute. Required: ${activeBond}`);
+                const approveTx = await writeContractAsync({
+                    address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
+                    abi: USDC_ABI,
+                    functionName: 'approve',
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer * BigInt(2)]
+                });
+
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
+                if (approveReceipt.status !== 'success') {
+                    throw new Error('USDC Approval failed on-chain');
+                }
+
+                // Wait for allowance to propagate
+                console.log('Waiting for allowance to propagate...');
+                let synced = false;
+                for (let i = 0; i < 10; i++) {
+                    const currentAllowance = await publicClient.readContract({
+                        address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
+                        abi: USDC_ABI,
+                        functionName: 'allowance',
+                        args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
+                    }) as bigint;
+
+                    if (currentAllowance >= activeBond) {
+                        synced = true;
+                        break;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            // Step 2: SIMULATE Dispute
+            setStep('propose'); // Reusing 'propose' step for loading state text "Sending..."
+            console.log('Simulating dispute...');
+
+            const { request } = await publicClient.simulateContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'disputeOutcome',
-                args: [marketId]
+                args: [marketId],
+                account: address
             });
+
+            const disputeTx = await writeContractAsync(request);
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash: disputeTx });
             if (receipt.status !== 'success') {
@@ -293,7 +357,15 @@ export default function VerificationModal({
 
         } catch (err: any) {
             console.error('Dispute failed:', err);
-            setError(err.message || 'Disputa falhou');
+            // Extract meaningful error message
+            let msg = err.message || 'Disputa falhou';
+
+            if (msg.includes('Market not active')) msg = "Market state does not allow dispute.";
+            if (msg.includes('Bond transfer failed')) msg = "Could not transfer USDC bond (Check balance).";
+            if (msg.includes('User rejected')) msg = "User rejected the transaction.";
+
+            setError(msg);
+            // Reset step to allow retry, but strictly speaking we are in 'proposal info' view which doesn't use 'step' for view switching same way
         } finally {
             setIsLoading(false);
         }
