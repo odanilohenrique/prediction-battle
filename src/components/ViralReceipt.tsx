@@ -23,6 +23,7 @@ interface ViralReceiptProps {
         opponentName?: string;
         opponentAvatar?: string;
         myFighterAvatar?: string;
+        referralCode?: string;
     };
 }
 
@@ -84,7 +85,8 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
     if (!isOpen) return null;
 
     const handleShare = () => {
-        const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
+        let link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
+        if (data.referralCode) link += `?ref=${data.referralCode}`;
 
         const text = isBattle
             ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀\n\n${link}`
@@ -95,7 +97,8 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
     };
 
     const handleShareX = () => {
-        const link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
+        let link = data.predictionId ? `${window.location.origin}/prediction/${data.predictionId}` : window.location.origin;
+        if (data.referralCode) link += `?ref=${data.referralCode}`;
 
         const text = isBattle
             ? `just put $${data.amount} on ${data.choice} 🥊\n\nif i'm right, walking away with $${data.potentialWin.toFixed(2)}\n\nwho you got? 👀`
