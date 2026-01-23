@@ -81,6 +81,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // V3: Verification Modal State
     const [showVerificationModal, setShowVerificationModal] = useState(false);
 
+    // Wagmi hooks - Must be before useEffect
+    const { address, isConnected, chainId } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+    const { switchChainAsync } = useSwitchChain();
+    const { connectors, connect } = useConnect();
+    const publicClient = usePublicClient();
+
     // Referral State
     const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
     const [myReferralCode, setMyReferralCode] = useState<string | null>(null);
@@ -124,13 +131,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const totalVotes = totalYes + totalNo;
     const yesPercent = totalVotes > 0 ? (totalYes / totalVotes) * 100 : 50;
     const noPercent = totalVotes > 0 ? (totalNo / totalVotes) * 100 : 50;
-
-    // Wagmi hooks
-    const { address, isConnected, chainId } = useAccount();
-    const { writeContractAsync } = useWriteContract();
-    const { switchChainAsync } = useSwitchChain();
-    const { connectors, connect } = useConnect();
-    const publicClient = usePublicClient();
 
     // Claim Check Logic
     const winningSide = bet.result === 'yes'; // true for yes, false for no
@@ -300,7 +300,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     const formatTimeRemaining = () => {
+        if (!bet.expiresAt) return 'Invalid Date';
         const remaining = bet.expiresAt - Date.now();
+        if (isNaN(remaining)) return 'Invalid Date';
+
         if (remaining > 50 * 365 * 24 * 60 * 60 * 1000) return 'Indefinite ♾️';
         const hours = Math.floor(remaining / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
@@ -502,7 +505,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     variant: isBattle ? 'battle' : 'standard',
                     opponentName: opponentName,
                     opponentAvatar: opponentAvatar,
-                    opponentAvatar: opponentAvatar,
                     myFighterAvatar: myFighterAvatar,
                     referralCode: myReferralCode || undefined
                 });
@@ -631,7 +633,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                            <span className="text-xs font-mono text-white/60 tracking-widest uppercase">
+                            <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
                                 {bet.status !== 'active' ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
                             </span>
                         </div>
@@ -674,7 +676,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     </div>
                     <div className="flex items-center gap-1 text-xs font-mono text-primary">
                         <Clock className="w-3 h-3" />
-                        <span>{formatTimeRemaining()}</span>
+                        <span suppressHydrationWarning>{formatTimeRemaining()}</span>
                     </div>
                 </div>
 
