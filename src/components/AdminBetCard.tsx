@@ -83,6 +83,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // Referral State
     const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
+    const [myReferralCode, setMyReferralCode] = useState<string | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -100,6 +101,22 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             }
         }
     }, []);
+
+    // Fetch My Referral Code (for sharing)
+    useEffect(() => {
+        if (address && isConnected && !myReferralCode) {
+            fetch('/api/referral/code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) setMyReferralCode(data.code);
+                })
+                .catch(err => console.error('Failed to get referral code:', err));
+        }
+    }, [address, isConnected]);
 
     // Calculate percentages
     const totalYes = bet?.participants?.yes?.length || 0;
@@ -485,7 +502,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     variant: isBattle ? 'battle' : 'standard',
                     opponentName: opponentName,
                     opponentAvatar: opponentAvatar,
-                    myFighterAvatar: myFighterAvatar
+                    opponentAvatar: opponentAvatar,
+                    myFighterAvatar: myFighterAvatar,
+                    referralCode: myReferralCode || undefined
                 });
 
                 setShowReceipt(true);
@@ -1226,22 +1245,23 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 // Dead Liquidity Visual
 
 
-                                                const totalPool = yesPool + noPool + initialSeed;
-
-
+                                                // SIMULATE POST-BET STATE for accurate estimation
+                                                const totalPoolBefore = yesPool + noPool + initialSeed;
                                                 const mySideCurrent = choice === 'yes' ? yesPool : noPool;
+                                                const mySideEffectiveBefore = mySideCurrent + seedPerSide;
 
+                                                const totalPoolAfter = totalPoolBefore + numericAmount;
+                                                const mySideEffectiveAfter = mySideEffectiveBefore + numericAmount;
 
-                                                const mySideEffective = mySideCurrent + seedPerSide;
+                                                if (mySideEffectiveAfter <= 0) return (numericAmount * 1.75).toFixed(2);
 
+                                                // Formula: (TotalPoolAfter * 0.75) / MySideEffectiveAfter
+                                                // This gives the multiplier for the *marginal* dollar if we treated the whole bet as a block share? 
+                                                // Actually, Payout = (MyBet / SideTotalAfter) * (TotalPoolAfter * 0.75)
+                                                // So Multiplier = Payout / MyBet = (TotalPoolAfter * 0.75) / SideTotalAfter
 
-                                                if (mySideEffective <= 0) return (numericAmount * 1.75).toFixed(2);
-
-
-                                                const rate = (totalPool * 0.75) / mySideEffective;
-
-
-                                                return (numericAmount * rate).toFixed(2);
+                                                const estimatedMultiplier = (totalPoolAfter * 0.75) / mySideEffectiveAfter;
+                                                return (numericAmount * estimatedMultiplier).toFixed(2);
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
                                                 ({(() => {
@@ -1250,22 +1270,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                     const initialSeed = bet.initialValue || 0;
                                                     const seedPerSide = initialSeed / 2;
 
-                                                    const totalPool = yesPool + noPool + initialSeed;
-
-
+                                                    // SIMULATE POST-BET STATE
+                                                    const totalPoolBefore = yesPool + noPool + initialSeed;
                                                     const mySideCurrent = choice === 'yes' ? yesPool : noPool;
+                                                    const mySideEffectiveBefore = mySideCurrent + seedPerSide;
 
+                                                    const totalPoolAfter = totalPoolBefore + parseFloat(amount || '0');
+                                                    const mySideEffectiveAfter = mySideEffectiveBefore + parseFloat(amount || '0');
 
-                                                    const mySideEffective = mySideCurrent + seedPerSide;
+                                                    if (mySideEffectiveAfter <= 0) return '1.75';
 
-
-                                                    if (mySideEffective <= 0) return '1.75';
-
-
-                                                    const rate = (totalPool * 0.75) / mySideEffective;
-
-
-                                                    return rate.toFixed(2);
+                                                    const estimatedMultiplier = (totalPoolAfter * 0.75) / mySideEffectiveAfter;
+                                                    return estimatedMultiplier.toFixed(2);
                                                 })()}x)
                                             </span>
                                         </div>
