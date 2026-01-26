@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useRouter } from 'next/navigation';
-import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Plus, TrendingUp, Users, DollarSign, Clock, Save, Trash2, Search, Upload, Loader2, Link as LinkIcon, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { CURRENT_CONFIG, getContractAddress } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -350,8 +350,70 @@ export default function AdminDashboard() {
                         >
                             User Management
                         </button>
+                        <button
+                            onClick={() => setActiveTab('disputes')}
+                            className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'disputes' ? 'bg-red-500 text-white' : 'text-textSecondary hover:text-red-500 bg-white/5'}`}
+                        >
+                            ⚠️ Disputes / Pending
+                        </button>
                     </div>
                 </div>
+
+                {activeTab === 'disputes' && (
+                    <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in">
+                        <div className="px-6 py-4 border-b border-white/5 bg-red-500/5 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
+                                    <Shield className="w-5 h-5" />
+                                    Resolution Queue
+                                </h2>
+                                <p className="text-sm text-red-400/60">Markets that are active but expired/pending resolution.</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-black/20">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Expires</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).map(bet => (
+                                        <tr key={bet.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-white">@{bet.username}</div>
+                                                <div className="text-xs text-textSecondary">{bet.type}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-green-400">${bet.totalPot.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-xs text-red-400 font-bold">
+                                                EXPIRED ({formatTimeRemaining(bet.expiresAt)})
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <button
+                                                    onClick={() => handleOpenResolveModal(bet)}
+                                                    className="px-3 py-1.5 bg-red-500 text-white rounded-lg font-bold text-xs hover:bg-red-400 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.4)]"
+                                                >
+                                                    FORCE RESOLVE
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
+                                                <Shield className="w-8 h-8 text-white/10 mx-auto mb-2" />
+                                                No pending disputes or expired active markets.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 {activeTab === 'dashboard' && (
                     <div className="flex items-center gap-2">

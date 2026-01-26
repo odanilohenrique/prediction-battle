@@ -980,13 +980,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 loading={isSubmitting}
                             />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
-                            <ClaimButton
-                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
-                                onClick={() => { }}
-                                disabled={true}
-                                label={hasClaimed ? 'Reward Claimed' : 'No Winnings'}
-                                subtext={hasClaimed ? 'PAID' : 'NOT ELIGIBLE'}
-                            />
+                            <div className="flex flex-col gap-2 w-full">
+                                <ClaimButton
+                                    amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
+                                    onClick={() => { }}
+                                    disabled={true}
+                                    label={hasClaimed ? 'REWARD CLAIMED' : 'NOT ELIGIBLE'}
+                                    subtext={hasClaimed ? 'RECEIVED' : 'YOU LOST'}
+                                />
+                                {!hasClaimed && calculatedPayout === BigInt(0) && (
+                                    <div className="text-[10px] text-center text-red-500/60 font-medium px-2">
+                                        Fair Play Policy: Dishonest verification attempts result in permanent bans.
+                                    </div>
+                                )}
+                            </div>
                         ) : isMarketProposed ? (
                             <div className="w-full flex flex-col gap-2">
                                 <button
