@@ -123,7 +123,7 @@ contract PredictionBattleV3 {
     
     // V3 Events
     event OutcomeProposed(string indexed id, address indexed proposer, bool proposedResult, uint256 bondAmount, uint256 disputeDeadline, string evidenceUrl);
-    event OutcomeDisputed(string indexed id, address indexed disputer, address indexed slashedProposer, uint256 slashedAmount);
+    event OutcomeDisputed(string indexed id, address indexed disputer, address indexed slashedProposer, uint256 slashedAmount, string evidenceUrl);
     event OutcomeFinalized(string indexed id, address indexed proposer, uint256 rewardAmount);
     event MarketLocked(string indexed id);
     event MarketReopened(string indexed id);
@@ -337,7 +337,7 @@ contract PredictionBattleV3 {
      * @notice Dispute a proposed outcome (Admin only in V3)
      * @dev Slashes the proposer's bond and resets market state
      */
-    function disputeOutcome(string memory _marketId) external onlyAdminOrOperator {
+    function disputeOutcome(string memory _marketId, string memory _evidenceUrl) external {
         require(marketExists[_marketId], "Market does not exist");
         Market storage m = markets[_marketId];
         
@@ -369,7 +369,7 @@ contract PredictionBattleV3 {
             emit MarketLocked(_marketId);
         }
         
-        emit OutcomeDisputed(_marketId, msg.sender, slashedProposer, slashedAmount);
+        emit OutcomeDisputed(_marketId, msg.sender, slashedProposer, slashedAmount, _evidenceUrl);
     }
     
     /**

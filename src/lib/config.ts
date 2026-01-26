@@ -1,7 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
 // New deployed contract with creator fee + void support + early resolution + evidence (V3.1)
-const TESTNET_CONTRACT_ADDRESS = '0x4f151efc04947277b7716f3d867add31f5c414d3';
+const TESTNET_CONTRACT_ADDRESS = '0xf69d9c091916ff20ad15f4aa6375d1b0a1c6e198';
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
