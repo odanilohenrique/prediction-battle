@@ -331,13 +331,13 @@ export default function AdminDashboard() {
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            {/* Header Row */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-textPrimary mb-2">
+                    <h1 className="text-3xl font-bold text-textPrimary mb-4">
                         Admin Portal
                     </h1>
-                    <div className="flex gap-4 mt-4">
+                    <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => setActiveTab('dashboard')}
                             className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'dashboard' ? 'bg-primary text-background' : 'text-textSecondary hover:text-white bg-white/5'}`}
@@ -354,73 +354,17 @@ export default function AdminDashboard() {
                             onClick={() => setActiveTab('disputes')}
                             className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'disputes' ? 'bg-red-500 text-white' : 'text-textSecondary hover:text-red-500 bg-white/5'}`}
                         >
-                            ⚠️ Disputes / Pending
+                            ⚠️ Disputes ({bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length})
                         </button>
                     </div>
                 </div>
 
-                {/* Disputes Tab Content - Moved outside header for proper layout */}
-                {activeTab === 'disputes' && (
-                    <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
-                        <div className="px-6 py-4 border-b border-white/5 bg-red-500/5 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
-                                    <Shield className="w-5 h-5" />
-                                    Resolution Queue
-                                </h2>
-                                <p className="text-sm text-red-400/60">Markets that are active but expired/pending resolution.</p>
-                            </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-black/20">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Expires</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).map(bet => (
-                                        <tr key={bet.id} className="hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-white">@{bet.username}</div>
-                                                <div className="text-xs text-textSecondary">{bet.type}</div>
-                                            </td>
-                                            <td className="px-6 py-4 font-mono text-green-400">${bet.totalPot.toFixed(2)}</td>
-                                            <td className="px-6 py-4 text-xs text-red-400 font-bold">
-                                                EXPIRED ({formatTimeRemaining(bet.expiresAt)})
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <button
-                                                    onClick={() => handleOpenResolveModal(bet)}
-                                                    className="px-3 py-1.5 bg-red-500 text-white rounded-lg font-bold text-xs hover:bg-red-400 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.4)]"
-                                                >
-                                                    FORCE RESOLVE
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
-                                                <Shield className="w-8 h-8 text-white/10 mx-auto mb-2" />
-                                                No pending disputes or expired active markets.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
+                {/* Action Buttons - Only show on Dashboard */}
                 {activeTab === 'dashboard' && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                             onClick={async () => {
-                                showConfirm('Delete ALL Bets?', 'DANGER: This will wipe all bets from the database. This is irreversible (Phase 3 Reset). Continue?', async () => {
+                                showConfirm('Delete ALL Bets?', 'DANGER: This will wipe all bets from the database. This is irreversible. Continue?', async () => {
                                     try {
                                         const res = await fetch('/api/admin/bets/delete-all', { method: 'POST', body: JSON.stringify({}) });
                                         if (res.ok) {
@@ -449,6 +393,64 @@ export default function AdminDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* DISPUTES TAB CONTENT */}
+            {activeTab === 'disputes' && (
+                <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
+                    <div className="px-6 py-4 border-b border-white/5 bg-red-500/5">
+                        <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
+                            <Shield className="w-5 h-5" />
+                            Resolution Queue
+                        </h2>
+                        <p className="text-sm text-red-400/60">Markets that are active but expired/pending resolution.</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-black/20">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).map(bet => (
+                                    <tr key={bet.id} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-white">@{bet.username}</div>
+                                            <div className="text-xs text-textSecondary">{bet.type}</div>
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-green-400 font-bold">${bet.totalPot.toFixed(2)}</td>
+                                        <td className="px-6 py-4">
+                                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                                EXPIRED
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => handleOpenResolveModal(bet)}
+                                                className="px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-400 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.4)]"
+                                            >
+                                                FORCE RESOLVE
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
+                                            <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                                            <p className="text-lg font-bold text-white/20">No Pending Disputes</p>
+                                            <p className="text-sm">All markets are running smoothly.</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* USERS TAB */}
             {activeTab === 'users' && (
