@@ -285,6 +285,21 @@ export default function VerificationModal({
 
             console.log('Fresh bond required for dispute:', formatUnits(activeBond, 6));
 
+            // Upload Image if exists
+            let finalEvidence = evidenceLink;
+            if (evidenceImage) {
+                setIsUploading(true);
+                try {
+                    const imageUrl = await uploadImage(evidenceImage);
+                    finalEvidence = `${evidenceLink}\nImage: ${imageUrl}`;
+                } catch (uploadErr) {
+                    console.error('Upload failed:', uploadErr);
+                    throw new Error('Image upload failed. Please try again or remove the image.');
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+
             // Step 1: Check current allowance with FRESH bond + 10% BUFFER
             setStep('approve');
             const allowance = await publicClient.readContract({
@@ -338,7 +353,7 @@ export default function VerificationModal({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'disputeOutcome',
-                args: [marketId],
+                args: [marketId, finalEvidence],
                 account: address
             });
 
@@ -497,14 +512,50 @@ export default function VerificationModal({
                             </div>
                         )}
 
+                        {/* Dispute Evidence Input */}
+                        <div className="bg-red-500/5 rounded-xl p-3 border border-red-500/20">
+                            <label className="text-xs text-red-400 font-bold mb-2 block uppercase">
+                                Why is this wrong? (Provide Proof)
+                            </label>
+                            <div className="space-y-2">
+                                <input
+                                    type="url"
+                                    placeholder="Link to counter-evidence..."
+                                    value={evidenceLink}
+                                    onChange={(e) => setEvidenceLink(e.target.value)}
+                                    className="w-full bg-black/40 border border-red-500/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50 placeholder:text-red-500/30"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="text-white text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-500/20 file:text-red-500 hover:file:bg-red-500/30 transition-all w-full bg-black/40 rounded-lg border border-red-500/20"
+                                    />
+                                </div>
+                                {evidenceImage && (
+                                    <p className="text-xs text-green-400">Image selected: {evidenceImage.name}</p>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Admin Actions - Now Open for Everyone to Dispute */}
                         <button
                             onClick={handleDispute}
-                            disabled={isLoading}
-                            className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            disabled={isLoading || (!evidenceLink && !evidenceImage)}
+                            className="w-full py-4 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)]"
                         >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-                            Dispute (It's Fake/Wrong)
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    {isUploading ? 'Uploading...' : step === 'approve' ? 'Approving...' : 'Sending Dispute...'}
+                                </>
+                            ) : (
+                                <>
+                                    <AlertTriangle className="w-5 h-5" />
+                                    DISPUTE THIS RESULT
+                                </>
+                            )}
                         </button>
 
                         {/* Finalize Button (anyone can call after window) */}
