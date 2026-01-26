@@ -354,7 +354,7 @@ export default function AdminDashboard() {
                             onClick={() => setActiveTab('disputes')}
                             className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'disputes' ? 'bg-red-500 text-white' : 'text-textSecondary hover:text-red-500 bg-white/5'}`}
                         >
-                            ⚠️ Disputes ({bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length})
+                            ⚠️ Disputes ({bets.filter(b => b.status === 'active').length})
                         </button>
                     </div>
                 </div>
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).map(bet => (
+                                {bets.filter(b => b.status === 'active').map(bet => (
                                     <tr key={bet.id} className="hover:bg-white/5 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-white">@{bet.username}</div>
@@ -437,7 +437,7 @@ export default function AdminDashboard() {
                                         </td>
                                     </tr>
                                 ))}
-                                {bets.filter(b => b.status === 'active' && Date.now() > b.expiresAt).length === 0 && (
+                                {bets.filter(b => b.status === 'active').length === 0 && (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
                                             <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
