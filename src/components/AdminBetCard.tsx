@@ -568,6 +568,25 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
         setIsSubmitting(true);
         try {
+            // V3 OPTIMISTIC CHECK:
+            // If market is Proposed (2) and we can finalize, do it first!
+            if (isMarketProposed && parsedProposalInfo?.canFinalize) {
+                console.log('Market needs finalization first. Finalizing...');
+                showAlert('Finalizing', 'Market dispute period is over. Finalizing outcome on-chain...', 'info');
+
+                const finalizeHash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'finalizeOutcome',
+                    args: [bet.id],
+                });
+
+                if (publicClient) {
+                    await publicClient.waitForTransactionReceipt({ hash: finalizeHash, timeout: 60000 });
+                }
+                console.log('Finalized successfully. Proceeding to claim...');
+            }
+
             console.log('Claiming reward for:', bet.id);
             const hash = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
