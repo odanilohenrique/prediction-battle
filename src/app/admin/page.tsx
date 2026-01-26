@@ -359,8 +359,9 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Disputes Tab Content - Moved outside header for proper layout */}
                 {activeTab === 'disputes' && (
-                    <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in">
+                    <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
                         <div className="px-6 py-4 border-b border-white/5 bg-red-500/5 flex justify-between items-center">
                             <div>
                                 <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
@@ -417,31 +418,6 @@ export default function AdminDashboard() {
 
                 {activeTab === 'dashboard' && (
                     <div className="flex items-center gap-2">
-                        <Link
-                            href="/admin/monitor"
-                            className="hidden md:flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 font-medium px-4 py-3 rounded-xl transition-all border border-blue-500/30"
-                        >
-                            📊 Live Monitor
-                        </Link>
-
-                        <button
-                            onClick={async () => {
-                                showConfirm('Force Cron', 'This will force check all expired bets. Continue?', async () => {
-                                    try {
-                                        const res = await fetch('/api/check', { method: 'POST' });
-                                        const data = await res.json();
-                                        showAlert('Check Complete', `${data.checked} bets checked.`, 'success');
-                                        fetchAdminData();
-                                    } catch (e) {
-                                        showAlert('Error', 'Check Failed', 'error');
-                                    }
-                                });
-                            }}
-                            className="hidden md:flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 font-medium px-4 py-3 rounded-xl transition-all border border-yellow-500/30"
-                        >
-                            ⚡ Force Cron
-                        </button>
-
                         <button
                             onClick={async () => {
                                 showConfirm('Delete ALL Bets?', 'DANGER: This will wipe all bets from the database. This is irreversible (Phase 3 Reset). Continue?', async () => {
@@ -461,14 +437,6 @@ export default function AdminDashboard() {
                             className="hidden md:flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-medium px-4 py-3 rounded-xl transition-all border border-red-500/30"
                         >
                             ☢️ NUKE ALL
-                        </button>
-
-                        <button
-                            onClick={handleCreateTestBet}
-                            disabled={isCreatingTest}
-                            className="hidden md:flex items-center gap-2 bg-darkGray hover:bg-darkGray/70 text-textPrimary font-medium px-4 py-3 rounded-xl transition-all border border-white/10"
-                        >
-                            {isCreatingTest ? 'Criando...' : '🧪 Teste (30m)'}
                         </button>
 
                         <Link
