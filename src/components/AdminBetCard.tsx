@@ -962,14 +962,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
                             <button
                                 onClick={() => setShowVerificationModal(true)}
-                                className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketProposed
-                                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
-                                    : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+                                className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketDisputed
+                                    ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
+                                    : isMarketProposed
+                                        ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
+                                        : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
                                     }`}
-                                title={isMarketProposed ? "View verification status" : "Verify outcome"}
+                                title={isMarketDisputed ? "Market is under dispute" : isMarketProposed ? "View verification status" : "Verify outcome"}
                             >
-                                <Shield className="w-4 h-4" />
-                                {isMarketProposed ? 'Verifying' : 'Verify'}
+                                {isMarketDisputed ? <AlertTriangle className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                                {isMarketDisputed ? 'Disputed' : isMarketProposed ? 'Verifying' : 'Verify'}
                             </button>
                         ) : (address && canVerify && activeMarketData && activeMarketData[1] === '0x0000000000000000000000000000000000000000') && (
                             <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
@@ -1006,7 +1008,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     className="w-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black py-3 rounded-xl transition-all uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     <Shield className="w-5 h-5 animate-pulse" />
-                                    VERIFICATION IN PROGRESS
+                                    {isMarketDisputed ? 'UNDER DISPUTE' : 'VERIFICATION IN PROGRESS'}
                                 </button>
 
                                 {parsedProposalInfo && (
@@ -1014,7 +1016,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                         <div className="flex justify-between items-center">
                                             <span className="text-white/60 font-bold uppercase">Proposed Result:</span>
                                             <span className={`font-black px-2 py-0.5 rounded text-sm ${parsedProposalInfo.proposedResult ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                                                {parsedProposalInfo.proposedResult ? 'YES' : 'NO'}
+                                                {parsedProposalInfo.proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
                                             </span>
                                         </div>
                                         {parsedProposalInfo.evidenceUrl && (
@@ -1359,6 +1361,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 reporterReward={BigInt(0)}
                 currentState={marketStateV5}
                 proposalInfo={parsedProposalInfo}
+                optionALabel={bet.optionA?.label || 'YES'}
+                optionBLabel={bet.optionB?.label || 'NO'}
                 onSuccess={() => {
                     refetchProposalInfo();
                     if (refetchMarketStruct) refetchMarketStruct();
