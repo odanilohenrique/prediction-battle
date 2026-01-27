@@ -38,6 +38,7 @@ interface Bet {
 }
 
 import { useModal } from '@/providers/ModalProvider';
+import ResolveModal from '@/components/admin/ResolveModal';
 
 export default function AdminDashboard() {
     const { showModal, showAlert, showConfirm } = useModal();
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
     const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
-    const [isResolving, setIsResolving] = useState(false);
+
 
     const filteredPlayers = players
         .filter(p =>
@@ -219,85 +220,7 @@ export default function AdminDashboard() {
         setResolveModalOpen(true);
     };
 
-    const { writeContractAsync } = useWriteContract();
 
-    const resolveBet = async (betId: string, result: 'yes' | 'no' | 'void') => {
-        const bet = bets.find(b => b.id === betId);
-        if (!bet) return;
-
-        const targetContract = getContractAddress();
-        const actionText = result === 'void' ? 'VOID' : result.toUpperCase();
-
-        showConfirm('Confirm Resolution', `Are you sure you want to declare ${actionText} outcome? Payouts provided cannot be reversed.`, async () => {
-            setIsResolving(true);
-            try {
-                // 1. Resolve on Blockchain First
-                if (targetContract) {
-                    try {
-                        let hash;
-                        if (result === 'void') {
-                            hash = await writeContractAsync({
-                                address: targetContract as `0x${string}`,
-                                abi: PredictionBattleABI.abi,
-                                functionName: 'voidMarket',
-                                args: [betId]
-                            });
-                        } else {
-                            hash = await writeContractAsync({
-                                address: targetContract as `0x${string}`,
-                                abi: PredictionBattleABI.abi,
-                                functionName: 'adminResolve',
-                                args: [betId, result === 'yes']
-                            });
-                        }
-
-                        console.log('Resolution Transaction Sent:', hash);
-                        showAlert('Processing on Chain', 'Transaction sent. Waiting for confirmation...', 'success');
-
-
-                        // Wait for receipt would be ideal here if we want to be 100% sure before DB update
-                        // But for now, let's assume if tx sends, we update DB. 
-                        // Actually, better to just proceed. If it reverts, it throws.
-                    } catch (contractError: any) {
-                        console.error('Contract resolution failed:', contractError);
-
-                        // Check for "Already resolved" or similar errors
-                        const errorMsg = contractError?.message?.toLowerCase() || '';
-                        const isAlreadyResolved = errorMsg.includes('resolved') || errorMsg.includes('finalized') || errorMsg.includes('already');
-
-                        if (isAlreadyResolved) {
-                            showAlert('Notice', 'Bet was already resolved on-chain. Syncing database...', 'info');
-                            // Proceed to update DB below (fall through)
-                        } else {
-                            showAlert('Contract Error', 'Failed to resolve on blockchain. DB update aborted.', 'error');
-                            return;
-                        }
-                    }
-                } else {
-                    console.warn('No contract address configured, skipping on-chain resolution');
-                }
-
-                // 2. Update Database
-                const response = await fetch('/api/admin/bets/resolve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ betId, result })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showAlert('Resolved', 'Bet resolved successfully on Chain & DB!', 'success');
-                    setResolveModalOpen(false);
-                    fetchAdminData();
-                } else {
-                    showAlert('Error', 'Error: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showAlert('Error', 'Request failed', 'error');
-            } finally {
-                setIsResolving(false);
-            }
-        });
-    };
 
     const handleDeleteBet = async (betId: string) => {
         showConfirm('Delete Bet?', 'Are you sure you want to delete this bet? This cannot be undone.', async () => {
@@ -770,55 +693,13 @@ export default function AdminDashboard() {
 
                 </>
             )}
-            {/* Resolution Modal at Root Level */}
-            {resolveModalOpen && selectedBet && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-surface border border-darkGray rounded-3xl max-w-sm w-full p-6 relative">
-                        <h3 className="text-xl font-bold text-textPrimary mb-2">Resolve Bet</h3>
-                        <p className="text-sm text-textSecondary mb-4">
-                            Select the winning outcome for <span className="font-bold text-white">@{selectedBet.username}</span>.
-                            <br /><span className="text-xs text-red-400">This action cannot be undone.</span>
-                        </p>
-
-                        <div className="grid grid-cols-2 gap-3 mb-6">
-                            <button
-                                onClick={() => resolveBet(selectedBet.id, 'yes')}
-                                disabled={isResolving}
-                                className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all flex flex-col items-center gap-2"
-                            >
-                                {selectedBet.optionA?.imageUrl && (
-                                    <img src={selectedBet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full" />
-                                )}
-                                ✅ {selectedBet.optionA?.label || 'YES'}
-                            </button>
-                            <button
-                                onClick={() => resolveBet(selectedBet.id, 'no')}
-                                disabled={isResolving}
-                                className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all flex flex-col items-center gap-2"
-                            >
-                                {selectedBet.optionB?.imageUrl && (
-                                    <img src={selectedBet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full" />
-                                )}
-                                ❌ {selectedBet.optionB?.label || 'NO'}
-                            </button>
-                            <button
-                                onClick={() => resolveBet(selectedBet.id, 'void')}
-                                disabled={isResolving}
-                                className="col-span-2 p-4 rounded-xl border border-gray-500/50 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 font-bold transition-all flex items-center justify-center gap-2"
-                            >
-                                ⛔ VOID / DRAW (Refund)
-                            </button>
-                        </div>
-
-                        <button
-                            onClick={() => setResolveModalOpen(false)}
-                            className="w-full bg-darkGray py-3 rounded-xl text-textPrimary font-medium"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            )}
+            {/* Resolution Modal Component */}
+            <ResolveModal
+                isOpen={resolveModalOpen}
+                onClose={() => setResolveModalOpen(false)}
+                betId={selectedBet?.id}
+                username={selectedBet?.username}
+            />
         </div>
     );
 }
