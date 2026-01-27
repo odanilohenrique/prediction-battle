@@ -215,11 +215,8 @@ export default function AdminDashboard() {
     };
 
     const handleOpenResolveModal = (bet: Bet) => {
-        console.log('🔥 FORCE RESOLVE CLICKED!', bet);
-        alert(`Force Resolve clicked for: ${bet.username}`);
         setSelectedBet(bet);
         setResolveModalOpen(true);
-        console.log('Modal state set to true');
     };
 
     const { writeContractAsync } = useWriteContract();
@@ -770,57 +767,57 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Resolution Modal */}
-                    {
-                        resolveModalOpen && selectedBet && (
-                            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                                <div className="bg-surface border border-darkGray rounded-3xl max-w-sm w-full p-6">
-                                    <h3 className="text-xl font-bold text-textPrimary mb-2">Resolve Bet</h3>
-                                    <p className="text-sm text-textSecondary mb-4">
-                                        Select the winning outcome for <span className="font-bold text-white">@{selectedBet.username}</span>.
-                                        <br /><span className="text-xs text-red-400">This action cannot be undone.</span>
-                                    </p>
 
-                                    <div className="grid grid-cols-2 gap-3 mb-6">
-                                        <button
-                                            onClick={() => resolveBet(selectedBet.id, 'yes')}
-                                            disabled={isResolving}
-                                            className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all flex flex-col items-center gap-2"
-                                        >
-                                            {selectedBet.optionA?.imageUrl && (
-                                                <img src={selectedBet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full" />
-                                            )}
-                                            ✅ {selectedBet.optionA?.label || 'YES'}
-                                        </button>
-                                        <button
-                                            onClick={() => resolveBet(selectedBet.id, 'no')}
-                                            disabled={isResolving}
-                                            className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all flex flex-col items-center gap-2"
-                                        >
-                                            {selectedBet.optionB?.imageUrl && (
-                                                <img src={selectedBet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full" />
-                                            )}
-                                            ❌ {selectedBet.optionB?.label || 'NO'}
-                                        </button>
-                                        <button
-                                            onClick={() => resolveBet(selectedBet.id, 'void')}
-                                            disabled={isResolving}
-                                            className="col-span-2 p-4 rounded-xl border border-gray-500/50 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 font-bold transition-all flex items-center justify-center gap-2"
-                                        >
-                                            ⛔ VOID / DRAW (Refund)
-                                        </button>
-                                    </div>
-
-                                    <button
-                                        onClick={() => setResolveModalOpen(false)}
-                                        className="w-full bg-darkGray py-3 rounded-xl text-textPrimary font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )
-                    }
                 </>
+            )}
+            {/* Resolution Modal at Root Level */}
+            {resolveModalOpen && selectedBet && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-surface border border-darkGray rounded-3xl max-w-sm w-full p-6 relative">
+                        <h3 className="text-xl font-bold text-textPrimary mb-2">Resolve Bet</h3>
+                        <p className="text-sm text-textSecondary mb-4">
+                            Select the winning outcome for <span className="font-bold text-white">@{selectedBet.username}</span>.
+                            <br /><span className="text-xs text-red-400">This action cannot be undone.</span>
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <button
+                                onClick={() => resolveBet(selectedBet.id, 'yes')}
+                                disabled={isResolving}
+                                className="p-4 rounded-xl border border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-500 font-bold transition-all flex flex-col items-center gap-2"
+                            >
+                                {selectedBet.optionA?.imageUrl && (
+                                    <img src={selectedBet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full" />
+                                )}
+                                ✅ {selectedBet.optionA?.label || 'YES'}
+                            </button>
+                            <button
+                                onClick={() => resolveBet(selectedBet.id, 'no')}
+                                disabled={isResolving}
+                                className="p-4 rounded-xl border border-red-500/50 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold transition-all flex flex-col items-center gap-2"
+                            >
+                                {selectedBet.optionB?.imageUrl && (
+                                    <img src={selectedBet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full" />
+                                )}
+                                ❌ {selectedBet.optionB?.label || 'NO'}
+                            </button>
+                            <button
+                                onClick={() => resolveBet(selectedBet.id, 'void')}
+                                disabled={isResolving}
+                                className="col-span-2 p-4 rounded-xl border border-gray-500/50 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 font-bold transition-all flex items-center justify-center gap-2"
+                            >
+                                ⛔ VOID / DRAW (Refund)
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setResolveModalOpen(false)}
+                            className="w-full bg-darkGray py-3 rounded-xl text-textPrimary font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
