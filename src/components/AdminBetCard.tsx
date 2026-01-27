@@ -153,7 +153,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [originalBetAmount, userShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
 
     // 2. Get Market Info for Total Shares (V5: markets struct)
-    const { data: marketStruct } = useReadContract({
+    const { data: marketStruct, refetch: refetchMarketStruct } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
@@ -161,7 +161,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         query: {
             enabled: !!address && bet.status !== 'active' && userShares > BigInt(0),
         }
-    }) as { data: any[] | undefined };
+    }) as { data: any[] | undefined, refetch: () => void };
 
     // V5 Struct:
     // 0:id, 1:creator, ..., 6:state, ..., 18:totalYes, 19:totalNo, ..., 22:totalSharesYes, 23:totalSharesNo
@@ -1362,11 +1362,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 marketQuestion={bet.question || `@${bet.username} - ${bet.type}`}
                 requiredBond={requiredBond || BigInt(1000000)}
                 reporterReward={reporterReward || BigInt(0)}
-                currentState={marketStateV3}
+                currentState={marketStateV5}
                 proposalInfo={parsedProposalInfo}
                 onSuccess={() => {
                     refetchProposalInfo();
-                    refetchMarketInfoV3();
+                    if (refetchMarketStruct) refetchMarketStruct();
                     onBet();
                 }}
             />
