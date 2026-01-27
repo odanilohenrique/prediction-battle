@@ -174,9 +174,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         const totalSharesYes = BigInt(marketStruct[22] || 0);
         const totalSharesNo = BigInt(marketStruct[23] || 0);
 
-        const feeBps = 2000n; // 20% (House 10 + Creator 5 + Referrer 5)
+        const feeBps = BigInt(2000); // 20% (House 10 + Creator 5 + Referrer 5)
         const totalPool = totalYes + totalNo;
-        const fee = (totalPool * feeBps) / 10000n;
+        const fee = (totalPool * feeBps) / BigInt(10000);
         const distributablePool = totalPool - fee;
 
         const totalSharesWinning = winningSide ? totalSharesYes : totalSharesNo;
@@ -197,9 +197,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined, refetch: () => void };
 
-    // V5: Market State Logic
-    // Struct Index 6 is State
-    const marketStateV5 = marketStruct ? Number(marketStruct[6]) : 0;
+    // V5: Separate Market Info Query (always enabled for verification button)
+    const { data: marketInfo, refetch: refetchMarketInfo } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'markets',
+        args: [bet.id],
+        query: {
+            enabled: !!address,
+            refetchInterval: 10000,
+        }
+    }) as { data: any[] | undefined, refetch: () => void };
+
+    // V5: Market State Logic from marketInfo (or fallback to marketStruct)
+    const activeMarketData = marketInfo || marketStruct;
+    const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
     const isMarketOpen = marketStateV5 === 0;
     const isMarketLocked = marketStateV5 === 1;
     const isMarketProposed = marketStateV5 === 2;
@@ -209,7 +221,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Can verify/propose/dispute if not resolved
     const canVerify = !isMarketResolved;
 
-    // V3: Get Required Bond
+    // V5: Get Required Bond (this function exists in V5)
     const { data: requiredBond } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -220,38 +232,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined };
 
-    // V3: Get Reporter Reward
-    const { data: reporterReward } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getReporterReward',
-        args: [bet.id],
-        query: {
-            enabled: canVerify,
-        }
-    }) as { data: bigint | undefined };
-
-    // V3: Get Proposal Info
-    const { data: proposalInfo, refetch: refetchProposalInfo } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getProposalInfo',
-        args: [bet.id],
-        query: {
-            enabled: isMarketProposed,
-        }
-    }) as { data: [string, boolean, bigint, bigint, bigint, boolean, string] | undefined, refetch: () => void };
-
-    // Parse proposal info if available
-    const parsedProposalInfo = proposalInfo ? {
-        proposer: proposalInfo[0],
-        proposedResult: proposalInfo[1],
-        proposalTime: proposalInfo[2],
-        bondAmount: proposalInfo[3],
-        disputeDeadline: proposalInfo[4],
-        canFinalize: proposalInfo[5],
-        evidenceUrl: proposalInfo[6],
+    // V5: Parse proposal info from markets struct (no separate getProposalInfo in V5)
+    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
+    const parsedProposalInfo = activeMarketData && isMarketProposed ? {
+        proposer: activeMarketData[9] as string,
+        proposedResult: activeMarketData[10] as boolean,
+        proposalTime: BigInt(activeMarketData[11] || 0),
+        bondAmount: BigInt(activeMarketData[12] || 0),
+        disputeDeadline: BigInt(activeMarketData[11] || 0) + BigInt(43200), // proposalTime + 12h dispute window
+        canFinalize: Date.now() / 1000 > Number(activeMarketData[11] || 0) + 43200, // After 12h
+        evidenceUrl: activeMarketData[13] as string,
     } : null;
+
+    // Refetch function for verification modal success
+    const refetchProposalInfo = refetchMarketInfo;
 
     const handleClaimCreatorFees = async () => {
         if (!isConnected || !address) return;
@@ -965,7 +959,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
 
                         {/* V5: Verify Button - For LOCKED, PROPOSED or OPEN+EXPIRED markets */}
-                        {address && canVerify && marketStruct && marketStruct[1] !== '0x0000000000000000000000000000000000000000' ? (
+                        {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
                             <button
                                 onClick={() => setShowVerificationModal(true)}
                                 className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketProposed
@@ -977,7 +971,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 <Shield className="w-4 h-4" />
                                 {isMarketProposed ? 'Verifying' : 'Verify'}
                             </button>
-                        ) : (address && canVerify && marketStruct && marketStruct[1] === '0x0000000000000000000000000000000000000000') && (
+                        ) : (address && canVerify && activeMarketData && activeMarketData[1] === '0x0000000000000000000000000000000000000000') && (
                             <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
                                 <AlertTriangle className="w-4 h-4" />
                                 <span className="text-sm font-bold">Off-Chain / V2</span>
@@ -1362,7 +1356,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 marketId={bet.id}
                 marketQuestion={bet.question || `@${bet.username} - ${bet.type}`}
                 requiredBond={requiredBond || BigInt(1000000)}
-                reporterReward={reporterReward || BigInt(0)}
+                reporterReward={BigInt(0)}
                 currentState={marketStateV5}
                 proposalInfo={parsedProposalInfo}
                 onSuccess={() => {
