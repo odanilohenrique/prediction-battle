@@ -215,8 +215,11 @@ export default function AdminDashboard() {
     };
 
     const handleOpenResolveModal = (bet: Bet) => {
+        console.log('🔥 FORCE RESOLVE CLICKED!', bet);
+        alert(`Force Resolve clicked for: ${bet.username}`);
         setSelectedBet(bet);
         setResolveModalOpen(true);
+        console.log('Modal state set to true');
     };
 
     const { writeContractAsync } = useWriteContract();
