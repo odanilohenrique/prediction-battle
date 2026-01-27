@@ -247,7 +247,7 @@ export default function AdminDashboard() {
                             hash = await writeContractAsync({
                                 address: targetContract as `0x${string}`,
                                 abi: PredictionBattleABI.abi,
-                                functionName: 'resolveMarket',
+                                functionName: 'adminResolve',
                                 args: [betId, result === 'yes']
                             });
                         }
