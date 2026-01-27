@@ -50,6 +50,9 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ totalBets: 0, activeBets: 0, totalVolume: 0, totalFees: 0 });
     const [searchQuery, setSearchQuery] = useState('');
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+    const [resolveModalOpen, setResolveModalOpen] = useState(false);
+    const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
+    const [isResolving, setIsResolving] = useState(false);
 
     const filteredPlayers = players
         .filter(p =>
@@ -176,10 +179,6 @@ export default function AdminDashboard() {
         }
     }
 
-    // Modal State
-    const [resolveModalOpen, setResolveModalOpen] = useState(false);
-    const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
-    const [isResolving, setIsResolving] = useState(false);
     const [isCreatingTest, setIsCreatingTest] = useState(false);
 
     const handleCreateTestBet = async () => {
