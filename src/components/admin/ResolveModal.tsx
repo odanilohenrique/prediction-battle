@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { X, ExternalLink, check, Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { X, ExternalLink, Check, Loader2, AlertTriangle, ShieldAlert, Gavel, Scale } from 'lucide-react';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import { getContractAddress } from '@/lib/config';
 import { formatUnits } from 'viem';
@@ -18,14 +18,15 @@ enum MarketState {
     OPEN = 0,
     LOCKED = 1,
     PROPOSED = 2,
-    RESOLVED = 3
+    DISPUTED = 3,
+    RESOLVED = 4
 }
 
 export default function ResolveModal({ isOpen, onClose, betId, username }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
     const contractAddress = getContractAddress();
 
-    // 1. Read Market Data from Contract
+    // 1. Read Market Data from V5 Contract (markets mapping)
     const { data: marketData, isLoading: isLoadingMarket, refetch } = useReadContract({
         address: contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -38,17 +39,29 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
 
     const { writeContractAsync } = useWriteContract();
 
-    // Parse Market Data
-    // Struct: id, question, deadline, totalYes, totalNo, state, result, isVoid, proposer, proposedResult, proposalTime, bondAmount, evidenceUrl
-    const marketState = marketData ? Number(marketData[5]) : -1;
-    const proposer = marketData ? String(marketData[8]) : '';
-    const proposedResult = marketData ? Boolean(marketData[9]) : false;
-    const evidenceUrl = marketData ? String(marketData[12]) : '';
-    const bondAmount = marketData ? BigInt(marketData[11]) : 0n;
+    // Parse V5 Struct
+    // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadline, 6:state
+    // 7:result, 8:isVoid, 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
+    // 14:challenger, 15:challengeBondAmount, 16:challengeEvidenceUrl, 17:challengeTime
+
+    // Safety check type
+    const mData = marketData as any[] | undefined;
+
+    const marketState = mData ? Number(mData[6]) : -1;
+    const proposer = mData ? String(mData[9]) : '';
+    const proposedResult = mData ? Boolean(mData[10]) : false;
+    const evidenceUrl = mData ? String(mData[13]) : '';
+    const bondAmount = mData ? BigInt(mData[12]) : 0n;
+
+    // Challenger Info
+    const challenger = mData ? String(mData[14]) : '';
+    const challengeBondAmount = mData ? BigInt(mData[15]) : 0n;
+    const challengeEvidenceUrl = mData ? String(mData[16]) : '';
 
     const isProposed = marketState === MarketState.PROPOSED;
+    const isDisputed = marketState === MarketState.DISPUTED;
 
-    const handleAction = async (action: 'finalize' | 'dispute' | 'void' | 'forceYes' | 'forceNo') => {
+    const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
         setIsResolving(true);
 
@@ -62,12 +75,14 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                     functionName: 'finalizeOutcome',
                     args: [betId]
                 });
-            } else if (action === 'dispute') {
+            } else if (action === 'resolveDispute') {
+                if (!winner) throw new Error("Winner required for dispute resolution");
+                // resolveDispute(string _marketId, address _winnerAddress, bool _finalResult)
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
-                    functionName: 'disputeOutcome',
-                    args: [betId]
+                    functionName: 'resolveDispute',
+                    args: [betId, winner, finalResult]
                 });
             } else if (action === 'void') {
                 hash = await writeContractAsync({
@@ -93,7 +108,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
             }
 
             if (hash) {
-                alert('Transaction Sent! please wait for confirmation.');
+                alert('Transaction Sent! Please wait for confirmation.');
                 onClose();
             }
         } catch (e: any) {
@@ -104,11 +119,22 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
         }
     };
 
+    // Helper to extract image URL
+    const getLink = (raw: string) => {
+        if (!raw) return '';
+        return raw.split('\nImage: ')[0];
+    };
+    const getImage = (raw: string) => {
+        if (!raw) return '';
+        const parts = raw.split('\nImage: ');
+        return parts.length > 1 ? parts[1] : '';
+    };
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-surface border border-darkGray rounded-3xl max-w-md w-full p-6 relative shadow-2xl">
+            <div className="bg-surface border border-darkGray rounded-3xl max-w-2xl w-full p-6 relative shadow-2xl max-h-[90vh] overflow-y-auto">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-textSecondary hover:text-white"
@@ -116,11 +142,12 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                     <X className="w-6 h-6" />
                 </button>
 
-                <h3 className="text-xl font-bold text-textPrimary mb-1">
-                    {isProposed ? '🛡️ Dispute Arbitration' : '⚡ Force Resolution'}
+                <h3 className="text-xl font-bold text-textPrimary mb-1 flex items-center gap-2">
+                    <Gavel className="w-6 h-6 text-purple-500" />
+                    {isDisputed ? 'ARBITRATE DISPUTE' : isProposed ? 'Verify Proposal' : 'Force Resolution'}
                 </h3>
                 <p className="text-sm text-textSecondary mb-6">
-                    Manage market for <span className="font-bold text-white">@{username}</span>
+                    Market ID: {betId} | Creator: <span className="font-bold text-white">@{username}</span>
                 </p>
 
                 {isLoadingMarket ? (
@@ -130,10 +157,66 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                     </div>
                 ) : (
                     <>
-                        {isProposed ? (
+                        {/* DISPUTE UI */}
+                        {isDisputed && (
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                {/* Proposer Side */}
+                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                                    <h4 className="font-bold text-green-400 mb-2 flex items-center gap-2">
+                                        <Check className="w-4 h-4" /> Proposer (Defendent)
+                                    </h4>
+                                    <p className="text-xs text-textSecondary mb-1">Address: {proposer.slice(0, 6)}...</p>
+                                    <p className="text-sm text-white mb-2">Outcome: <span className={proposedResult ? 'text-green-500 font-bold' : 'text-red-500 font-bold'}>{proposedResult ? 'YES' : 'NO'}</span></p>
+
+                                    <p className="text-xs text-textSecondary">Evidence:</p>
+                                    {evidenceUrl ? (
+                                        <div className="mt-1">
+                                            <a href={getLink(evidenceUrl)} target="_blank" className="text-primary text-xs underline truncate block">{getLink(evidenceUrl)}</a>
+                                            {getImage(evidenceUrl) && <img src={getImage(evidenceUrl)} alt="Proof" className="mt-2 rounded-lg border border-white/10 w-full h-24 object-cover" />}
+                                        </div>
+                                    ) : <span className="text-white/30 text-xs">None</span>}
+
+                                    <button
+                                        onClick={() => handleAction('resolveDispute', proposer, proposedResult)}
+                                        className="mt-4 w-full py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm"
+                                        disabled={isResolving}
+                                    >
+                                        Win for Proposer
+                                    </button>
+                                </div>
+
+                                {/* Challenger Side */}
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                                    <h4 className="font-bold text-red-400 mb-2 flex items-center gap-2">
+                                        <Scale className="w-4 h-4" /> Challenger (Plaintiff)
+                                    </h4>
+                                    <p className="text-xs text-textSecondary mb-1">Address: {challenger.slice(0, 6)}...</p>
+                                    <p className="text-sm text-white mb-2">Claim: <span className={!proposedResult ? 'text-green-500 font-bold' : 'text-red-500 font-bold'}>OPPOSITE</span></p>
+
+                                    <p className="text-xs text-textSecondary">Evidence:</p>
+                                    {challengeEvidenceUrl ? (
+                                        <div className="mt-1">
+                                            <a href={getLink(challengeEvidenceUrl)} target="_blank" className="text-primary text-xs underline truncate block">{getLink(challengeEvidenceUrl)}</a>
+                                            {getImage(challengeEvidenceUrl) && <img src={getImage(challengeEvidenceUrl)} alt="Proof" className="mt-2 rounded-lg border border-white/10 w-full h-24 object-cover" />}
+                                        </div>
+                                    ) : <span className="text-white/30 text-xs">None</span>}
+
+                                    <button
+                                        onClick={() => handleAction('resolveDispute', challenger, !proposedResult)}
+                                        className="mt-4 w-full py-2 bg-red-500 hover:bg-red-400 text-black font-bold rounded-lg text-sm"
+                                        disabled={isResolving}
+                                    >
+                                        Win for Challenger
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PROPOSAL UI (Undisputed) */}
+                        {isProposed && (
                             <div className="bg-darkGray/50 rounded-xl p-4 mb-6 border border-white/5">
                                 <div className="flex items-center gap-2 mb-3 text-yellow-500 font-bold text-sm uppercase tracking-wider">
-                                    <AlertTriangle className="w-4 h-4" /> Active Proposal
+                                    <AlertTriangle className="w-4 h-4" /> Active Proposal (Undisputed)
                                 </div>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between">
@@ -148,13 +231,9 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                                             {proposedResult ? 'YES' : 'NO'}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-textSecondary">Bond:</span>
-                                        <span className="text-white">{formatUnits(bondAmount, 6)} USDC</span>
-                                    </div>
                                     {evidenceUrl && (
                                         <a
-                                            href={evidenceUrl}
+                                            href={getLink(evidenceUrl)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-2 text-primary hover:underline mt-2 pt-2 border-t border-white/5"
@@ -163,39 +242,27 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                                         </a>
                                     )}
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="bg-blue-500/10 rounded-xl p-4 mb-6 border border-blue-500/20 text-blue-200 text-sm">
-                                <p className="flex items-start gap-2">
-                                    <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-                                    <span>
-                                        No active proposal found on-chain. <br />
-                                        You can force a result or void the market manually.
-                                    </span>
-                                </p>
-                            </div>
-                        )}
 
-                        <div className="grid grid-cols-1 gap-3">
-                            {isProposed ? (
-                                <>
+                                <div className="grid grid-cols-1 gap-3 mt-4">
                                     <button
                                         onClick={() => handleAction('finalize')}
                                         disabled={isResolving}
                                         className="w-full p-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold transition-all shadow-lg shadow-green-500/20"
                                     >
-                                        ✅ Confirm Proposal (Payout Proposer)
+                                        ✅ Confirm Information
                                     </button>
-                                    <button
-                                        onClick={() => handleAction('dispute')}
-                                        disabled={isResolving}
-                                        className="w-full p-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-all shadow-lg shadow-red-500/20"
-                                    >
-                                        ❌ Reject & Reopen (Slash Bond)
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="text-xs text-center text-white/40">
+                                        Note: Users should finalize this if window passed. Admin action here forces it.
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Fallback / Force Actions */}
+                        {!isDisputed && (
+                            <div className="border-t border-white/10 pt-4">
+                                <h4 className="text-xs text-textSecondary uppercase mb-2 font-bold">Override Actions</h4>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
                                     <button
                                         onClick={() => handleAction('forceYes')}
                                         disabled={isResolving}
@@ -211,16 +278,15 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                                         Force NO
                                     </button>
                                 </div>
-                            )}
-
-                            <button
-                                onClick={() => handleAction('void')}
-                                disabled={isResolving}
-                                className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all"
-                            >
-                                ⛔ Void Market (Refund All)
-                            </button>
-                        </div>
+                                <button
+                                    onClick={() => handleAction('void')}
+                                    disabled={isResolving}
+                                    className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all"
+                                >
+                                    ⛔ Void Market (Refund All)
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

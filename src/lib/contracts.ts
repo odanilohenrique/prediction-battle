@@ -28,30 +28,29 @@ export function getOperatorClient() {
     return client;
 }
 
-// V3: MarketState enum
+// V5: MarketState enum
 export enum MarketState {
     OPEN = 0,
     LOCKED = 1,
     PROPOSED = 2,
-    RESOLVED = 3
+    DISPUTED = 3,
+    RESOLVED = 4
 }
 
-// Check if prediction is resolved on-chain (V3: uses MarketState enum)
+// Check if prediction is resolved on-chain
 export async function isPredictionResolved(predictionId: string): Promise<boolean> {
     const client = getOperatorClient();
     try {
-        // V3: getMarketInfo returns (creator, deadline, state, result, totalYes, totalNo, totalSharesYes, totalSharesNo)
         const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'getMarketInfo',
+            functionName: 'markets',
             args: [predictionId],
         }) as any[];
 
-        // V3 struct order: [creator, deadline, state (enum), result, totalYes, totalNo, ...]
-        // Index 2 is 'state' (uint8 enum)
-        if (Array.isArray(data) && typeof data[2] === 'number') {
-            return data[2] === MarketState.RESOLVED;
+        // V5 Index 6 is 'state'
+        if (Array.isArray(data) && typeof data[6] === 'number') {
+            return data[6] === MarketState.RESOLVED;
         }
 
         return false;
@@ -61,19 +60,19 @@ export async function isPredictionResolved(predictionId: string): Promise<boolea
     }
 }
 
-// V3: Get market state
+// V5: Get market state
 export async function getMarketState(predictionId: string): Promise<MarketState> {
     const client = getOperatorClient();
     try {
         const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'getMarketInfo',
+            functionName: 'markets',
             args: [predictionId],
         }) as any[];
 
-        if (Array.isArray(data) && typeof data[2] === 'number') {
-            return data[2] as MarketState;
+        if (Array.isArray(data) && typeof data[6] === 'number') {
+            return data[6] as MarketState;
         }
 
         return MarketState.OPEN;
@@ -83,7 +82,7 @@ export async function getMarketState(predictionId: string): Promise<MarketState>
     }
 }
 
-// V3: Get required bond amount
+// V5: Get required bond amount
 export async function getRequiredBond(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
     try {
@@ -101,44 +100,71 @@ export async function getRequiredBond(predictionId: string): Promise<bigint> {
     }
 }
 
-// V3: Get reporter reward
+// V5: Get reporter reward (approx 1% of pool)
 export async function getReporterReward(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
     try {
-        const reward = await client.readContract({
+        // We can just calculate it from pool info if needed, or return 0 for now as it's not critical
+        // OR read market info and calc 1% of totalYes + totalNo
+        const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'getReporterReward',
+            functionName: 'markets',
             args: [predictionId],
-        }) as bigint;
+        }) as any[];
 
-        return reward;
+        if (Array.isArray(data)) {
+            const totalYes = BigInt(data[18] || 0);
+            const totalNo = BigInt(data[19] || 0);
+            return (totalYes + totalNo) / 100n;
+        }
+        return BigInt(0);
     } catch (error) {
         console.error("Failed to get reporter reward:", error);
         return BigInt(0);
     }
 }
 
-// V3: Get proposal info
+// V5: Get proposal info (Extended)
 export async function getProposalInfo(predictionId: string) {
     const client = getOperatorClient();
     try {
         const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'getProposalInfo',
+            functionName: 'markets',
             args: [predictionId],
         }) as any[];
 
-        // Returns: (proposer, proposedResult, proposalTime, bondAmount, disputeDeadline, canFinalize)
+        // Indices:
+        // 9: proposer
+        // 10: proposedResult
+        // 11: proposalTime
+        // 12: bondAmount
+        // 13: evidenceUrl
+        // 14: challenger
+        // 15: challengeBondAmount
+        // 16: challengeEvidenceUrl
+        // 17: challengeTime
+
+        const proposalTime = BigInt(data[11]);
+        const disputeWindow = 600n; // 10 minutes fixed for V5 test
+        const deadline = proposalTime + disputeWindow;
+        const now = BigInt(Math.floor(Date.now() / 1000));
+
         return {
-            proposer: data[0] as string,
-            proposedResult: data[1] as boolean,
-            proposalTime: data[2] as bigint,
-            bondAmount: data[3] as bigint,
-            disputeDeadline: data[4] as bigint,
-            canFinalize: data[5] as boolean,
-            evidenceUrl: data[6] as string, // V3.1
+            proposer: data[9] as string,
+            proposedResult: data[10] as boolean,
+            proposalTime: proposalTime,
+            bondAmount: BigInt(data[12]),
+            disputeDeadline: deadline,
+            canFinalize: now > deadline,
+            evidenceUrl: data[13] as string,
+            // New V5 fields
+            challenger: data[14] as string,
+            challengeBondAmount: BigInt(data[15]),
+            challengeEvidenceUrl: data[16] as string,
+            challengeTime: BigInt(data[17])
         };
     } catch (error) {
         console.error("Failed to get proposal info:", error);
