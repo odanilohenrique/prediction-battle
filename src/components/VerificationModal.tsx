@@ -419,6 +419,74 @@ export default function VerificationModal({
         }
     };
 
+    // Admin: Void market (refund all bettors)
+    const handleVoidMarket = async () => {
+        if (!address || !publicClient || !isAdminUser) return;
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const voidTx = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'voidMarket',
+                args: [marketId]
+            });
+
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: voidTx });
+            if (receipt.status !== 'success') {
+                throw new Error('Void market transaction failed on-chain.');
+            }
+
+            setStep('success');
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 2000);
+
+        } catch (err: any) {
+            console.error('Void market failed:', err);
+            setError(err.message || 'Void market failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Admin: Force resolve with specific result
+    const handleAdminResolve = async (result: boolean) => {
+        if (!address || !publicClient || !isAdminUser) return;
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const resolveTx = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'adminResolve',
+                args: [marketId, result]
+            });
+
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: resolveTx });
+            if (receipt.status !== 'success') {
+                throw new Error('Admin resolve transaction failed on-chain.');
+            }
+
+            setStep('success');
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 2000);
+
+        } catch (err: any) {
+            console.error('Admin resolve failed:', err);
+            setError(err.message || 'Admin resolve failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Helper to extract image URL from evidence string if present
     const parseEvidence = (evidence: string) => {
         if (!evidence) return { link: '', image: '' };
@@ -568,6 +636,37 @@ export default function VerificationModal({
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                 Finalize Verification
                             </button>
+                        )}
+
+                        {/* Admin Arbitration Panel */}
+                        {isAdminUser && (
+                            <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mt-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Shield className="w-5 h-5 text-purple-400" />
+                                    <span className="text-purple-400 font-bold text-sm uppercase">Admin Arbitration</span>
+                                </div>
+                                <p className="text-xs text-textSecondary mb-3">
+                                    As admin, you can override the verification process:
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => handleAdminResolve(proposalInfo.proposedResult)}
+                                        disabled={isLoading}
+                                        className="py-2 px-3 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                                    >
+                                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                        Confirm as {proposalInfo.proposedResult ? 'YES' : 'NO'}
+                                    </button>
+                                    <button
+                                        onClick={handleVoidMarket}
+                                        disabled={isLoading}
+                                        className="py-2 px-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                                    >
+                                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                        Void & Refund
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 ) : showProposeView ? (
