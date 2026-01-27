@@ -1001,7 +1001,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     </div>
                                 )}
                             </div>
-                        ) : isMarketProposed ? (
+                        ) : (isMarketProposed || isMarketDisputed) ? (
                             <div className="w-full flex flex-col gap-2">
                                 <button
                                     disabled
