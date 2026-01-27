@@ -24,6 +24,7 @@ enum MarketState {
 
 export default function ResolveModal({ isOpen, onClose, betId, username }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
+    const [shouldReopen, setShouldReopen] = useState(false);
     const contractAddress = getContractAddress();
 
     // 1. Read Market Data from V5 Contract (markets mapping)
@@ -51,11 +52,11 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
     const proposer = mData ? String(mData[9]) : '';
     const proposedResult = mData ? Boolean(mData[10]) : false;
     const evidenceUrl = mData ? String(mData[13]) : '';
-    const bondAmount = mData ? BigInt(mData[12]) : 0n;
+    const bondAmount = mData ? BigInt(mData[12]) : BigInt(0);
 
     // Challenger Info
     const challenger = mData ? String(mData[14]) : '';
-    const challengeBondAmount = mData ? BigInt(mData[15]) : 0n;
+    const challengeBondAmount = mData ? BigInt(mData[15]) : BigInt(0);
     const challengeEvidenceUrl = mData ? String(mData[16]) : '';
 
     const isProposed = marketState === MarketState.PROPOSED;
@@ -82,7 +83,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'resolveDispute',
-                    args: [betId, winner, finalResult]
+                    args: [betId, winner, finalResult, shouldReopen] // V6: Added shouldReopen arg
                 });
             } else if (action === 'void') {
                 hash = await writeContractAsync({
@@ -176,13 +177,25 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                                         </div>
                                     ) : <span className="text-white/30 text-xs">None</span>}
 
-                                    <button
-                                        onClick={() => handleAction('resolveDispute', proposer, proposedResult)}
-                                        className="mt-4 w-full py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm"
-                                        disabled={isResolving}
-                                    >
-                                        Win for Proposer
-                                    </button>
+                                    <div className="mt-4 pt-4 border-t border-white/10">
+                                        <label className="flex items-center gap-2 cursor-pointer mb-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={shouldReopen}
+                                                onChange={(e) => setShouldReopen(e.target.checked)}
+                                                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary focus:ring-primary"
+                                            />
+                                            <span className="text-sm text-white">Reopen Market (Extends 1 Year)</span>
+                                        </label>
+
+                                        <button
+                                            onClick={() => handleAction('resolveDispute', proposer, proposedResult)}
+                                            className="w-full py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm"
+                                            disabled={isResolving}
+                                        >
+                                            Win for Proposer
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Challenger Side */}
@@ -201,13 +214,25 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
                                         </div>
                                     ) : <span className="text-white/30 text-xs">None</span>}
 
-                                    <button
-                                        onClick={() => handleAction('resolveDispute', challenger, !proposedResult)}
-                                        className="mt-4 w-full py-2 bg-red-500 hover:bg-red-400 text-black font-bold rounded-lg text-sm"
-                                        disabled={isResolving}
-                                    >
-                                        Win for Challenger
-                                    </button>
+                                    <div className="mt-4 pt-4 border-t border-white/10">
+                                        <label className="flex items-center gap-2 cursor-pointer mb-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={shouldReopen}
+                                                onChange={(e) => setShouldReopen(e.target.checked)}
+                                                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary focus:ring-primary"
+                                            />
+                                            <span className="text-sm text-white">Reopen Market (Extends 1 Year)</span>
+                                        </label>
+
+                                        <button
+                                            onClick={() => handleAction('resolveDispute', challenger, !proposedResult)}
+                                            className="w-full py-2 bg-red-500 hover:bg-red-400 text-black font-bold rounded-lg text-sm"
+                                            disabled={isResolving}
+                                        >
+                                            Win for Challenger
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}

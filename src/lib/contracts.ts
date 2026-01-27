@@ -182,7 +182,7 @@ export async function resolvePredictionOnChain(predictionId: string, result: boo
         const hash = await client.writeContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'resolveMarket',
+            functionName: 'adminResolve',
             args: [predictionId, result],
         });
 
