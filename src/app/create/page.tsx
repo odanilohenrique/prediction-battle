@@ -26,7 +26,7 @@ type BetType =
     | 'ratio'       // Viral
     | 'custom_text'; // Chaos
 
-type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d' | 'none';
+type Timeframe = '1y';
 
 const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabel: string; description: string; hasTarget: boolean }> = {
     post_count: { label: 'Number of Posts', icon: '📝', targetLabel: 'posts', description: 'Total new casts posted', hasTarget: true },
@@ -45,12 +45,7 @@ const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabe
 };
 
 const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }> = {
-    '30m': { label: '30 Minutes', shortLabel: '30m' },
-    '6h': { label: '6 Hours', shortLabel: '6h' },
-    '12h': { label: '12 Hours', shortLabel: '12h' },
-    '24h': { label: '24 Hours', shortLabel: '24h' },
-    '7d': { label: '7 Days', shortLabel: '7d' },
-    'none': { label: 'Indefinite', shortLabel: '∞' },
+    '1y': { label: '1 Year', shortLabel: '1y' },
 };
 
 // Popular Farcaster users for quick selection
@@ -119,7 +114,7 @@ export default function CreateCommunityBet() {
         // Bet config
         betType: 'post_count' as BetType,
         targetValue: 3,
-        timeframe: '24h' as Timeframe,
+        // timeframe: '24h' as Timeframe, // Removed in favor of V6 1y default
         castUrl: '',
 
         // Limits & Econ
@@ -144,6 +139,8 @@ export default function CreateCommunityBet() {
         predictionImage: '',
         noTargetValue: false,
         autoVerify: false,
+        // Default Timeframe: 1 Year (V6)
+        timeframe: '1y' as any, // Cast as any/string to avoid type errors with old Timeframe type if not updated
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
@@ -726,20 +723,9 @@ export default function CreateCommunityBet() {
                                     Battle Duration
                                 </div>
                             </label>
-                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                                {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
-                                    <button
-                                        key={tf}
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, timeframe: tf })}
-                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.timeframe === tf
-                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                            : 'bg-black/30 text-white/40 hover:text-white hover:bg-white/10'
-                                            }`}
-                                    >
-                                        {TIMEFRAME_CONFIG[tf].shortLabel}
-                                    </button>
-                                ))}
+                            <div className="flex items-center gap-2 p-3 bg-black/30 rounded-xl">
+                                <span className="text-orange-500 font-bold text-sm">365 Days</span>
+                                <span className="text-xs text-white/40">(Fixed Duration)</span>
                             </div>
                         </div>
 
@@ -1497,6 +1483,6 @@ export default function CreateCommunityBet() {
                 </div>
 
             </form>
-        </div>
+        </div >
     );
 }
