@@ -25,7 +25,7 @@ type BetType =
     | 'ratio'       // Viral
     | 'custom_text'; // Chaos
 
-type Timeframe = '30m' | '6h' | '12h' | '24h' | '7d' | 'none';
+type Timeframe = '1y';
 
 const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabel: string; description: string; hasTarget: boolean }> = {
     post_count: { label: 'Number of Posts', icon: '📝', targetLabel: 'posts', description: 'Total new casts posted', hasTarget: true },
@@ -44,12 +44,7 @@ const BET_TYPE_CONFIG: Record<BetType, { label: string; icon: string; targetLabe
 };
 
 const TIMEFRAME_CONFIG: Record<Timeframe, { label: string; shortLabel: string }> = {
-    '30m': { label: '30 Minutes', shortLabel: '30m' },
-    '6h': { label: '6 Hours', shortLabel: '6h' },
-    '12h': { label: '12 Hours', shortLabel: '12h' },
-    '24h': { label: '24 Hours', shortLabel: '24h' },
-    '7d': { label: '7 Days', shortLabel: '7d' },
-    'none': { label: 'Indefinite', shortLabel: '∞' },
+    '1y': { label: '1 Year', shortLabel: '1y' },
 };
 
 // Popular Farcaster users for quick selection
@@ -102,7 +97,7 @@ export default function CreateCommunityBet() {
         // Bet config
         betType: 'post_count' as BetType,
         targetValue: '3',
-        timeframe: '24h' as Timeframe,
+        timeframe: '1y' as any,
         castUrl: '', // Added for Post Link
 
         // Limits & Econ
@@ -331,10 +326,7 @@ export default function CreateCommunityBet() {
             // 3. Create on Smart Contract (Uses USDC transferFrom)
             try {
                 console.log('Registering prediction on-chain...');
-                const durationSeconds = formData.timeframe === '24h' ? 86400 :
-                    formData.timeframe === '12h' ? 43200 :
-                        formData.timeframe === '6h' ? 21600 :
-                            formData.timeframe === '7d' ? 604800 : 86400;
+                const durationSeconds = 31536000; // 365 days (contracts enforce this anyway)
 
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
 
@@ -665,20 +657,9 @@ export default function CreateCommunityBet() {
                                     Battle Duration
                                 </div>
                             </label>
-                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                                {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
-                                    <button
-                                        key={tf}
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, timeframe: tf })}
-                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${formData.timeframe === tf
-                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                            : 'bg-black/30 text-white/40 hover:text-white hover:bg-white/10'
-                                            }`}
-                                    >
-                                        {TIMEFRAME_CONFIG[tf].shortLabel}
-                                    </button>
-                                ))}
+                            <div className="flex items-center gap-2 p-3 bg-black/30 rounded-xl">
+                                <span className="text-orange-500 font-bold text-sm">365 Days</span>
+                                <span className="text-xs text-white/40">(Fixed Duration)</span>
                             </div>
                         </div>
 
@@ -733,637 +714,631 @@ export default function CreateCommunityBet() {
                         </div>
 
                         {/* Battle Preview */}
-                        {formData.optionA.label && formData.optionB.label && (
-                            <div className="bg-black/40 border border-white/10 rounded-3xl p-8 text-center mt-6">
-                                <div className="text-sm text-white/40 uppercase tracking-[0.2em] mb-6 font-bold">Battle Preview</div>
-                                <div className="flex items-center justify-center gap-8 md:gap-12">
-                                    <div className="flex flex-col items-center gap-3 group">
-                                        <div className="relative">
-                                            {formData.optionA.imageUrl ? (
-                                                <img
-                                                    src={formData.optionA.imageUrl}
-                                                    alt=""
-                                                    className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-transform group-hover:scale-105"
-                                                    onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
-                                                />
-                                            ) : (
-                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-green-500/20 flex items-center justify-center text-4xl border-4 border-green-500/50">🟢</div>
-                                            )}
-                                            {/* Player 1 Badge Removed */}
+                        {
+                            formData.optionA.label && formData.optionB.label && (
+                                <div className="bg-black/40 border border-white/10 rounded-3xl p-8 text-center mt-6">
+                                    <div className="text-sm text-white/40 uppercase tracking-[0.2em] mb-6 font-bold">Battle Preview</div>
+                                    <div className="flex items-center justify-center gap-8 md:gap-12">
+                                        <div className="flex flex-col items-center gap-3 group">
+                                            <div className="relative">
+                                                {formData.optionA.imageUrl ? (
+                                                    <img
+                                                        src={formData.optionA.imageUrl}
+                                                        alt=""
+                                                        className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-transform group-hover:scale-105"
+                                                        onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
+                                                    />
+                                                ) : (
+                                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-green-500/20 flex items-center justify-center text-4xl border-4 border-green-500/50">🟢</div>
+                                                )}
+                                                {/* Player 1 Badge Removed */}
+                                            </div>
+                                            <span className="mt-2 text-xl md:text-2xl font-black text-white tracking-tight">{formData.optionA.label}</span>
                                         </div>
-                                        <span className="mt-2 text-xl md:text-2xl font-black text-white tracking-tight">{formData.optionA.label}</span>
-                                    </div>
 
-                                    <div className="flex flex-col items-center animate-pulse">
-                                        <span className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/10 italic pr-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
-                                            VS
-                                        </span>
-                                    </div>
-
-                                    <div className="flex flex-col items-center gap-3 group">
-                                        <div className="relative">
-                                            {formData.optionB.imageUrl ? (
-                                                <img
-                                                    src={formData.optionB.imageUrl}
-                                                    alt=""
-                                                    className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)] transition-transform group-hover:scale-105"
-                                                    onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
-                                                />
-                                            ) : (
-                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-red-500/20 flex items-center justify-center text-4xl border-4 border-red-500/50">🔴</div>
-                                            )}
-                                            {/* Player 2 Badge Removed */}
+                                        <div className="flex flex-col items-center animate-pulse">
+                                            <span className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/10 italic pr-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                                                VS
+                                            </span>
                                         </div>
-                                        <span className="mt-2 text-xl md:text-2xl font-black text-white tracking-tight">{formData.optionB.label}</span>
+
+                                        <div className="flex flex-col items-center gap-3 group">
+                                            <div className="relative">
+                                                {formData.optionB.imageUrl ? (
+                                                    <img
+                                                        src={formData.optionB.imageUrl}
+                                                        alt=""
+                                                        className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)] transition-transform group-hover:scale-105"
+                                                        onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
+                                                    />
+                                                ) : (
+                                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-red-500/20 flex items-center justify-center text-4xl border-4 border-red-500/50">🔴</div>
+                                                )}
+                                                {/* Player 2 Badge Removed */}
+                                            </div>
+                                            <span className="mt-2 text-xl md:text-2xl font-black text-white tracking-tight">{formData.optionB.label}</span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-8 bg-white/5 rounded-xl p-4 inline-block max-w-2xl w-full border border-white/5">
+                                        <p className="text-white/90 text-lg font-medium italic">"{formData.battleQuestion || 'Your question here...'}"</p>
                                     </div>
                                 </div>
-                                <div className="mt-8 bg-white/5 rounded-xl p-4 inline-block max-w-2xl w-full border border-white/5">
-                                    <p className="text-white/90 text-lg font-medium italic">"{formData.battleQuestion || 'Your question here...'}"</p>
-                                </div>
-                            </div>
-                        )}
+                            )
+                        }
                     </>
-                )}
+                )
+                }
 
                 {/* ===================== PREDICTION MODE ===================== */}
-                {creationMode === 'prediction' && (
-                    <>
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <label className="block text-sm font-medium text-textPrimary mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Users className="w-5 h-5 text-primary" />
-                                    Target User
-                                </div>
-                            </label>
-
-                            {/* Quick Select for Target User (Added) */}
-                            <div className="mb-4">
-                                <label className="text-xs text-textSecondary mb-2 block">Quick Select</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(showAllPlayers ? savedPlayers : savedPlayers.slice(0, 5)).map((player) => (
-                                        <button
-                                            key={player.username}
-                                            type="button"
-                                            onClick={() => setFormData({
-                                                ...formData,
-                                                username: player.username,
-                                                displayName: player.displayName,
-                                                pfpUrl: player.pfpUrl
-                                            })}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${formData.username === player.username
-                                                ? 'border-primary bg-primary/20'
-                                                : 'border-white/10 hover:border-primary/50'
-                                                }`}
-                                        >
-                                            <img
-                                                src={player.pfpUrl}
-                                                alt=""
-                                                className="w-5 h-5 rounded-full object-cover"
-                                                onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
-                                            />
-                                            <span className="text-white/80">{player.displayName}</span>
-                                        </button>
-                                    ))}
-
-                                    {savedPlayers.length > 5 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowAllPlayers(!showAllPlayers)}
-                                            className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-textSecondary hover:bg-white/10 transition-all flex items-center gap-1"
-                                        >
-                                            {showAllPlayers ? 'Show Less' : `+ ${savedPlayers.length - 5} Others`}
-                                        </button>
-                                    )}
-
-                                    {formData.username && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({
-                                                ...formData,
-                                                username: '',
-                                                displayName: '',
-                                                pfpUrl: ''
-                                            })}
-                                            className="px-2 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-xs hover:bg-red-500/20"
-                                        >
-                                            ✕ Clear
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="text-xs text-textSecondary mb-1 block">Username *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData({ ...formData, username: e.target.value.replace('@', '') })}
-                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                        placeholder="jessepollak"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-textSecondary mb-1 block">Display Name (Optional)</label>
-                                    <input
-                                        type="text"
-                                        value={formData.displayName}
-                                        onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                        placeholder="Jesse Pollak"
-                                    />
-                                </div>
-                                <div>
-                                    <div>
-                                        <label className="text-xs text-textSecondary mb-1 block">Avatar Source</label>
-                                        <div className="flex gap-3">
-                                            <div className="flex-1">
-                                                <input
-                                                    type="url"
-                                                    value={formData.pfpUrl}
-                                                    onChange={(e) => setFormData({ ...formData, pfpUrl: e.target.value })}
-                                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-sm"
-                                                    placeholder="Paste Image URL..."
-                                                />
-                                            </div>
-                                            <label className="cursor-pointer bg-darkGray border border-darkGray hover:border-primary hover:bg-white/5 rounded-xl px-6 py-3 text-textPrimary transition-all flex items-center justify-center gap-2 whitespace-nowrap min-w-[120px]">
-                                                <Upload className="w-4 h-4" />
-                                                <span className="text-sm font-bold">Upload</span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) {
-                                                            const reader = new FileReader();
-                                                            reader.onloadend = () => {
-                                                                setFormData({ ...formData, pfpUrl: reader.result as string });
-                                                            };
-                                                            reader.readAsDataURL(file);
-                                                        }
-                                                    }}
-                                                />
-                                            </label>
-                                        </div>
+                {
+                    creationMode === 'prediction' && (
+                        <>
+                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                <label className="block text-sm font-medium text-textPrimary mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-primary" />
+                                        Target User
                                     </div>
+                                </label>
 
-                                    {formData.pfpUrl && (
-                                        <div className="mt-4 flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/30">
+                                {/* Quick Select for Target User (Added) */}
+                                <div className="mb-4">
+                                    <label className="text-xs text-textSecondary mb-2 block">Quick Select</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(showAllPlayers ? savedPlayers : savedPlayers.slice(0, 5)).map((player) => (
+                                            <button
+                                                key={player.username}
+                                                type="button"
+                                                onClick={() => setFormData({
+                                                    ...formData,
+                                                    username: player.username,
+                                                    displayName: player.displayName,
+                                                    pfpUrl: player.pfpUrl
+                                                })}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${formData.username === player.username
+                                                    ? 'border-primary bg-primary/20'
+                                                    : 'border-white/10 hover:border-primary/50'
+                                                    }`}
+                                            >
                                                 <img
-                                                    src={formData.pfpUrl}
-                                                    alt="Preview"
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                    src={player.pfpUrl}
+                                                    alt=""
+                                                    className="w-5 h-5 rounded-full object-cover"
+                                                    onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')}
                                                 />
-                                            </div>
-                                            <span className="text-sm text-textSecondary">Preview</span>
-                                        </div>
-                                    )}
+                                                <span className="text-white/80">{player.displayName}</span>
+                                            </button>
+                                        ))}
 
-                                    {/* Cast URL Removed as requested */}
-                                </div>
-                            </div>
-                        </div>
+                                        {savedPlayers.length > 5 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAllPlayers(!showAllPlayers)}
+                                                className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-textSecondary hover:bg-white/10 transition-all flex items-center gap-1"
+                                            >
+                                                {showAllPlayers ? 'Show Less' : `+ ${savedPlayers.length - 5} Others`}
+                                            </button>
+                                        )}
 
-                        {/* 2. Bet Type */}
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <label className="block text-sm font-medium text-textPrimary mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Target className="w-5 h-5 text-primary" />
-                                    Prediction Mode
-                                </div>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="noTarget"
-                                        checked={formData.noTargetValue}
-                                        onChange={(e) => setFormData({ ...formData, noTargetValue: e.target.checked })}
-                                        className="rounded border-darkGray bg-black/20 text-primary focus:ring-primary"
-                                    />
-                                    <label htmlFor="noTarget" className="text-xs text-textSecondary font-normal">
-                                        Subjective / No Target Value
-                                    </label>
-                                </div>
-                            </label>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {(Object.keys(BET_TYPE_CONFIG) as BetType[]).map((type) => (
-                                    <button
-                                        key={type}
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, betType: type })}
-                                        className={`p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden ${formData.betType === type
-                                            ? 'border-primary bg-primary/10'
-                                            : 'border-darkGray hover:border-darkGray/50'
-                                            }`}
-                                    >
-                                        <div className="text-2xl mb-1">{BET_TYPE_CONFIG[type].icon}</div>
-                                        <div className="text-sm font-medium text-textPrimary">
-                                            {BET_TYPE_CONFIG[type].label}
-                                        </div>
-                                        <div className="text-xs text-textSecondary mt-1 leading-tight">
-                                            {BET_TYPE_CONFIG[type].description}
-                                        </div>
-                                        {type === 'ratio' && <div className="absolute top-0 right-0 bg-red-500/20 text-red-500 text-[10px] px-2 py-0.5 font-bold rounded-bl-lg">LIVE</div>}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 3. Custom Question & Versus Options */}
-                        {formData.betType === 'custom_text' && (
-                            <div className="bg-surface border border-darkGray rounded-2xl p-6 animate-fade-in">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            ✍️ Custom Prediction
-                                        </div>
+                                        {formData.username && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({
+                                                    ...formData,
+                                                    username: '',
+                                                    displayName: '',
+                                                    pfpUrl: ''
+                                                })}
+                                                className="px-2 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-xs hover:bg-red-500/20"
+                                            >
+                                                ✕ Clear
+                                            </button>
+                                        )}
                                     </div>
-                                </label>
-                                <textarea
-                                    value={formData.predictionQuestion}
-                                    onChange={(e) => setFormData({ ...formData, predictionQuestion: e.target.value })}
-                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px] text-lg mb-4"
-                                    placeholder="e.g. Who will win: Farcaster or Lens?"
-                                    required
-                                />
-
-                                {formData.isVersus && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 p-4 bg-black/20 rounded-xl border border-darkGray/50">
-                                        <div>
-                                            <h4 className="font-bold text-green-500 mb-2">Option A (YES Pool)</h4>
-                                            <div className="space-y-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Label (e.g. Farcaster)"
-                                                    value={formData.optionA.label}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        optionA: { ...formData.optionA, label: e.target.value }
-                                                    })}
-                                                    className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
-                                                />
-                                                <input
-                                                    type="url"
-                                                    placeholder="Image URL (Optional)"
-                                                    value={formData.optionA.imageUrl}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        optionA: { ...formData.optionA, imageUrl: e.target.value }
-                                                    })}
-                                                    className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-red-500 mb-2">Option B (NO Pool)</h4>
-                                            <div className="space-y-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Label (e.g. Lens)"
-                                                    value={formData.optionB.label}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        optionB: { ...formData.optionB, label: e.target.value }
-                                                    })}
-                                                    className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
-                                                />
-                                                <input
-                                                    type="url"
-                                                    placeholder="Image URL (Optional)"
-                                                    value={formData.optionB.imageUrl}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        optionB: { ...formData.optionB, imageUrl: e.target.value }
-                                                    })}
-                                                    className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Word Mention Field */}
-                        {formData.betType === 'word_mentions' && (
-                            <div className="bg-surface border border-darkGray rounded-2xl p-6 animate-fade-in">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    <div className="flex items-center gap-2">
-                                        🔤 Word(s) to Track
-                                    </div>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.wordToMatch}
-                                    onChange={(e) => setFormData({ ...formData, wordToMatch: e.target.value })}
-                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    placeholder="e.g., based"
-                                    required
-                                />
-                            </div>
-                        )}
-
-                        {/* Target Cast URL (Optional for context) */}
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <label className="block text-sm font-medium text-textPrimary mb-3">
-                                <div className="flex items-center gap-2">
-                                    <LinkIcon className="w-5 h-5 text-primary" />
-                                    Target Cast / Post URL (Optional)
                                 </div>
-                            </label>
-                            <input
-                                type="url"
-                                value={formData.castUrl}
-                                onChange={(e) => setFormData({ ...formData, castUrl: e.target.value })}
-                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                placeholder="https://warpcast.com/..."
-                            />
-                            <p className="text-xs text-textSecondary mt-2">
-                                Provide a link to the specific post for context (displayed on the card).
-                            </p>
-                        </div>
 
-                        {/* 4. Target & Timeframe */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {(currentBetType.hasTarget || formData.betType === 'custom_text') && !formData.noTargetValue && (
-                                <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                                    <label className="block text-sm font-medium text-textPrimary mb-3">
-                                        Target Value
-                                    </label>
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={formData.targetValue}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === '' || /^\d*$/.test(val)) {
-                                                setFormData({ ...formData, targetValue: val });
-                                            }
-                                        }}
-                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
-                                        required={!formData.noTargetValue}
-                                    />
-                                    <p className="text-sm text-primary mt-2 font-medium">
-                                        {formData.targetValue}+ {currentBetType.targetLabel}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Optional Prediction Image */}
-                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    Prediction Logo / Image (Optional)
-                                </label>
-                                <div className="flex gap-3">
-                                    <div className="flex-1">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs text-textSecondary mb-1 block">Username *</label>
                                         <input
-                                            type="url"
-                                            value={formData.predictionImage}
-                                            onChange={(e) => setFormData({ ...formData, predictionImage: e.target.value })}
-                                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-sm"
-                                            placeholder="Paste Image URL..."
+                                            type="text"
+                                            value={formData.username}
+                                            onChange={(e) => setFormData({ ...formData, username: e.target.value.replace('@', '') })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                            placeholder="jessepollak"
+                                            required
                                         />
                                     </div>
-                                    <label className="cursor-pointer bg-darkGray border border-darkGray hover:border-primary hover:bg-darkGray/70 rounded-xl px-6 py-3 text-textPrimary transition-all flex items-center justify-center gap-2 whitespace-nowrap min-w-[120px]">
-                                        <Upload className="w-4 h-4" />
-                                        <span className="text-sm font-bold">Upload</span>
+                                    <div>
+                                        <label className="text-xs text-textSecondary mb-1 block">Display Name (Optional)</label>
                                         <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const fakeUrl = URL.createObjectURL(file);
-                                                    setFormData({ ...formData, predictionImage: fakeUrl });
-                                                }
-                                            }}
+                                            type="text"
+                                            value={formData.displayName}
+                                            onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                            placeholder="Jesse Pollak"
                                         />
-                                    </label>
-                                </div>
-                                {formData.predictionImage && (
-                                    <div className="mt-2 w-10 h-10 rounded overflow-hidden">
-                                        <img src={formData.predictionImage} className="w-full h-full object-cover" alt="Preview" />
                                     </div>
-                                )}
+                                    <div>
+                                        <div>
+                                            <label className="text-xs text-textSecondary mb-1 block">Avatar Source</label>
+                                            <div className="flex gap-3">
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="url"
+                                                        value={formData.pfpUrl}
+                                                        onChange={(e) => setFormData({ ...formData, pfpUrl: e.target.value })}
+                                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-sm"
+                                                        placeholder="Paste Image URL..."
+                                                    />
+                                                </div>
+                                                <label className="cursor-pointer bg-darkGray border border-darkGray hover:border-primary hover:bg-white/5 rounded-xl px-6 py-3 text-textPrimary transition-all flex items-center justify-center gap-2 whitespace-nowrap min-w-[120px]">
+                                                    <Upload className="w-4 h-4" />
+                                                    <span className="text-sm font-bold">Upload</span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => {
+                                                                    setFormData({ ...formData, pfpUrl: reader.result as string });
+                                                                };
+                                                                reader.readAsDataURL(file);
+                                                            }
+                                                        }}
+                                                    />
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {formData.pfpUrl && (
+                                            <div className="mt-4 flex items-center gap-3">
+                                                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/30">
+                                                    <img
+                                                        src={formData.pfpUrl}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                                                    />
+                                                </div>
+                                                <span className="text-sm text-textSecondary">Preview</span>
+                                            </div>
+                                        )}
+
+                                        {/* Cast URL Removed as requested */}
+                                    </div>
+                                </div>
                             </div>
 
+                            {/* 2. Bet Type */}
                             <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
+                                <label className="block text-sm font-medium text-textPrimary mb-4">
                                     <div className="flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-primary" />
-                                        Duration
+                                        <Target className="w-5 h-5 text-primary" />
+                                        Prediction Mode
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="noTarget"
+                                            checked={formData.noTargetValue}
+                                            onChange={(e) => setFormData({ ...formData, noTargetValue: e.target.checked })}
+                                            className="rounded border-darkGray bg-black/20 text-primary focus:ring-primary"
+                                        />
+                                        <label htmlFor="noTarget" className="text-xs text-textSecondary font-normal">
+                                            Subjective / No Target Value
+                                        </label>
                                     </div>
                                 </label>
-                                <div className="grid grid-cols-5 gap-2">
-                                    {(Object.keys(TIMEFRAME_CONFIG) as Timeframe[]).map((tf) => (
+
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {(Object.keys(BET_TYPE_CONFIG) as BetType[]).map((type) => (
                                         <button
-                                            key={tf}
+                                            key={type}
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, timeframe: tf })}
-                                            className={`p-3 rounded-xl border-2 transition-all ${formData.timeframe === tf
+                                            onClick={() => setFormData({ ...formData, betType: type })}
+                                            className={`p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden ${formData.betType === type
                                                 ? 'border-primary bg-primary/10'
                                                 : 'border-darkGray hover:border-darkGray/50'
                                                 }`}
                                         >
-                                            <div className="text-sm font-bold text-textPrimary">
-                                                {TIMEFRAME_CONFIG[tf].shortLabel}
+                                            <div className="text-2xl mb-1">{BET_TYPE_CONFIG[type].icon}</div>
+                                            <div className="text-sm font-medium text-textPrimary">
+                                                {BET_TYPE_CONFIG[type].label}
                                             </div>
+                                            <div className="text-xs text-textSecondary mt-1 leading-tight">
+                                                {BET_TYPE_CONFIG[type].description}
+                                            </div>
+                                            {type === 'ratio' && <div className="absolute top-0 right-0 bg-red-500/20 text-red-500 text-[10px] px-2 py-0.5 font-bold rounded-bl-lg">LIVE</div>}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                        </div>
 
-                        {/* 5. Limits & Economics */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <DollarSign className="w-5 h-5 text-primary" />
-                                        Min Bet (USDC)
-                                    </div>
-                                </label>
-                                <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={formData.minBet}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                            setFormData({ ...formData, minBet: val });
-                                        }
-                                    }}
-                                    onBlur={(e) => {
-                                        if (!e.target.value) setFormData({ ...formData, minBet: '0.05' });
-                                    }}
-                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    placeholder="0.05"
-                                />
-                            </div>
-                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                                <label className="block text-sm font-medium text-textPrimary mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <DollarSign className="w-5 h-5 text-primary" />
-                                        Max Bet (USDC)
-                                    </div>
-                                </label>
-                                <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={formData.maxBet}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                            setFormData({ ...formData, maxBet: val });
-                                        }
-                                    }}
-                                    onBlur={(e) => {
-                                        if (!e.target.value) setFormData({ ...formData, maxBet: '5' });
-                                    }}
-                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    placeholder="5"
-                                />
-                                <p className="text-xs text-textSecondary mt-1">
-                                    Higher max bet requires more initial seeding.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* 6. Seed Pool Calculation */}
-                        <div className="bg-gradient-to-r from-primary/10 to-transparent border-2 border-primary/30 rounded-2xl p-6">
-                            <label className="block text-sm font-medium text-textPrimary mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Droplets className="w-5 h-5 text-primary" />
-                                    Required Seeding
-                                </div>
-                                <span className="text-xs text-textSecondary font-normal mt-1 block">
-                                    You must fund the pool to start the market.
-                                </span>
-                            </label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs text-green-500 mb-1 block font-bold">YES Pool</label>
-                                    <div className="w-full bg-black/20 border border-green-500/30 rounded-xl px-4 py-3 text-textPrimary font-bold">
-                                        ${requiredSeedPerSide.toFixed(2)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-red-500 mb-1 block font-bold">NO Pool</label>
-                                    <div className="w-full bg-black/20 border border-red-500/30 rounded-xl px-4 py-3 text-textPrimary font-bold">
-                                        ${requiredSeedPerSide.toFixed(2)}
-                                    </div>
-                                </div>
-                            </div>
-                            <p className="text-sm font-bold text-primary mt-4 text-center">
-                                ⚡ Total Liquidity Required: ${totalRequiredSeed.toFixed(2)} USDC
-                            </p>
-                        </div>
-                    </>
-                )}
-
-                {/* =================== BET PREVIEW =================== */}
-                {(formData.username || formData.predictionQuestion || (creationMode === 'battle' && formData.optionA.label)) && (
-                    <div className="bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl p-6 mt-6">
-
-                        {/* Preview Card */}
-                        <div className="bg-black/30 rounded-xl overflow-hidden border border-white/5 flex items-stretch">
-
-                            {/* Left Side Image - Mode Dependent */}
-                            {creationMode === 'battle' ? (
-                                <div className="w-24 min-w-[96px] bg-black/50 border-r border-white/10 flex items-center justify-center relative">
-                                    <img
-                                        src="/battle-swords.png"
-                                        alt="Battle"
-                                        className="w-16 h-16 object-contain opacity-90"
+                            {/* 3. Custom Question & Versus Options */}
+                            {formData.betType === 'custom_text' && (
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6 animate-fade-in">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                ✍️ Custom Prediction
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <textarea
+                                        value={formData.predictionQuestion}
+                                        onChange={(e) => setFormData({ ...formData, predictionQuestion: e.target.value })}
+                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary min-h-[100px] text-lg mb-4"
+                                        placeholder="e.g. Who will win: Farcaster or Lens?"
+                                        required
                                     />
-                                    {/* Neon glow effect behind */}
-                                    <div className="absolute inset-0 bg-red-500/10 blur-xl"></div>
-                                </div>
-                            ) : (
-                                <div className="w-24 min-w-[96px] bg-gradient-to-br from-primary/20 to-orange-600/20 border-r border-white/10 flex items-center justify-center">
-                                    {formData.pfpUrl || formData.optionA.imageUrl ? (
-                                        <img
-                                            src={formData.pfpUrl || formData.optionA.imageUrl}
-                                            alt=""
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <span className="font-bold text-2xl text-white/40">{(formData.username || formData.optionA.label || '?').slice(0, 2).toUpperCase()}</span>
+
+                                    {formData.isVersus && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 p-4 bg-black/20 rounded-xl border border-darkGray/50">
+                                            <div>
+                                                <h4 className="font-bold text-green-500 mb-2">Option A (YES Pool)</h4>
+                                                <div className="space-y-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Label (e.g. Farcaster)"
+                                                        value={formData.optionA.label}
+                                                        onChange={(e) => setFormData({
+                                                            ...formData,
+                                                            optionA: { ...formData.optionA, label: e.target.value }
+                                                        })}
+                                                        className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                                    />
+                                                    <input
+                                                        type="url"
+                                                        placeholder="Image URL (Optional)"
+                                                        value={formData.optionA.imageUrl}
+                                                        onChange={(e) => setFormData({
+                                                            ...formData,
+                                                            optionA: { ...formData.optionA, imageUrl: e.target.value }
+                                                        })}
+                                                        className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-red-500 mb-2">Option B (NO Pool)</h4>
+                                                <div className="space-y-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Label (e.g. Lens)"
+                                                        value={formData.optionB.label}
+                                                        onChange={(e) => setFormData({
+                                                            ...formData,
+                                                            optionB: { ...formData.optionB, label: e.target.value }
+                                                        })}
+                                                        className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                                    />
+                                                    <input
+                                                        type="url"
+                                                        placeholder="Image URL (Optional)"
+                                                        value={formData.optionB.imageUrl}
+                                                        onChange={(e) => setFormData({
+                                                            ...formData,
+                                                            optionB: { ...formData.optionB, imageUrl: e.target.value }
+                                                        })}
+                                                        className="w-full bg-darkGray border border-darkGray rounded-lg px-3 py-2 text-sm text-textPrimary"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* Content Side */}
-                            <div className="flex-1 p-4 min-w-0 flex flex-col justify-center">
-                                <div className="flex-1">
-                                    <div className="text-sm text-white/60 mb-1 font-medium">
-                                        {creationMode === 'battle'
-                                            ? `${formData.optionA.label || '?'} vs ${formData.optionB.label || '?'}`
-                                            : (formData.username ? `@${formData.username}` : '')}
+                            {/* Word Mention Field */}
+                            {formData.betType === 'word_mentions' && (
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6 animate-fade-in">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        <div className="flex items-center gap-2">
+                                            🔤 Word(s) to Track
+                                        </div>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.wordToMatch}
+                                        onChange={(e) => setFormData({ ...formData, wordToMatch: e.target.value })}
+                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                        placeholder="e.g., based"
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            {/* Target Cast URL (Optional for context) */}
+                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                <label className="block text-sm font-medium text-textPrimary mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <LinkIcon className="w-5 h-5 text-primary" />
+                                        Target Cast / Post URL (Optional)
                                     </div>
-                                    <div className="text-white font-bold text-lg leading-tight mb-3">
-                                        {creationMode === 'battle'
-                                            ? (formData.battleQuestion || 'Battle Question...')
-                                            : (formData.predictionQuestion
-                                                || (currentBetType.hasTarget
-                                                    ? `Will hit ${formData.targetValue}+ ${currentBetType.targetLabel}?`
-                                                    : currentBetType.description
+                                </label>
+                                <input
+                                    type="url"
+                                    value={formData.castUrl}
+                                    onChange={(e) => setFormData({ ...formData, castUrl: e.target.value })}
+                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                    placeholder="https://warpcast.com/..."
+                                />
+                                <p className="text-xs text-textSecondary mt-2">
+                                    Provide a link to the specific post for context (displayed on the card).
+                                </p>
+                            </div>
+
+                            {/* 4. Target & Timeframe */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {(currentBetType.hasTarget || formData.betType === 'custom_text') && !formData.noTargetValue && (
+                                    <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                        <label className="block text-sm font-medium text-textPrimary mb-3">
+                                            Target Value
+                                        </label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={formData.targetValue}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === '' || /^\d*$/.test(val)) {
+                                                    setFormData({ ...formData, targetValue: val });
+                                                }
+                                            }}
+                                            className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-2xl font-bold"
+                                            required={!formData.noTargetValue}
+                                        />
+                                        <p className="text-sm text-primary mt-2 font-medium">
+                                            {formData.targetValue}+ {currentBetType.targetLabel}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Optional Prediction Image */}
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        Prediction Logo / Image (Optional)
+                                    </label>
+                                    <div className="flex gap-3">
+                                        <div className="flex-1">
+                                            <input
+                                                type="url"
+                                                value={formData.predictionImage}
+                                                onChange={(e) => setFormData({ ...formData, predictionImage: e.target.value })}
+                                                className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary text-sm"
+                                                placeholder="Paste Image URL..."
+                                            />
+                                        </div>
+                                        <label className="cursor-pointer bg-darkGray border border-darkGray hover:border-primary hover:bg-darkGray/70 rounded-xl px-6 py-3 text-textPrimary transition-all flex items-center justify-center gap-2 whitespace-nowrap min-w-[120px]">
+                                            <Upload className="w-4 h-4" />
+                                            <span className="text-sm font-bold">Upload</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const fakeUrl = URL.createObjectURL(file);
+                                                        setFormData({ ...formData, predictionImage: fakeUrl });
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                    {formData.predictionImage && (
+                                        <div className="mt-2 w-10 h-10 rounded overflow-hidden">
+                                            <img src={formData.predictionImage} className="w-full h-full object-cover" alt="Preview" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-5 h-5 text-primary" />
+                                            Duration
+                                        </div>
+                                    </label>
+                                    <div className="col-span-5 p-3 rounded-xl border border-darkGray bg-black/10 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-primary">365 Days / 1 Year</span>
+                                        <span className="text-xs text-textSecondary">(Fixed for Season 1)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 5. Limits & Economics */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <DollarSign className="w-5 h-5 text-primary" />
+                                            Min Bet (USDC)
+                                        </div>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={formData.minBet}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                setFormData({ ...formData, minBet: val });
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            if (!e.target.value) setFormData({ ...formData, minBet: '0.05' });
+                                        }}
+                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                        placeholder="0.05"
+                                    />
+                                </div>
+                                <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                    <label className="block text-sm font-medium text-textPrimary mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <DollarSign className="w-5 h-5 text-primary" />
+                                            Max Bet (USDC)
+                                        </div>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={formData.maxBet}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                setFormData({ ...formData, maxBet: val });
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            if (!e.target.value) setFormData({ ...formData, maxBet: '5' });
+                                        }}
+                                        className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
+                                        placeholder="5"
+                                    />
+                                    <p className="text-xs text-textSecondary mt-1">
+                                        Higher max bet requires more initial seeding.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 6. Seed Pool Calculation */}
+                            <div className="bg-gradient-to-r from-primary/10 to-transparent border-2 border-primary/30 rounded-2xl p-6">
+                                <label className="block text-sm font-medium text-textPrimary mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Droplets className="w-5 h-5 text-primary" />
+                                        Required Seeding
+                                    </div>
+                                    <span className="text-xs text-textSecondary font-normal mt-1 block">
+                                        You must fund the pool to start the market.
+                                    </span>
+                                </label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs text-green-500 mb-1 block font-bold">YES Pool</label>
+                                        <div className="w-full bg-black/20 border border-green-500/30 rounded-xl px-4 py-3 text-textPrimary font-bold">
+                                            ${requiredSeedPerSide.toFixed(2)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-red-500 mb-1 block font-bold">NO Pool</label>
+                                        <div className="w-full bg-black/20 border border-red-500/30 rounded-xl px-4 py-3 text-textPrimary font-bold">
+                                            ${requiredSeedPerSide.toFixed(2)}
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-sm font-bold text-primary mt-4 text-center">
+                                    ⚡ Total Liquidity Required: ${totalRequiredSeed.toFixed(2)} USDC
+                                </p>
+                            </div>
+                        </>
+                    )
+                }
+
+                {/* =================== BET PREVIEW =================== */}
+                {
+                    (formData.username || formData.predictionQuestion || (creationMode === 'battle' && formData.optionA.label)) && (
+                        <div className="bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl p-6 mt-6">
+
+                            {/* Preview Card */}
+                            <div className="bg-black/30 rounded-xl overflow-hidden border border-white/5 flex items-stretch">
+
+                                {/* Left Side Image - Mode Dependent */}
+                                {creationMode === 'battle' ? (
+                                    <div className="w-24 min-w-[96px] bg-black/50 border-r border-white/10 flex items-center justify-center relative">
+                                        <img
+                                            src="/battle-swords.png"
+                                            alt="Battle"
+                                            className="w-16 h-16 object-contain opacity-90"
+                                        />
+                                        {/* Neon glow effect behind */}
+                                        <div className="absolute inset-0 bg-red-500/10 blur-xl"></div>
+                                    </div>
+                                ) : (
+                                    <div className="w-24 min-w-[96px] bg-gradient-to-br from-primary/20 to-orange-600/20 border-r border-white/10 flex items-center justify-center">
+                                        {formData.pfpUrl || formData.optionA.imageUrl ? (
+                                            <img
+                                                src={formData.pfpUrl || formData.optionA.imageUrl}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="font-bold text-2xl text-white/40">{(formData.username || formData.optionA.label || '?').slice(0, 2).toUpperCase()}</span>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Content Side */}
+                                <div className="flex-1 p-4 min-w-0 flex flex-col justify-center">
+                                    <div className="flex-1">
+                                        <div className="text-sm text-white/60 mb-1 font-medium">
+                                            {creationMode === 'battle'
+                                                ? `${formData.optionA.label || '?'} vs ${formData.optionB.label || '?'}`
+                                                : (formData.username ? `@${formData.username}` : '')}
+                                        </div>
+                                        <div className="text-white font-bold text-lg leading-tight mb-3">
+                                            {creationMode === 'battle'
+                                                ? (formData.battleQuestion || 'Battle Question...')
+                                                : (formData.predictionQuestion
+                                                    || (currentBetType.hasTarget
+                                                        ? `Will hit ${formData.targetValue}+ ${currentBetType.targetLabel}?`
+                                                        : currentBetType.description
+                                                    )
                                                 )
-                                            )
-                                        }
+                                            }
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-md uppercase tracking-wider">⏱️ {formData.timeframe}</span>
+                                            <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-md uppercase tracking-wider">💰 ${formData.minBet} - ${formData.maxBet}</span>
+                                            <span className="text-[10px] font-bold text-green-400/80 bg-green-900/10 border border-green-500/20 px-2 py-1 rounded-md uppercase tracking-wider">Pool: ${totalRequiredSeed.toFixed(2)}</span>
+                                            {formData.castUrl && (
+                                                <div className="w-full mt-2">
+                                                    <a
+                                                        href={formData.castUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1.5 text-xs font-black text-primary hover:underline bg-primary/10 px-2 py-1 rounded border border-primary/30 transition-colors"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <LinkIcon className="w-3 h-3" />
+                                                        View Target Post
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-md uppercase tracking-wider">⏱️ {formData.timeframe}</span>
-                                        <span className="text-[10px] font-bold text-white/40 bg-white/5 px-2 py-1 rounded-md uppercase tracking-wider">💰 ${formData.minBet} - ${formData.maxBet}</span>
-                                        <span className="text-[10px] font-bold text-green-400/80 bg-green-900/10 border border-green-500/20 px-2 py-1 rounded-md uppercase tracking-wider">Pool: ${totalRequiredSeed.toFixed(2)}</span>
-                                        {formData.castUrl && (
-                                            <div className="w-full mt-2">
-                                                <a
-                                                    href={formData.castUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 text-xs font-black text-primary hover:underline bg-primary/10 px-2 py-1 rounded border border-primary/30 transition-colors"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <LinkIcon className="w-3 h-3" />
-                                                    View Target Post
-                                                </a>
-                                            </div>
+                                </div>
+                            </div>
+
+                            {/* Battle Mode VS Visuals (Below Card) */}
+                            {creationMode === 'battle' && formData.optionA.label && formData.optionB.label && (
+                                <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-white/10 animate-fade-in">
+                                    <div className="flex items-center gap-3">
+                                        {formData.optionA.imageUrl ? (
+                                            <img src={formData.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-xs text-green-500 font-bold border border-green-500/50">P1</div>
+                                        )}
+                                        <span className="text-green-500 font-bold text-lg">{formData.optionA.label}</span>
+                                    </div>
+                                    <span className="text-white/20 font-black text-xl italic px-2">VS</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-red-500 font-bold text-lg">{formData.optionB.label}</span>
+                                        {formData.optionB.imageUrl ? (
+                                            <img src={formData.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-xs text-red-500 font-bold border border-red-500/50">P2</div>
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-
-                        {/* Battle Mode VS Visuals (Below Card) */}
-                        {creationMode === 'battle' && formData.optionA.label && formData.optionB.label && (
-                            <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-white/10 animate-fade-in">
-                                <div className="flex items-center gap-3">
-                                    {formData.optionA.imageUrl ? (
-                                        <img src={formData.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-xs text-green-500 font-bold border border-green-500/50">P1</div>
-                                    )}
-                                    <span className="text-green-500 font-bold text-lg">{formData.optionA.label}</span>
-                                </div>
-                                <span className="text-white/20 font-black text-xl italic px-2">VS</span>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-red-500 font-bold text-lg">{formData.optionB.label}</span>
-                                    {formData.optionB.imageUrl ? (
-                                        <img src={formData.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]" />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-xs text-red-500 font-bold border border-red-500/50">P2</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                    )
+                }
 
                 {/* Submit - Shared by both modes */}
                 <div className="flex gap-4 mt-6">
@@ -1377,7 +1352,7 @@ export default function CreateCommunityBet() {
                     </button>
                 </div>
 
-            </form>
-        </div>
+            </form >
+        </div >
     );
 }
