@@ -62,36 +62,33 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
 
     const [showVerificationModal, setShowVerificationModal] = useState(false);
 
-    // V3: Get Market State
-    const { data: marketInfoV3 } = useReadContract({
+    // V5: Get Market State from markets mapping
+    const { data: marketStruct } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: 'getMarketInfo',
+        functionName: 'markets',
         args: [bet.id],
         query: {
             enabled: true,
             refetchInterval: 10000,
         }
-    }) as { data: [string, bigint, number, boolean, bigint, bigint, bigint, bigint] | undefined };
+    }) as { data: any[] | undefined };
 
-    // MarketInfo V3: [creator, deadline, state, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
-    const marketStateV3 = marketInfoV3 ? Number(marketInfoV3[2]) : 0;
-    const isMarketProposed = marketStateV3 === 2; // PROPOSED
-    const isMarketResolved = marketStateV3 === 3; // RESOLVED
-    const isMarketOpen = marketStateV3 === 0;
+    // V5 Market Struct indices:
+    // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadline, 6:state
+    // 7:result, 8:isVoid, 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount
+    // 13:evidenceUrl, 14:challenger, 15:challengeBondAmount, 16:challengeEvidenceUrl
+    // 17:challengeTime, 18:totalYes, 19:totalNo, 20:seedYes, 21:seedNo
+    // 22:totalSharesYes, 23:totalSharesNo, 24:processedIndex, 25:paidOut
 
-    // V3: Get Proposal Info
-    const { data: proposalInfo } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getProposalInfo',
-        args: [bet.id],
-        query: {
-            enabled: isMarketProposed,
-        }
-    }) as { data: [string, boolean, bigint, bigint, bigint, boolean, string] | undefined };
+    const marketStateV5 = marketStruct ? Number(marketStruct[6]) : 0;
+    // V5 MarketState: 0=OPEN, 1=LOCKED, 2=PROPOSED, 3=DISPUTED, 4=RESOLVED
+    const isMarketProposed = marketStateV5 === 2;
+    const isMarketDisputed = marketStateV5 === 3;
+    const isMarketResolved = marketStateV5 === 4;
+    const isMarketOpen = marketStateV5 === 0;
 
-    // V3: Get Required Bond
+    // V5: Get Required Bond
     const { data: requiredBond } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -99,22 +96,15 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         args: [bet.id],
     }) as { data: bigint | undefined };
 
-    // V3: Get Reporter Reward
-    const { data: reporterReward } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getReporterReward',
-        args: [bet.id],
-    }) as { data: bigint | undefined };
-
-    const parsedProposalInfo = proposalInfo ? {
-        proposer: proposalInfo[0],
-        proposedResult: proposalInfo[1],
-        proposalTime: proposalInfo[2],
-        bondAmount: proposalInfo[3],
-        disputeDeadline: proposalInfo[4],
-        canFinalize: proposalInfo[5],
-        evidenceUrl: proposalInfo[6],
+    // V5: Parse proposal info from market struct (no separate function needed)
+    const parsedProposalInfo = marketStruct ? {
+        proposer: marketStruct[9] as string,
+        proposedResult: marketStruct[10] as boolean,
+        proposalTime: BigInt(marketStruct[11] || 0),
+        bondAmount: BigInt(marketStruct[12] || 0),
+        disputeDeadline: BigInt(0), // Calculate from proposalTime + DISPUTE_WINDOW
+        canFinalize: isMarketProposed && Date.now() / 1000 > Number(marketStruct[11]) + 3600, // Approx 1hr window
+        evidenceUrl: marketStruct[13] as string,
     } : null;
 
     // Admin Actions
@@ -312,8 +302,8 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
                     marketId={bet.id}
                     marketQuestion={bet.castText || 'Market Verification'}
                     requiredBond={requiredBond || BigInt(0)}
-                    reporterReward={reporterReward || BigInt(0)}
-                    currentState={marketStateV3}
+                    reporterReward={BigInt(0)}
+                    currentState={marketStateV5}
                     proposalInfo={parsedProposalInfo}
                     onSuccess={() => {
                         setShowVerificationModal(false);
