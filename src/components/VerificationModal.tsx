@@ -345,14 +345,14 @@ export default function VerificationModal({
                 }
             }
 
-            // Step 2: SIMULATE Dispute
+            // Step 2: SIMULATE Dispute (Challenge)
             setStep('propose'); // Reusing 'propose' step for loading state text "Sending..."
-            console.log('Simulating dispute...');
+            console.log('Simulating challenge...');
 
             const { request } = await publicClient.simulateContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'disputeOutcome',
+                functionName: 'challengeOutcome', // V5: Public Challenge
                 args: [marketId, finalEvidence],
                 account: address
             });
@@ -361,7 +361,7 @@ export default function VerificationModal({
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash: disputeTx });
             if (receipt.status !== 'success') {
-                throw new Error('Dispute transaction failed on-chain.');
+                throw new Error('Challenge transaction failed on-chain.');
             }
 
             setStep('success');
@@ -371,13 +371,15 @@ export default function VerificationModal({
             }, 2000);
 
         } catch (err: any) {
-            console.error('Dispute failed:', err);
+            console.error('Challenge failed:', err);
             // Extract meaningful error message
             let msg = err.message || 'Disputa falhou';
 
-            if (msg.includes('Market not active')) msg = "Market state does not allow dispute.";
+            if (msg.includes('Market not active') || msg.includes('Not proposed')) msg = "Market state does not allow dispute.";
             if (msg.includes('Bond transfer failed')) msg = "Could not transfer USDC bond (Check balance).";
             if (msg.includes('User rejected')) msg = "User rejected the transaction.";
+            if (msg.includes('Dispute window closed')) msg = "Dispute window has closed.";
+            if (msg.includes('Cannot challenge self')) msg = "You cannot challenge your own proposal.";
 
             setError(msg);
             // Reset step to allow retry, but strictly speaking we are in 'proposal info' view which doesn't use 'step' for view switching same way

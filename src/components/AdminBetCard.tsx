@@ -135,55 +135,58 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Claim Check Logic
     const winningSide = bet.result === 'yes'; // true for yes, false for no
 
-    // 1. Get User Shares
+    // 1. Get User Shares (V5: Check winning side mapping directly)
     const { data: userBetInfo, refetch: refetchUserBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: 'getUserBet',
+        functionName: winningSide ? 'yesBets' : 'noBets', // V5: Dynamic function name
         args: [
             bet.id,
-            address || '0x0000000000000000000000000000000000000000',
-            winningSide // Check the winning side
+            address || '0x0000000000000000000000000000000000000000'
         ],
         query: {
             enabled: !!address && bet.status !== 'active' && (bet.result === 'yes' || bet.result === 'no'),
         }
     }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
 
-    // Contract returns: (amount, shares, referrer, claimed)
+    // V5 Struct returns: (amount, shares, referrer, claimed)
     const [originalBetAmount, userShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
 
-    // 2. Get Market Info for Total Shares (needed for payout calc)
-    const { data: marketInfo } = useReadContract({
+    // 2. Get Market Info for Total Shares (V5: markets struct)
+    const { data: marketStruct } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: 'getMarketInfo',
+        functionName: 'markets',
         args: [bet.id],
         query: {
             enabled: !!address && bet.status !== 'active' && userShares > BigInt(0),
         }
-    }) as { data: [string, bigint, boolean, boolean, bigint, bigint, bigint, bigint] | undefined };
+    }) as { data: any[] | undefined };
 
-    // MarketInfo: [creator, deadline, resolved, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
+    // V5 Struct:
+    // 0:id, 1:creator, ..., 6:state, ..., 18:totalYes, 19:totalNo, ..., 22:totalSharesYes, 23:totalSharesNo
 
     // 3. Calculate Actual Payout
     let calculatedPayout = BigInt(0);
-    if (marketInfo && userShares > BigInt(0)) {
-        const [, , , , totalYes, totalNo, totalSharesYes, totalSharesNo] = marketInfo;
+    if (marketStruct && userShares > BigInt(0)) {
+        const totalYes = BigInt(marketStruct[18] || 0);
+        const totalNo = BigInt(marketStruct[19] || 0);
+        const totalSharesYes = BigInt(marketStruct[22] || 0);
+        const totalSharesNo = BigInt(marketStruct[23] || 0);
+
+        const feeBps = 2000n; // 20% (House 10 + Creator 5 + Referrer 5)
         const totalPool = totalYes + totalNo;
-        const totalOppositePool = winningSide ? totalNo : totalYes;
-        // V2 Payout Logic: (shares * totalPool) / totalSharesWinning
-        // Note: Fees are already deducted from pool during placement, so totalYes/No represent net pools? 
-        // Actually V2 fees are taken from valid bets. totalYes/totalNo track the NET pool.
+        const fee = (totalPool * feeBps) / 10000n;
+        const distributablePool = totalPool - fee;
 
         const totalSharesWinning = winningSide ? totalSharesYes : totalSharesNo;
 
         if (totalSharesWinning > BigInt(0)) {
-            calculatedPayout = (userShares * totalPool) / totalSharesWinning;
+            calculatedPayout = (userShares * distributablePool) / totalSharesWinning;
         }
     }
 
-    // 4. Check Creator Balance (Global accumulated fees)
+    // 4. Check Creator Balance (V5: creatorBalance mapping - Same as V3)
     const { data: creatorBalance, refetch: refetchCreatorBalance } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -194,29 +197,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined, refetch: () => void };
 
+    // V5: Market State Logic
+    // Struct Index 6 is State
+    const marketStateV5 = marketStruct ? Number(marketStruct[6]) : 0;
+    const isMarketOpen = marketStateV5 === 0;
+    const isMarketLocked = marketStateV5 === 1;
+    const isMarketProposed = marketStateV5 === 2;
+    const isMarketDisputed = marketStateV5 === 3;
+    const isMarketResolved = marketStateV5 === 4;
 
-    const { data: marketInfoV3, refetch: refetchMarketInfoV3 } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getMarketInfo',
-        args: [bet.id],
-        query: {
-            enabled: true, // Always fetch to check V3 state
-            refetchInterval: 10000, // Refresh every 10s
-        }
-    }) as { data: [string, bigint, number, boolean, bigint, bigint, bigint, bigint] | undefined, refetch: () => void };
-
-    // V3: Get Market State from dedicated hook
-    // MarketInfo V3: [creator, deadline, state, result, totalYes, totalNo, totalSharesYes, totalSharesNo]
-    const marketStateV3 = marketInfoV3 ? Number(marketInfoV3[2]) : 0;
-    const isMarketOpen = marketStateV3 === 0;     // OPEN
-    const isMarketLocked = marketStateV3 === 1;   // LOCKED
-    const isMarketProposed = marketStateV3 === 2; // PROPOSED
-    const isMarketResolved = marketStateV3 === 3; // RESOLVED
-
-    // Can Verify if: OPEN, LOCKED, or PROPOSED (i.e., not RESOLVED)
-    // V3 Update: Anyone can propose at any time (Early Resolution)
-    const canVerify = marketStateV3 !== 3; // 3 = RESOLVED
+    // Can verify/propose/dispute if not resolved
+    const canVerify = !isMarketResolved;
 
     // V3: Get Required Bond
     const { data: requiredBond } = useReadContract({
