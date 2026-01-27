@@ -47,6 +47,8 @@ interface VerificationModalProps {
         canFinalize: boolean;
         evidenceUrl?: string; // V3.1
     } | null;
+    optionALabel?: string;
+    optionBLabel?: string;
     onSuccess: () => void;
 }
 
@@ -59,6 +61,8 @@ export default function VerificationModal({
     reporterReward,
     currentState,
     proposalInfo,
+    optionALabel = 'YES',
+    optionBLabel = 'NO',
     onSuccess
 }: VerificationModalProps) {
     const [mounted, setMounted] = useState(false);
@@ -564,7 +568,7 @@ export default function VerificationModal({
                             </div>
                             <p className="text-xs text-textSecondary">
                                 Proposed Result: <span className={`font-bold ${proposalInfo.proposedResult ? 'text-green-500' : 'text-red-500'}`}>
-                                    {proposalInfo.proposedResult ? 'YES' : 'NO'}
+                                    {proposalInfo.proposedResult ? optionALabel : optionBLabel}
                                 </span>
                             </p>
                             <p className="text-xs text-textSecondary mt-1">
@@ -686,7 +690,7 @@ export default function VerificationModal({
                                         : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
-                                    YES ✓
+                                    {optionALabel}
                                 </button>
                                 <button
                                     onClick={() => setSelectedResult('no')}
@@ -696,7 +700,7 @@ export default function VerificationModal({
                                         : 'bg-white/5 text-white/60 hover:bg-white/10'
                                         }`}
                                 >
-                                    NO ✗
+                                    {optionBLabel}
                                 </button>
                             </div>
                         </div>
