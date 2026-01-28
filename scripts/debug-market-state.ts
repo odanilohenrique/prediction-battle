@@ -3,7 +3,7 @@ import { baseSepolia } from 'viem/chains';
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
-const MARKET_ID = 'pred_1769622881623_7kcttq1'; // newest market
+const MARKET_ID = 'pred_1769624319168_n123orr'; // newest market
 const CONTRACT_ADDRESS = '0x661766afe3e2c7f6c7fecc8b229b7211fcd6e907'; // lowercase to avoid checksum issues
 const RPC_URL = 'https://sepolia.base.org';
 
