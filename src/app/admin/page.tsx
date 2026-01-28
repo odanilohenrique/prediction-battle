@@ -654,15 +654,17 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex flex-col gap-2">
-                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.status === 'active'
-                                                                ? 'bg-primary/10 text-primary border border-primary/30'
-                                                                : 'bg-green-500/10 text-green-500 border border-green-500/30'
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.onChainState === 4
+                                                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                                                : bet.status === 'active'
+                                                                    ? 'bg-primary/10 text-primary border border-primary/30'
+                                                                    : 'bg-green-500/10 text-green-500 border border-green-500/30'
                                                                 }`}>
-                                                                {bet.status === 'active' ? 'Active' : 'Finished'}
+                                                                {bet.onChainState === 4 ? 'Resolved (On-Chain)' : bet.status === 'active' ? 'Active' : 'Finished'}
                                                             </span>
 
                                                             {/* Resolution Button for Active but Expired Bets */}
-                                                            {(bet.status === 'active') && (
+                                                            {(bet.status === 'active' && bet.onChainState !== 4) && (
                                                                 <button
                                                                     onClick={() => handleOpenResolveModal(bet)}
                                                                     className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"

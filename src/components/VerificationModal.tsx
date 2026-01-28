@@ -322,7 +322,7 @@ export default function VerificationModal({
                     address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
                     abi: USDC_ABI,
                     functionName: 'approve',
-                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer * BigInt(2)]
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer]
                 });
 
                 const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
@@ -591,6 +591,15 @@ export default function VerificationModal({
                             <label className="text-xs text-red-400 font-bold mb-2 block uppercase">
                                 Why is this wrong? (Provide Proof)
                             </label>
+
+                            {/* COST TO DISPUTE INFO */}
+                            <div className="mb-3 bg-red-500/10 rounded-lg p-3 flex justify-between items-center border border-red-500/20">
+                                <span className="text-xs text-red-300 flex items-center gap-1">
+                                    <DollarSign className="w-3 h-3" /> Cost to Dispute
+                                </span>
+                                <span className="text-sm font-bold text-white">${bondFormatted} USDC</span>
+                            </div>
+
                             <div className="space-y-2">
                                 <input
                                     type="url"
