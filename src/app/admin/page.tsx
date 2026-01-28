@@ -35,6 +35,7 @@ interface Bet {
     optionB?: { label: string; imageUrl?: string };
     createdAt: number;
     payout?: number;
+    onChainState?: number; // 0=OPEN, 1=LOCKED, 2=PROPOSED, 3=DISPUTED, 4=RESOLVED
 }
 
 import { useModal } from '@/providers/ModalProvider';
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [players, setPlayers] = useState<Player[]>([]);
     const [bets, setBets] = useState<Bet[]>([]);
-    const [stats, setStats] = useState({ totalBets: 0, activeBets: 0, totalVolume: 0, totalFees: 0 });
+    const [stats, setStats] = useState({ totalBets: 0, activeBets: 0, disputedBets: 0, totalVolume: 0, totalFees: 0 });
     const [searchQuery, setSearchQuery] = useState('');
     const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
     const [resolveModalOpen, setResolveModalOpen] = useState(false);
@@ -276,7 +277,7 @@ export default function AdminDashboard() {
                             onClick={() => setActiveTab('disputes')}
                             className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'disputes' ? 'bg-red-500 text-white' : 'text-textSecondary hover:text-red-500 bg-white/5'}`}
                         >
-                            ⚠️ Disputes ({bets.filter(b => b.status === 'active').length})
+                            ⚠️ Disputes ({bets.filter(b => b.onChainState === 3).length})
                         </button>
                     </div>
                 </div>
@@ -337,7 +338,7 @@ export default function AdminDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {bets.filter(b => b.status === 'active').map(bet => (
+                                {bets.filter(b => b.onChainState === 3).map(bet => (
                                     <tr key={bet.id} className="hover:bg-white/5 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-white">@{bet.username}</div>
@@ -346,7 +347,7 @@ export default function AdminDashboard() {
                                         <td className="px-6 py-4 font-mono text-green-400 font-bold">${bet.totalPot.toFixed(2)}</td>
                                         <td className="px-6 py-4">
                                             <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                                                EXPIRED
+                                                🔴 DISPUTED
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
@@ -359,7 +360,7 @@ export default function AdminDashboard() {
                                         </td>
                                     </tr>
                                 ))}
-                                {bets.filter(b => b.status === 'active').length === 0 && (
+                                {bets.filter(b => b.onChainState === 3).length === 0 && (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
                                             <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
