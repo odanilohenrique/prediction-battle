@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store } from '@/lib/store';
-import { isPredictionResolved } from '@/lib/contracts';
+import { isPredictionResolved, getOnChainMarketData } from '@/lib/contracts';
 import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
@@ -22,32 +22,35 @@ export async function POST(req: NextRequest) {
         }
 
         // Check On-Chain
-        const isResolvedOnChain = await isPredictionResolved(betId);
+        const chainData = await getOnChainMarketData(betId);
 
-        if (isResolvedOnChain) {
-            console.log(`[SYNC] Bet ${betId} found RESOLVED on-chain but ACTIVE in DB. Syncing...`);
+        // 4 = RESOLVED
+        if (chainData && chainData.state === 4) {
+            console.log(`[SYNC] Bet ${betId} found RESOLVED on-chain. Syncing details...`);
 
-            // We don't know the result (YES/NO) easily without more queries, 
-            // but for now we can atleast mark it as 'completed' and maybe 'resolved'.
-            // Ideally we should know the winner. 
-            // For V5 strictness, we might want to query `markets` struct to get the result if we want to be precise.
-            // But usually 'status: completed' is enough to unblock the UI.
-
-            // NOTE: To be safe, we might want to fetch the result too if we want to populate 'bet.result'.
-            // For now, let's just mark status. The claim button calculates payout based on on-chain shares anyway.
-
+            // Update Status
             bet.status = 'completed';
-            // We keep bet.result as is (likely undefined) or we could try to fetch it.
-            // But simplistic sync is better than nothing.
+
+            // Update Result
+            if (chainData.isVoid) {
+                bet.result = 'void';
+            } else {
+                bet.result = chainData.result ? 'yes' : 'no';
+            }
 
             await store.saveBet(bet);
 
             revalidatePath('/');
             revalidatePath('/admin');
+            revalidatePath('/admin/payouts');
 
-            return NextResponse.json({ success: true, synced: true });
+            return NextResponse.json({ success: true, synced: true, result: bet.result });
         } else {
-            return NextResponse.json({ success: true, synced: false, message: 'On-chain market is also active' });
+            const stateMap = ['OPEN', 'LOCKED', 'PROPOSED', 'DISPUTED', 'RESOLVED'];
+            const stateStr = chainData ? stateMap[chainData.state] : 'UNKNOWN';
+
+            // If disputed (3), we might want to inform frontend but we assume sync is mostly for resolving stuck 'active' bets.
+            return NextResponse.json({ success: true, synced: false, message: `On-chain market state is ${stateStr} (${chainData?.state})` });
         }
 
     } catch (error) {

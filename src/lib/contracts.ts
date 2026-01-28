@@ -82,6 +82,33 @@ export async function getMarketState(predictionId: string): Promise<MarketState>
     }
 }
 
+// V5: Get Full Market Data
+export async function getOnChainMarketData(predictionId: string) {
+    const client = getOperatorClient();
+    try {
+        const data = await client.readContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'markets',
+            args: [predictionId],
+        }) as any[];
+
+        if (!Array.isArray(data)) return null;
+
+        return {
+            state: Number(data[6]),
+            result: Boolean(data[7]),
+            isVoid: Boolean(data[8]),
+            deadline: Number(data[5]),
+            totalYes: BigInt(data[18] || 0),
+            totalNo: BigInt(data[19] || 0)
+        };
+    } catch (error) {
+        console.error("Failed to get market data:", error);
+        return null;
+    }
+}
+
 // V5: Get required bond amount
 export async function getRequiredBond(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
