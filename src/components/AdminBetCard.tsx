@@ -135,54 +135,148 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Claim Check Logic
     const winningSide = bet.result === 'yes'; // true for yes, false for no
 
-    // 1. Get User Shares (V5: Check winning side mapping directly)
-    const { data: userBetInfo, refetch: refetchUserBet } = useReadContract({
+    // 1. Get User Shares (Fetch BOTH sides to handle Void/Result changes)
+    const { data: yesBetData, refetch: refetchYesBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: winningSide ? 'yesBets' : 'noBets', // V5: Dynamic function name
+        functionName: 'yesBets',
         args: [
             bet.id,
             address || '0x0000000000000000000000000000000000000000'
         ],
-        query: {
-            enabled: !!address && bet.status !== 'active' && (bet.result === 'yes' || bet.result === 'no'),
-        }
+        query: { enabled: !!address }
     }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
 
-    // V5 Struct returns: (amount, shares, referrer, claimed)
-    const [originalBetAmount, userShares, , hasClaimed] = userBetInfo || [BigInt(0), BigInt(0), '', false];
+    const { data: noBetData, refetch: refetchNoBet } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'noBets',
+        args: [
+            bet.id,
+            address || '0x0000000000000000000000000000000000000000'
+        ],
+        query: { enabled: !!address }
+    }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
 
-    // 2. Get Market Info for Total Shares (V5: markets struct)
+    const refetchUserBet = () => { refetchYesBet(); refetchNoBet(); };
+
+    // V5 Struct returns: (amount, shares, referrer, claimed) - Wait, looking at ABI, yesBets returns uint256!
+    // The previous code cast it to a struct/array, but standard mapping(address => uint256) returns a SINGLE bigint.
+    // Let's check ABI. YES: yesBets is mapping(address => uint256). Output is uint256.
+    // The previous code `as { data: [bigint, bigint, string, boolean] ... }` suggests it WAS a struct in V5?
+    // Checking ABI file:
+    /*
+        {
+          "inputs": [...],
+          "name": "yesBets",
+          "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+          "stateMutability": "view",
+          "type": "function"
+        }
+    */
+    // It returns a SINGLE uint256 (amount).
+    // So the previous code might have been wrong if it expected a struct.
+    // However, maybe there's a wrapper function? No, using 'yesBets'.
+    // So `yesBetData` is just bigint.
+
+    const userYesAmount = (yesBetData as unknown as bigint) || BigInt(0);
+    const userNoAmount = (noBetData as unknown as bigint) || BigInt(0);
+
+    // Determine shares based on result
+    let userShares = BigInt(0);
+    let hasClaimed = false; // V2 doesn't return claimed status in yesBets mapping... it tracks `paidOut` on the contract via processedIndex for batch, or users call claimWinnings.
+    // But wait, `claimWinnings` function is what users call?
+    // In V2 `distributeWinnings` is batch.
+    // In V2 `claimWinnings` function exists?
+    // ABI has `claimWinnings`.
+
+    if (bet.result === 'void') {
+        userShares = userYesAmount + userNoAmount;
+    } else if (bet.result === 'yes') {
+        userShares = userYesAmount;
+    } else if (bet.result === 'no') {
+        userShares = userNoAmount;
+    } else {
+        // If active or unknown, show max potential or just one side? 
+        // AdminBetCard logic usually handles this for POTENTIAL win.
+        // For payout calculation, we need resolved.
+        // If not resolved, userShares is just what they bet?
+        // Let's default to 0 for payout calc if not resolved.
+        userShares = BigInt(0);
+    }
+
+    // Check if claimed? V2 doesn't have easy per-user claimed mapping exposed publicly in ABI seen so far.
+    // ABI has `paidOut` on the struct.
+    // We might need to rely on our DB or check logs if we want to know if specific user claimed.
+    // OR we assume if `yesBets[user]` is 0 AND they had a bet, maybe it was deleted (claimed)?
+    // In `distributeWinnings` code: `p.yesBets[winnerAddr] = 0;`
+    // YES! Creating a claim ZEROES out the bet.
+    // So if user HAD a bet (we know via events or DB) but now `yesBets` on chain is 0, they CLAIMED.
+    // But how do we distinguish "Never Bet" vs "Claimed"?
+    // We can rely on `bet.participants` from DB to know if they bet.
+    // For now, let's assume if their on-chain balance is > 0, they HAVEN'T claimed.
+    // If it is 0, they either didn't bet or already claimed.
+    // The `ClaimButton` should be enabled if on-chain balance > 0.
+
+    // Update `userShares` logic:
+    // This is "Claimable Shares".
+    if (bet.result === 'void') userShares = userYesAmount + userNoAmount;
+    else if (bet.result === 'yes') userShares = userYesAmount;
+    else if (bet.result === 'no') userShares = userNoAmount;
+
+    // If userShares > 0, they can claim.
+    hasClaimed = false; // We can't easily know if they claimed without event indexed data, but if balance is 0, they can't claim anyway.
+
+    // Original Bet Amount (for display) - We might rely on DB or just use what we have.
+    const originalBetAmount = userYesAmount + userNoAmount; // This assumes not claimed yet.
+
+    // 2. Get Market Info for Total Shares (V2/V5)
     const { data: marketStruct, refetch: refetchMarketStruct } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
         args: [bet.id],
         query: {
-            enabled: !!address && bet.status !== 'active' && userShares > BigInt(0),
+            enabled: !!address && bet.status !== 'active',
         }
     }) as { data: any[] | undefined, refetch: () => void };
-
-    // V5 Struct:
-    // 0:id, 1:creator, ..., 6:state, ..., 18:totalYes, 19:totalNo, ..., 22:totalSharesYes, 23:totalSharesNo
 
     // 3. Calculate Actual Payout
     let calculatedPayout = BigInt(0);
     if (marketStruct && userShares > BigInt(0)) {
+        // V2 Struct Indices based on ABI file read:
+        // 18: totalYes, 19: totalNo, 20: seedYes, 21: seedNo
+
         const totalYes = BigInt(marketStruct[18] || 0);
         const totalNo = BigInt(marketStruct[19] || 0);
-        const totalSharesYes = BigInt(marketStruct[22] || 0);
-        const totalSharesNo = BigInt(marketStruct[23] || 0);
+        const seedYes = BigInt(marketStruct[20] || 0);
+        const seedNo = BigInt(marketStruct[21] || 0);
 
-        const feeBps = BigInt(2000); // 20% (House 10 + Creator 5 + Referrer 5)
+        // Fee Calculation (20% + 5% = 25%)
+        const feeBps = BigInt(2500);
         const totalPool = totalYes + totalNo;
         const fee = (totalPool * feeBps) / BigInt(10000);
         const distributablePool = totalPool - fee;
 
-        const totalSharesWinning = winningSide ? totalSharesYes : totalSharesNo;
+        if (bet.result === 'void') {
+            // Void Refund Logic: (UserBet / (TotalPool - Seeds)) * Distributable
+            // Or simplified: Users get their share of the net pool.
+            // Denominator: Total User Bets only? 
+            // V2 Logic: TotalUserBets = Total - Seeds
+            const totalUserBets = totalPool - seedYes - seedNo;
+            if (totalUserBets > BigInt(0)) {
+                calculatedPayout = (userShares * distributablePool) / totalUserBets;
+            }
+        } else {
+            // Winner Logic
+            // Eligible Shares = WinningTotal - WinningSeed
+            const winningPoolTotal = bet.result === 'yes' ? totalYes : totalNo;
+            const winningSeed = bet.result === 'yes' ? seedYes : seedNo;
+            const eligibleShares = winningPoolTotal - winningSeed;
 
-        if (totalSharesWinning > BigInt(0)) {
-            calculatedPayout = (userShares * distributablePool) / totalSharesWinning;
+            if (eligibleShares > BigInt(0)) {
+                calculatedPayout = (userShares * distributablePool) / eligibleShares;
+            }
         }
     }
 
