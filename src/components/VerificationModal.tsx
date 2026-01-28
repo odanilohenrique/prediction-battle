@@ -192,7 +192,7 @@ export default function VerificationModal({
                     address: CURRENT_CONFIG.usdcAddress as `0x${string}`,
                     abi: USDC_ABI,
                     functionName: 'approve',
-                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer * BigInt(2)]
+                    args: [CURRENT_CONFIG.contractAddress as `0x${string}`, requiredWithBuffer]
                 });
 
                 const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx });
@@ -717,7 +717,7 @@ export default function VerificationModal({
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
                                     <CheckCircle className="w-3 h-3" /> Reward (if honest)
                                 </span>
-                                <span className="text-sm font-bold text-green-500">+${rewardFormatted} USDC</span>
+                                <span className="text-sm font-bold text-green-500">Return Bond + ${rewardFormatted}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
