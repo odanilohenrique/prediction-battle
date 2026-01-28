@@ -28,11 +28,16 @@ export async function GET(request: NextRequest) {
             const choice = yesBet ? 'yes' : 'no';
 
             // Determine status
-            let betStatus: 'pending' | 'won' | 'lost' = 'pending';
+            let betStatus: 'pending' | 'won' | 'lost' | 'void' = 'pending';
             let payout: number | undefined;
 
             if (bet.status === 'completed' && bet.result) {
-                if (bet.result === choice) {
+                const normalizedResult = String(bet.result).toLowerCase();
+
+                if (normalizedResult === 'void') {
+                    betStatus = 'void';
+                    payout = userBet.amount;
+                } else if (normalizedResult === choice) { // choice is already lowercase 'yes'/'no'
                     betStatus = 'won';
                     // Calculate Payout
                     const totalPot = bet.totalPot;
@@ -42,9 +47,6 @@ export async function GET(request: NextRequest) {
 
                     if (winnerPool > 0) {
                         // Simple proportional share + house fee taken from losers
-                        // Formula: (YourStake / WinnerPool) * (TotalPot - HouseFee)
-                        // But we simplifed in payouts.ts: Stake + (Stake/WinnerPool * LoserPool * 0.8)
-
                         const loserPool = totalPot - winnerPool;
                         const winnings = (userBet.amount / winnerPool) * (loserPool * 0.8);
                         payout = userBet.amount + winnings;

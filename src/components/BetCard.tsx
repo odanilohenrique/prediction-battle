@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Users, Trophy, Skull } from 'lucide-react';
+import { Clock, Users, Trophy, Skull, Coins } from 'lucide-react';
 import { Prediction } from '@/lib/types';
 import ResultReveal from './ResultReveal';
 
@@ -9,7 +9,7 @@ interface BetCardProps {
     prediction: Prediction;
     userChoice: 'yes' | 'no';
     userAmount: number;
-    status: 'pending' | 'won' | 'lost';
+    status: 'pending' | 'won' | 'lost' | 'void';
     payout?: number;
 }
 
@@ -82,6 +82,9 @@ export default function BetCard({
         }
         if (status === 'lost') {
             return { label: 'YOU LOST', color: 'bg-red-500/20 text-red-400 border-red-500/50', icon: '💀' };
+        }
+        if (status === 'void') {
+            return { label: 'REFUNDED', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50', icon: '↩️' };
         }
         return { label: 'PENDING', color: 'bg-gray-500/10 text-gray-400 border-gray-500/30', icon: '⏳' };
     };
@@ -178,16 +181,29 @@ export default function BetCard({
 
                     {/* Result Section */}
                     {isResolved && (
-                        <div className={`mt-4 p-4 rounded-xl ${status === 'won' ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                        <div className={`mt-4 p-4 rounded-xl ${status === 'won' ? 'bg-green-500/10 border border-green-500/30' :
+                            status === 'void' ? 'bg-blue-500/10 border border-blue-500/30' :
+                                'bg-red-500/10 border border-red-500/30'
+                            }`}>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    {status === 'won' ? <Trophy className="w-5 h-5 text-green-500" /> : <Skull className="w-5 h-5 text-red-500" />}
-                                    <span className={`font-bold ${status === 'won' ? 'text-green-400' : 'text-red-400'}`}>
-                                        {status === 'won' ? 'You Won!' : 'You Lost'}
+                                    {status === 'won' ? <Trophy className="w-5 h-5 text-green-500" /> :
+                                        status === 'void' ? <Coins className="w-5 h-5 text-blue-500" /> :
+                                            <Skull className="w-5 h-5 text-red-500" />}
+                                    <span className={`font-bold ${status === 'won' ? 'text-green-400' :
+                                        status === 'void' ? 'text-blue-400' :
+                                            'text-red-400'
+                                        }`}>
+                                        {status === 'won' ? 'You Won!' : status === 'void' ? 'Refunded' : 'You Lost'}
                                     </span>
                                 </div>
-                                <span className={`text-xl font-black ${status === 'won' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {status === 'won' ? `+$${(payout || 0).toFixed(2)}` : `-$${userAmount.toFixed(2)}`}
+                                <span className={`text-xl font-black ${status === 'won' ? 'text-green-400' :
+                                    status === 'void' ? 'text-blue-400' :
+                                        'text-red-400'
+                                    }`}>
+                                    {status === 'won' ? `+$${(payout || 0).toFixed(2)}` :
+                                        status === 'void' ? `$${(payout || userAmount).toFixed(2)}` :
+                                            `-$${userAmount.toFixed(2)}`}
                                 </span>
                             </div>
                         </div>
