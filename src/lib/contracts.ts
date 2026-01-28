@@ -49,8 +49,9 @@ export async function isPredictionResolved(predictionId: string): Promise<boolea
         }) as any[];
 
         // V5 Index 6 is 'state'
-        if (Array.isArray(data) && typeof data[6] === 'number') {
-            return data[6] === MarketState.RESOLVED;
+        const stateVal = data[6];
+        if (typeof stateVal === 'number' || typeof stateVal === 'bigint') {
+            return Number(stateVal) === MarketState.RESOLVED;
         }
 
         return false;
@@ -71,8 +72,10 @@ export async function getMarketState(predictionId: string): Promise<MarketState>
             args: [predictionId],
         }) as any[];
 
-        if (Array.isArray(data) && typeof data[6] === 'number') {
-            return data[6] as MarketState;
+        // Handle both number and bigint return types from Viem
+        const stateVal = data[6];
+        if (typeof stateVal === 'number' || typeof stateVal === 'bigint') {
+            return Number(stateVal) as MarketState;
         }
 
         return MarketState.OPEN;
