@@ -700,6 +700,7 @@ export default function AdminDashboard() {
                 onClose={() => setResolveModalOpen(false)}
                 betId={selectedBet?.id}
                 username={selectedBet?.username}
+                knownOnChainState={selectedBet?.onChainState}
             />
         </div>
     );
