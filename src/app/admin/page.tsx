@@ -353,9 +353,9 @@ export default function AdminDashboard() {
                                         <td className="px-6 py-4">
                                             <button
                                                 onClick={() => handleOpenResolveModal(bet)}
-                                                className="px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-400 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.4)]"
+                                                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold text-sm hover:bg-purple-500 transition-colors shadow-[0_0_10px_rgba(147,51,234,0.4)] flex items-center gap-2"
                                             >
-                                                FORCE RESOLVE
+                                                ⚖️ ARBITRAR DISPUTA
                                             </button>
                                         </td>
                                     </tr>
