@@ -12,6 +12,7 @@ interface ResolveModalProps {
     onClose: () => void;
     betId: string | undefined;
     username: string | undefined;
+    knownOnChainState?: number; // Pass known state from admin page to ensure correct UI
 }
 
 enum MarketState {
@@ -22,7 +23,7 @@ enum MarketState {
     RESOLVED = 4
 }
 
-export default function ResolveModal({ isOpen, onClose, betId, username }: ResolveModalProps) {
+export default function ResolveModal({ isOpen, onClose, betId, username, knownOnChainState }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
     const [shouldReopen, setShouldReopen] = useState(false);
     const contractAddress = getContractAddress();
@@ -59,8 +60,10 @@ export default function ResolveModal({ isOpen, onClose, betId, username }: Resol
     const challengeBondAmount = mData ? BigInt(mData[15]) : BigInt(0);
     const challengeEvidenceUrl = mData ? String(mData[16]) : '';
 
-    const isProposed = marketState === MarketState.PROPOSED;
-    const isDisputed = marketState === MarketState.DISPUTED;
+    // Use knownOnChainState if provided, otherwise fall back to contract read
+    const effectiveState = knownOnChainState !== undefined ? knownOnChainState : marketState;
+    const isProposed = effectiveState === MarketState.PROPOSED;
+    const isDisputed = effectiveState === MarketState.DISPUTED;
 
     const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
