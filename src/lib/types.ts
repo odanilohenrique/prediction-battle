@@ -61,7 +61,7 @@ export interface UserBet {
     choice: PredictionChoice;
     amount: number;
     timestamp: number;
-    status: 'pending' | 'won' | 'lost';
+    status: 'pending' | 'won' | 'lost' | 'void';
     payout?: number;
     paid?: boolean;
     txHash?: string;
