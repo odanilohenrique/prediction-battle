@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 const CONTRACT_ADDRESS = '0x1b33d24d726e3d010e39b2bafbecdde750d2ec41';
-const OPERATOR_TO_ADD = '0xFbb847E4bA555fa38C737CAA3E3591B6448cE987';
+const OPERATOR_TO_ADD = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'; // The wallet causing issues
 
 const ABI = [
     {
@@ -22,19 +22,18 @@ const ABI = [
 
 async function main() {
     console.log('='.repeat(60));
-    console.log('Adding Operator to New Contract');
+    console.log('Access Control Fix: Adding Operator');
     console.log('='.repeat(60));
 
-    // Must use the PRIVATE_KEY (Deployer/Admin), not OPERATOR_PRIVATE_KEY
+    // Valid admin/deployer key
     const adminKey = process.env.PRIVATE_KEY;
     if (!adminKey) {
         throw new Error('PRIVATE_KEY not found in .env.local');
     }
 
     const account = privateKeyToAccount(adminKey as `0x${string}`);
-    console.log(`Admin (Deployer): ${account.address}`);
+    console.log(`Admin (Sender): ${account.address}`);
     console.log(`Target Operator: ${OPERATOR_TO_ADD}`);
-    console.log(`Contract: ${CONTRACT_ADDRESS}`);
 
     const client = createWalletClient({
         account,
@@ -43,6 +42,7 @@ async function main() {
     }).extend(publicActions);
 
     try {
+        console.log('Sending transaction...');
         const hash = await client.writeContract({
             address: CONTRACT_ADDRESS as `0x${string}`,
             abi: ABI,
