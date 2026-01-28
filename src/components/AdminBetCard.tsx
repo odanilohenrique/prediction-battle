@@ -218,6 +218,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const isMarketDisputed = marketStateV5 === 3;
     const isMarketResolved = marketStateV5 === 4;
 
+    // Sync DB if needed
+    useEffect(() => {
+        if (bet.status === 'active' && isMarketResolved) {
+            console.log('Syncing DB status for bet:', bet.id);
+            fetch('/api/predictions/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ betId: bet.id })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.synced) {
+                        console.log('DB Synced via frontend trigger');
+                        router.refresh(); // Refresh to show updated status
+                    }
+                })
+                .catch(err => console.error('Sync failed:', err));
+        }
+    }, [bet.status, isMarketResolved, bet.id, router]);
+
     // Can verify/propose/dispute if not resolved
     const canVerify = !isMarketResolved;
 
@@ -270,7 +290,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     };
 
-    const canClaim = bet.status !== 'active' && userShares > BigInt(0) && !hasClaimed;
+    const canClaim = (bet.status !== 'active' || isMarketResolved) && userShares > BigInt(0) && !hasClaimed;
 
     // Configuration
     const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
@@ -636,9 +656,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                             <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                                {bet.status !== 'active' ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
+                                {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
                             </span>
                         </div>
                         {/* Creator Badge */}
