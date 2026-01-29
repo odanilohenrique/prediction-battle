@@ -231,22 +231,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // In V2 `claimWinnings` function exists?
     // ABI has `claimWinnings`.
 
-    const resultLower = (bet.result || '').toLowerCase();
+    // Use the robust resultString derived above
+    const normalizedResult = resultString;
 
-    if (resultLower === 'void') {
-        userShares = userYesAmount + userNoAmount;
-    } else if (resultLower === 'yes') {
-        userShares = userYesAmount;
-    } else if (resultLower === 'no') {
-        userShares = userNoAmount;
-    } else {
-        // If active or unknown, show max potential or just one side? 
-        // AdminBetCard logic usually handles this for POTENTIAL win.
-        // For payout calculation, we need resolved.
-        // If not resolved, userShares is just what they bet?
-        // Let's default to 0 for payout calc if not resolved.
-        userShares = BigInt(0);
-    }
+    if (normalizedResult === 'void') userShares = userYesAmount + userNoAmount;
+    else if (normalizedResult === 'yes') userShares = userYesAmount;
+    else if (normalizedResult === 'no') userShares = userNoAmount;
+
+    // DEBUG LOGS (Requested by User)
+    useEffect(() => {
+        if (bet.status !== 'active' || isMarketResolved) {
+            console.log(`[DEBUG] Bet: ${bet.id}`);
+            console.log(`[DEBUG] DB Result: ${bet.result}`);
+            console.log(`[DEBUG] Chain Result (derived): ${normalizedResult}`);
+            console.log(`[DEBUG] Market Resolved: ${isMarketResolved}`);
+            console.log(`[DEBUG] User Shares (Calc): ${userShares}`);
+            // Recalc canClaim locally to log
+            const _canClaim = (bet.status !== 'active' || isMarketResolved) && userShares > BigInt(0);
+            console.log(`[DEBUG] Can Claim (Pre-check): ${_canClaim}`);
+        }
+    }, [bet, isMarketResolved, normalizedResult, userShares]);
 
     // Check if claimed? V2 doesn't have easy per-user claimed mapping exposed publicly in ABI seen so far.
     // ABI has `paidOut` on the struct.
