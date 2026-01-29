@@ -190,11 +190,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // In V2 `claimWinnings` function exists?
     // ABI has `claimWinnings`.
 
-    if (bet.result === 'void') {
+    const resultLower = (bet.result || '').toLowerCase();
+
+    if (resultLower === 'void') {
         userShares = userYesAmount + userNoAmount;
-    } else if (bet.result === 'yes') {
+    } else if (resultLower === 'yes') {
         userShares = userYesAmount;
-    } else if (bet.result === 'no') {
+    } else if (resultLower === 'no') {
         userShares = userNoAmount;
     } else {
         // If active or unknown, show max potential or just one side? 
@@ -220,9 +222,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // Update `userShares` logic:
     // This is "Claimable Shares".
-    if (bet.result === 'void') userShares = userYesAmount + userNoAmount;
-    else if (bet.result === 'yes') userShares = userYesAmount;
-    else if (bet.result === 'no') userShares = userNoAmount;
+    const normalizedResult = (bet.result || '').toLowerCase();
+
+    if (normalizedResult === 'void') userShares = userYesAmount + userNoAmount;
+    else if (normalizedResult === 'yes') userShares = userYesAmount;
+    else if (normalizedResult === 'no') userShares = userNoAmount;
 
     // If userShares > 0, they can claim.
     hasClaimed = false; // We can't easily know if they claimed without event indexed data, but if balance is 0, they can't claim anyway.
@@ -258,7 +262,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         const fee = (totalPool * feeBps) / BigInt(10000);
         const distributablePool = totalPool - fee;
 
-        if (bet.result === 'void') {
+        if (normalizedResult === 'void') {
             // Void Refund Logic: (UserBet / (TotalPool - Seeds)) * Distributable
             // Or simplified: Users get their share of the net pool.
             // Denominator: Total User Bets only? 
@@ -270,8 +274,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         } else {
             // Winner Logic
             // Eligible Shares = WinningTotal - WinningSeed
-            const winningPoolTotal = bet.result === 'yes' ? totalYes : totalNo;
-            const winningSeed = bet.result === 'yes' ? seedYes : seedNo;
+            const winningPoolTotal = normalizedResult === 'yes' ? totalYes : totalNo;
+            const winningSeed = normalizedResult === 'yes' ? seedYes : seedNo;
             const eligibleShares = winningPoolTotal - winningSeed;
 
             if (eligibleShares > BigInt(0)) {
