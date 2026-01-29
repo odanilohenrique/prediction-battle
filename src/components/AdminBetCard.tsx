@@ -160,6 +160,47 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     const refetchUserBet = () => { refetchYesBet(); refetchNoBet(); };
 
+    // --- MOVED HOOKS UP FOR DATA DEPENDENCY ---
+    // 2. Get Market Info for Total Shares (V2/V5)
+    // Rename to avoid conflict if any, but "marketStruct" is unique enough.
+    const { data: marketStruct, refetch: refetchMarketStruct } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'markets',
+        args: [bet.id],
+        query: {
+            enabled: !!address && bet.status !== 'active',
+        }
+    }) as { data: any[] | undefined, refetch: () => void };
+
+    // V5: Separate Market Info Query (always enabled for verification button)
+    const { data: marketInfo, refetch: refetchMarketInfo } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'markets',
+        args: [bet.id],
+        query: {
+            enabled: !!address,
+            refetchInterval: 10000,
+        }
+    }) as { data: any[] | undefined, refetch: () => void };
+
+    // Derive Active Market Data EARLY
+    const activeMarketData = marketInfo || marketStruct;
+    const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
+    const isMarketResolved = marketStateV5 === 4;
+
+    // Determine Result (Chain > DB)
+    let resultString = (bet.result || '').toLowerCase();
+
+    if (isMarketResolved && activeMarketData) {
+        const isVoid = activeMarketData[8] as boolean;
+        const resultBool = activeMarketData[7] as boolean;
+        if (isVoid) resultString = 'void';
+        else resultString = resultBool ? 'yes' : 'no';
+    }
+    // ------------------------------------------
+
     // V5 Struct returns: (amount, shares, referrer, claimed) - Wait, looking at ABI, yesBets returns uint256!
     // The previous code cast it to a struct/array, but standard mapping(address => uint256) returns a SINGLE bigint.
     // Let's check ABI. YES: yesBets is mapping(address => uint256). Output is uint256.
@@ -234,16 +275,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Original Bet Amount (for display) - We might rely on DB or just use what we have.
     const originalBetAmount = userYesAmount + userNoAmount; // This assumes not claimed yet.
 
-    // 2. Get Market Info for Total Shares (V2/V5)
-    const { data: marketStruct, refetch: refetchMarketStruct } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'markets',
-        args: [bet.id],
-        query: {
-            enabled: !!address && bet.status !== 'active',
-        }
-    }) as { data: any[] | undefined, refetch: () => void };
+    // 2. Get Market Info (Moved Up)
+    // const { data: marketStruct... } defined above
 
     // 3. Calculate Actual Payout
     let calculatedPayout = BigInt(0);
@@ -295,26 +328,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined, refetch: () => void };
 
-    // V5: Separate Market Info Query (always enabled for verification button)
-    const { data: marketInfo, refetch: refetchMarketInfo } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'markets',
-        args: [bet.id],
-        query: {
-            enabled: !!address,
-            refetchInterval: 10000,
-        }
-    }) as { data: any[] | undefined, refetch: () => void };
+    // V5: Market Info (Moved Up)
+    // const { data: marketInfo... } defined above
 
-    // V5: Market State Logic from marketInfo (or fallback to marketStruct)
-    const activeMarketData = marketInfo || marketStruct;
-    const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
+    // V5: Market State Logic (Moved Up)
+    // const activeMarketData = ...
+    // const marketStateV5 = ...
     const isMarketOpen = marketStateV5 === 0;
     const isMarketLocked = marketStateV5 === 1;
     const isMarketProposed = marketStateV5 === 2;
     const isMarketDisputed = marketStateV5 === 3;
-    const isMarketResolved = marketStateV5 === 4;
+    // const isMarketResolved = ... defined above
 
     // Sync DB if needed
     useEffect(() => {
