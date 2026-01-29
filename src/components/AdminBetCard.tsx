@@ -1172,36 +1172,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         ))}
                     </div>
 
-                    {/* Creator Fees Section - Only visible to the creator of this market */}
-                    {creatorBalance && creatorBalance > BigInt(0) && bet.creatorAddress && address && bet.creatorAddress.toLowerCase() === address.toLowerCase() && (
-                        <div className="mt-4 pt-4 border-t border-white/5">
-                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="text-xs text-yellow-500/80 font-bold uppercase tracking-wider mb-1">
-                                        Creator Earnings Available
-                                    </div>
-                                    <div className="text-xl font-black text-white">
-                                        ${(Number(creatorBalance) / 1000000).toFixed(2)}
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleClaimCreatorFees}
-                                    disabled={isSubmitting}
-                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition-colors text-sm shadow-lg flex items-center gap-2"
-                                >
-                                    {isSubmitting ? '...' : (
-                                        <>
-                                            <Coins className="w-4 h-4" />
-                                            CLAIM FEES
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                            <p className="text-[10px] text-white/40 mt-2 text-center">
-                                *These are accumulated fees from all your markets (5% of pot). Does not include seed liquidity.
-                            </p>
-                        </div>
-                    )}
+
                 </div>
             </div >
 
