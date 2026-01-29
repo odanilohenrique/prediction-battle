@@ -20,7 +20,7 @@ export default function ClaimButton({ amount, onClick, disabled, loading, label,
                 relative w-full group overflow-hidden rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]
                 ${disabled
                     ? 'bg-gray-800 cursor-not-allowed opacity-50 border border-white/10'
-                    : 'bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] border border-green-400/50'
+                    : 'bg-gradient-to-r from-green-600/80 via-emerald-600/80 to-green-700/80 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] border border-green-500/30'
                 }
             `}
         >
@@ -57,8 +57,8 @@ export default function ClaimButton({ amount, onClick, disabled, loading, label,
                 {/* Right Side: Amount */}
                 {(!loading && (amount !== '0.00' || (!disabled && amount === '0.00'))) && (
                     <div className="flex flex-col items-end">
-                        <div className="text-xs text-green-100 font-medium mb-0.5 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-yellow-300" />
+                        <div className="text-xs text-green-200/80 font-medium mb-0.5 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-yellow-500/80" />
                             {disabled ? 'TOTAL WON' : 'YOU WON'}
                         </div>
                         <div className="text-xl font-black text-white drop-shadow-md tracking-tight">
