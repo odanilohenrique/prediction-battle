@@ -201,27 +201,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     }
     // ------------------------------------------
 
-    // V5 Struct returns: (amount, shares, referrer, claimed) - Wait, looking at ABI, yesBets returns uint256!
-    // The previous code cast it to a struct/array, but standard mapping(address => uint256) returns a SINGLE bigint.
-    // Let's check ABI. YES: yesBets is mapping(address => uint256). Output is uint256.
-    // The previous code `as { data: [bigint, bigint, string, boolean] ... }` suggests it WAS a struct in V5?
-    // Checking ABI file:
-    /*
-        {
-          "inputs": [...],
-          "name": "yesBets",
-          "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-          "stateMutability": "view",
-          "type": "function"
-        }
-    */
-    // It returns a SINGLE uint256 (amount).
-    // So the previous code might have been wrong if it expected a struct.
-    // However, maybe there's a wrapper function? No, using 'yesBets'.
-    // So `yesBetData` is just bigint.
+    // V5/V6 Struct returns: [amount, shares, referrer, claimed]
+    // The previous code incorrectly treated it as a single bigint.
+    const yesDataArray = (yesBetData as [bigint, bigint, string, boolean]) || [BigInt(0), BigInt(0), '', false];
+    const noDataArray = (noBetData as [bigint, bigint, string, boolean]) || [BigInt(0), BigInt(0), '', false];
 
-    const userYesAmount = (yesBetData as unknown as bigint) || BigInt(0);
-    const userNoAmount = (noBetData as unknown as bigint) || BigInt(0);
+    const userYesAmount = yesDataArray[0];
+    const userNoAmount = noDataArray[0];
+    const userYesClaimed = yesDataArray[3];
+    const userNoClaimed = noDataArray[3];
 
     // Determine shares based on result
     let userShares = BigInt(0);
@@ -265,16 +253,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // If it is 0, they either didn't bet or already claimed.
     // The `ClaimButton` should be enabled if on-chain balance > 0.
 
-    // Update `userShares` logic:
-    // This is "Claimable Shares".
-    const normalizedResult = (bet.result || '').toLowerCase();
 
-    if (normalizedResult === 'void') userShares = userYesAmount + userNoAmount;
-    else if (normalizedResult === 'yes') userShares = userYesAmount;
-    else if (normalizedResult === 'no') userShares = userNoAmount;
 
     // If userShares > 0, they can claim.
-    hasClaimed = false; // We can't easily know if they claimed without event indexed data, but if balance is 0, they can't claim anyway.
+    // If userShares > 0, they can claim.
+    hasClaimed = userYesClaimed || userNoClaimed;
 
     // Original Bet Amount (for display) - We might rely on DB or just use what we have.
     const originalBetAmount = userYesAmount + userNoAmount; // This assumes not claimed yet.
