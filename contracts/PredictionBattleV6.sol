@@ -3,10 +3,12 @@ pragma solidity ^0.8.20;
 
 /**
  * @title PredictionBattleV6
- * @dev V6: Adds Dispute Reopening and 1-Year Deadlines
- *      - All markets have 365 days deadline by default
- *      - resolveDispute() accepts `shouldReopen` param
- *      - If reopened: State -> OPEN, Deadline -> +365 days, Proposer/Challenger cleared
+ * @dev V6: Pull Payment Architecture + Decentralized Verification
+ *      - 12 Hour Dispute Window
+ *      - No Operator/Bot roles (Admin Only for Arbitration)
+ *      - claimWinnings: User pulls funds (no batch distribution)
+ *      - withdrawSeed: Creator pulls seed only on VOID
+ *      - Decentralized functions (propose, challenge) preserved
  */
 
 interface IERC20 {
@@ -20,9 +22,8 @@ contract PredictionBattleV6 {
     IERC20 public usdcToken;
     
     // Config
-    uint256 public constant DISPUTE_WINDOW = 600; // 10 Minutes for Testing
+    uint256 public constant DISPUTE_WINDOW = 43200; // 12 Hours
     uint256 public constant FEE_DENOMINATOR = 10000;
-    uint256 public constant YEAR_IN_SECONDS = 31536000; // 365 days
     
     // Fee Config
     uint256 public houseFeeBps = 1000;   // 10%
@@ -37,7 +38,7 @@ contract PredictionBattleV6 {
     // House balance (accumulated fees)
     uint256 public houseBalance;
     mapping(address => uint256) public creatorBalance;
-    mapping(address => uint256) public rewardsBalance;
+    mapping(address => uint256) public rewardsBalance; // Referrer rewards
 
     struct Market {
         string id;
@@ -73,11 +74,7 @@ contract PredictionBattleV6 {
         uint256 totalSharesYes;
         uint256 totalSharesNo;
         
-        // Internal
-        uint256 processedIndex;
-        bool paidOut;
-        
-        // Bettor Lists
+        // Bettor Lists (Kept for frontend views, but not used for batch payout anymore)
         address[] yesBettors;
         address[] noBettors;
     }
@@ -86,7 +83,7 @@ contract PredictionBattleV6 {
         uint256 amount;
         uint256 shares;
         address referrer;
-        bool claimed;
+        bool claimed; // New logic for Pull Payment
     }
     
     enum MarketState {
@@ -99,10 +96,14 @@ contract PredictionBattleV6 {
     
     mapping(string => Market) public markets;
     mapping(string => bool) public marketExists;
-    mapping(address => bool) public operators;
     
+    // Bets Mapping
     mapping(string => mapping(address => UserBet)) public yesBets;
     mapping(string => mapping(address => UserBet)) public noBets;
+
+    // Claims Mapping (New)
+    // To ensure double safety alongside UserBet.claimed
+    mapping(string => mapping(address => bool)) public hasClaimed;
     
     // Locked bonds (balance tracking)
     mapping(address => uint256) public bondBalance;
@@ -113,20 +114,15 @@ contract PredictionBattleV6 {
     
     event OutcomeProposed(string id, address proposer, bool result, uint256 bond, uint256 disputeEnd, string evidence);
     event OutcomeChallenged(string id, address challenger, uint256 bond, string evidence);
-    event DisputeResolved(string id, address winner, uint256 totalBondReward, bool finalResult, bool reopened); // V6 Update
+    event DisputeResolved(string id, address winner, uint256 totalBondReward, bool finalResult);
     event OutcomeFinalized(string id, address proposer, uint256 reward);
     event MarketResolved(string id, bool result, uint256 winnerPool);
     event MarketVoided(string id);
-    event PayoutDistributed(string id, address user, uint256 amount);
-    event MarketReopened(string id, uint256 newDeadline); // V6 New
-
+    event PayoutClaimed(string id, address user, uint256 amount); // Renamed from Distributed
+    event SeedWithdrawn(string id, address creator, uint256 amount); // New
+    
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin");
-        _;
-    }
-    
-    modifier onlyAdminOrOperator() {
-        require(msg.sender == admin || operators[msg.sender], "Not authorized");
         _;
     }
     
@@ -135,19 +131,13 @@ contract PredictionBattleV6 {
         usdcToken = IERC20(_usdcAddress);
     }
     
-    // ============ Admin Functions ============
-    
-    function setOperator(address _operator, bool _status) external onlyAdmin {
-        operators[_operator] = _status;
-    }
-    
-    // ============ Core Functions (V6 Updates) ============
+    // ============ Core Functions (V3/V5 Compat) ============
     
     function createMarket(
         string memory _id,
         string memory _question,
         uint256 _usdcSeedAmount,
-        uint256, // _duration ignored in V6
+        uint256 _duration,
         uint256 _bonusDuration
     ) external {
         require(!marketExists[_id], "Exists");
@@ -160,12 +150,8 @@ contract PredictionBattleV6 {
         m.creator = msg.sender;
         m.question = _question;
         m.creationTime = block.timestamp;
-        
-        // V6: Force 1 Year Duration
-        uint256 oneYear = YEAR_IN_SECONDS;
-        m.bonusDuration = _bonusDuration > 0 ? _bonusDuration : oneYear; // Bonus duration still configurable? Or match deadline?
-        // User asked to remove time options, let's keep bonus logic as is but force deadline
-        m.deadline = block.timestamp + oneYear;
+        m.bonusDuration = _bonusDuration > 0 ? _bonusDuration : _duration;
+        m.deadline = block.timestamp + _duration;
         m.state = MarketState.OPEN;
         
         uint256 seedPerSide = _usdcSeedAmount / 2;
@@ -175,7 +161,7 @@ contract PredictionBattleV6 {
         m.seedNo = seedPerSide;
         
         marketExists[_id] = true;
-        emit MarketCreated(_id, msg.sender, m.deadline, m.bonusDuration);
+        emit MarketCreated(_id, msg.sender, m.deadline, _bonusDuration);
         emit SeedAdded(_id, seedPerSide, seedPerSide);
     }
     
@@ -202,6 +188,7 @@ contract PredictionBattleV6 {
              referrerFee = (_usdcAmount * referrerFeeBps) / FEE_DENOMINATOR;
              rewardsBalance[_referrer] += referrerFee;
         } else {
+             // If no referrer, house takes the referrer portion
              houseFee += (_usdcAmount * referrerFeeBps) / FEE_DENOMINATOR;
         }
         
@@ -237,8 +224,8 @@ contract PredictionBattleV6 {
         uint256 bonus = ((MAX_WEIGHT - MIN_WEIGHT) * (_bonusDuration - elapsed)) / _bonusDuration;
         return MIN_WEIGHT + bonus;
     }
-    
-    // ============ PROPOSAL & DISPUTE FLOW ============
+
+    // ============ PROPOSAL & DISPUTE FLOW (Decentralized) ============
     
     function getRequiredBond(string memory _id) public view returns (uint256) {
         Market storage m = markets[_id];
@@ -252,7 +239,7 @@ contract PredictionBattleV6 {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         
-        // Allow propose if OPEN or LOCKED
+        // Allow propose if OPEN or LOCKED (V5 logic)
         require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Not active");
         
         uint256 bondAmount = getRequiredBond(_marketId);
@@ -292,13 +279,7 @@ contract PredictionBattleV6 {
         emit OutcomeChallenged(_marketId, msg.sender, bondAmount, _evidenceUrl);
     }
     
-    // V6: Updated Resolve Dispute
-    function resolveDispute(
-        string memory _marketId, 
-        address _winnerAddress, 
-        bool _finalResult,
-        bool _shouldReopen // V6 Param
-    ) external onlyAdminOrOperator {
+    function resolveDispute(string memory _marketId, address _winnerAddress, bool _finalResult) external onlyAdmin { // No Operator
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.DISPUTED, "Not in dispute");
@@ -309,38 +290,16 @@ contract PredictionBattleV6 {
         bondBalance[m.proposer] -= m.bondAmount;
         bondBalance[m.challenger] -= m.challengeBondAmount;
         
-        // Send award to winner
         require(usdcToken.transfer(_winnerAddress, totalBond), "Bond reward failed");
-        emit DisputeResolved(_marketId, _winnerAddress, totalBond, _finalResult, _shouldReopen);
-
-        if (_shouldReopen) {
-            // Reopen Market
-            m.state = MarketState.OPEN;
-            m.deadline = block.timestamp + YEAR_IN_SECONDS; // Extend 1 year
-            
-            // Clear Proposal Data so it can be proposed/verified again
-            delete m.proposer;
-            delete m.proposedResult;
-            delete m.proposalTime;
-            delete m.bondAmount;
-            delete m.evidenceUrl;
-            
-            delete m.challenger;
-            delete m.challengeBondAmount;
-            delete m.challengeEvidenceUrl;
-            delete m.challengeTime;
-            
-            emit MarketReopened(_marketId, m.deadline);
-        } else {
-            // Close Market
-            m.state = MarketState.RESOLVED;
-            m.result = _finalResult;
-            
-            m.bondAmount = 0;
-            m.challengeBondAmount = 0;
-            
-            emit MarketResolved(_marketId, _finalResult, _finalResult ? m.totalYes : m.totalNo);
-        }
+        
+        m.state = MarketState.RESOLVED;
+        m.result = _finalResult;
+        
+        m.bondAmount = 0;
+        m.challengeBondAmount = 0;
+        
+        emit DisputeResolved(_marketId, _winnerAddress, totalBond, _finalResult);
+        emit MarketResolved(_marketId, _finalResult, _finalResult ? m.totalYes : m.totalNo);
     }
     
     function finalizeOutcome(string memory _marketId) external {
@@ -356,7 +315,7 @@ contract PredictionBattleV6 {
         bondBalance[proposer] -= bondAmount;
         require(usdcToken.transfer(proposer, bondAmount), "Bond return failed");
         
-        // Reporter Reward (1%)
+        // Reporter Reward (1% of total pool)
         uint256 reward = (m.totalYes + m.totalNo) / 100; 
         if (reward > 0 && houseBalance >= reward) {
             houseBalance -= reward;
@@ -370,51 +329,104 @@ contract PredictionBattleV6 {
         emit MarketResolved(_marketId, m.result, m.result ? m.totalYes : m.totalNo);
     }
 
-    // ============ CLAIM ============
+    // ============ PULL PAYMENT (V6 MAIN CHANGE) ============
     
     function claimWinnings(string memory _id) external {
+        require(marketExists[_id], "No market");
         Market storage m = markets[_id];
         require(m.state == MarketState.RESOLVED, "Not resolved");
         
+        require(!hasClaimed[_id][msg.sender], "Already claimed");
+        
+        uint256 payout = 0;
         UserBet storage yesBet = yesBets[_id][msg.sender];
         UserBet storage noBet = noBets[_id][msg.sender];
         
-        require(!yesBet.claimed && !noBet.claimed, "Already claimed");
-        
-        uint256 payout = 0;
-        
         if (m.isVoid) {
+            // Void: Refund Net Bet (Fees were taken at entry and not refunded to prevent drain)
             payout = yesBet.amount + noBet.amount;
         } else {
              bool isYesWinner = m.result;
              UserBet storage winningBet = isYesWinner ? yesBet : noBet;
              
-             if (winningBet.amount > 0) {
+             if (winningBet.amount > 0 && winningBet.shares > 0) {
                  uint256 totalPool = m.totalYes + m.totalNo;
-                 uint256 fee = (totalPool * (houseFeeBps + creatorFeeBps + referrerFeeBps)) / FEE_DENOMINATOR;
-                 uint256 winnerShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
+                 // Fees were already sent/stored during placeBet, so we don't deduct them again here.
+                 // We need to calculate what remains in the contract (Net Bets + Seeds).
+                 // Actually simpler: V3 Logic implies the Pool available for distribution is (TotalYes + TotalNo) - Fees.
                  
-                 if (winnerShares > 0) {
-                     uint256 distributablePool = totalPool - fee;
-                     payout = (winningBet.shares * distributablePool) / winnerShares;
+                 // Re-calculate fees to know what the 'Distributable Pot' is.
+                 // Note: Fees are already taken out of contract usage or stored in balances.
+                 // The contract balance has (NetBets + Seeds + AccruedFees + Bonds).
+                 // We should distribute the portion that corresponds to the Winning Pot.
+                 
+                 uint256 fee = (totalPool * (houseFeeBps + creatorFeeBps + referrerFeeBps)) / FEE_DENOMINATOR;
+                 uint256 distributablePool = totalPool - fee; 
+                 
+                 // Payout = (UserShares * DistributablePool) / TotalWinningShares
+                 uint256 totalWinningShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
+                 
+                 if (totalWinningShares > 0) {
+                     payout = (winningBet.shares * distributablePool) / totalWinningShares;
                  }
              }
         }
         
+        require(payout > 0, "Nothing to claim");
+        
+        hasClaimed[_id][msg.sender] = true;
+        // Also update struct fallback
         if (yesBet.amount > 0) yesBet.claimed = true;
         if (noBet.amount > 0) noBet.claimed = true;
         
-        require(payout > 0, "Nothing to claim");
         require(usdcToken.transfer(msg.sender, payout), "Transfer failed");
         
-        emit PayoutDistributed(_id, msg.sender, payout);
+        emit PayoutClaimed(_id, msg.sender, payout);
     }
     
-    // ============ Emergency ============
+    // ============ CREATOR SEED WITHDRAW (VOID ONLY) ============
+    // Addresses the gap where Creators lose seed on Void because they have no shares.
+    
+    function withdrawSeed(string memory _id) external {
+         require(marketExists[_id], "No market");
+         Market storage m = markets[_id];
+         require(m.state == MarketState.RESOLVED, "Not resolved");
+         require(m.isVoid, "Market not void");
+         require(msg.sender == m.creator, "Only creator");
+         require(!hasClaimed[_id][msg.sender], "Already withdrawn");
+         
+         uint256 totalSeed = m.seedYes + m.seedNo;
+         require(totalSeed > 0, "No seed");
+         
+         hasClaimed[_id][msg.sender] = true;
+         
+         require(usdcToken.transfer(msg.sender, totalSeed), "Transfer failed");
+         emit SeedWithdrawn(_id, msg.sender, totalSeed);
+    }
+    
+    // ============ FEE WITHDRAWALS ============
+
+    function withdrawCreatorFees() external {
+        uint256 amount = creatorBalance[msg.sender];
+        require(amount > 0, "No fees");
+        creatorBalance[msg.sender] = 0;
+        require(usdcToken.transfer(msg.sender, amount), "Transfer failed");
+    }
+
+    function withdrawReferrerFees() external {
+        uint256 amount = rewardsBalance[msg.sender];
+        require(amount > 0, "No fees");
+        rewardsBalance[msg.sender] = 0;
+        require(usdcToken.transfer(msg.sender, amount), "Transfer failed");
+    }
+    
+    // ============ Emergency / Admin ============
+    
     function adminResolve(string memory _marketId, bool _result) external onlyAdmin {
         Market storage m = markets[_marketId];
         require(m.state != MarketState.RESOLVED, "Resolved");
         
+        // Return bonds if any
         if (m.bondAmount > 0) { 
              bondBalance[m.proposer] -= m.bondAmount;
              usdcToken.transfer(m.proposer, m.bondAmount);
@@ -426,10 +438,10 @@ contract PredictionBattleV6 {
         
         m.state = MarketState.RESOLVED;
         m.result = _result;
-        emit MarketResolved(_marketId, _result, 0);
+        emit MarketResolved(_marketId, _result, 0); // Pool handled in claim layer
     }
     
-    function voidMarket(string memory _marketId) external onlyAdminOrOperator {
+    function voidMarket(string memory _marketId) external onlyAdmin {
         Market storage m = markets[_marketId];
         require(m.state != MarketState.RESOLVED, "Resolved");
         

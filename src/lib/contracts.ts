@@ -146,7 +146,7 @@ export async function getReporterReward(predictionId: string): Promise<bigint> {
         if (Array.isArray(data)) {
             const totalYes = BigInt(data[18] || 0);
             const totalNo = BigInt(data[19] || 0);
-            return (totalYes + totalNo) / 100n;
+            return (totalYes + totalNo) / BigInt(100);
         }
         return BigInt(0);
     } catch (error) {
@@ -178,7 +178,7 @@ export async function getProposalInfo(predictionId: string) {
         // 17: challengeTime
 
         const proposalTime = BigInt(data[11]);
-        const disputeWindow = 600n; // 10 minutes fixed for V5 test
+        const disputeWindow = BigInt(43200); // V6: 12 hours
         const deadline = proposalTime + disputeWindow;
         const now = BigInt(Math.floor(Date.now() / 1000));
 
@@ -268,12 +268,9 @@ export async function resolveVoidOnChain(predictionId: string, waitForReceipt: b
 // In V2, users claim their own rewards via claimReward(marketId)
 // This function is kept for backwards compatibility but will throw an error
 export async function distributeWinningsOnChain(predictionId: string, batchSize: number = 50, waitForReceipt: boolean = true) {
-    console.warn(`[OPERATOR] distributeWinnings is DEPRECATED in V2. Users must call claimReward() themselves.`);
-    console.warn(`[OPERATOR] Market ${predictionId} is resolved. Winners can claim via the UI.`);
-
-    // Don't actually call the contract - just return a fake hash to prevent errors
-    // This allows the DB to update without failing
-    return '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+    // V6 Note: Users must call claimWinnings themselves.
+    console.warn(`[OPERATOR] distributeWinnings is DEPRECATED. Users call claimWinnings().`);
+    return '0x0' as `0x${string}`;
 }
 
 export async function claimReferralRewardsOnChain(waitForReceipt: boolean = true) {
@@ -302,6 +299,79 @@ export async function claimReferralRewardsOnChain(waitForReceipt: boolean = true
         return hash;
     } catch (error) {
         console.error("[OPERATOR] Failed to claim referral rewards:", error);
+        throw error;
+    }
+}
+
+// ============ V6: Pull Payment Functions ============
+
+// V6: User claims their payout (called from frontend)
+// Note: This is typically called directly from the component using writeContractAsync.
+// This wrapper exists for backend/operator usage if needed.
+export async function claimWinningsOnChain(predictionId: string, waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+    console.log(`[OPERATOR] Claiming winnings for market ${predictionId}...`);
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'claimWinnings',
+            args: [predictionId],
+        });
+        console.log(`[OPERATOR] Claim Tx Hash: ${hash}`);
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
+        }
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to claim winnings:", error);
+        throw error;
+    }
+}
+
+// V6: Creator withdraws fees
+export async function withdrawCreatorFeesOnChain(waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+    console.log(`[OPERATOR] Withdrawing creator fees...`);
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'withdrawCreatorFees',
+            args: [],
+        });
+        console.log(`[OPERATOR] Withdraw Fees Tx Hash: ${hash}`);
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
+        }
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to withdraw creator fees:", error);
+        throw error;
+    }
+}
+
+// V6: Creator withdraws seed on void market
+export async function withdrawSeedOnChain(predictionId: string, waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+    console.log(`[OPERATOR] Withdrawing seed for voided market ${predictionId}...`);
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'withdrawSeed',
+            args: [predictionId],
+        });
+        console.log(`[OPERATOR] Withdraw Seed Tx Hash: ${hash}`);
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
+        }
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to withdraw seed:", error);
         throw error;
     }
 }

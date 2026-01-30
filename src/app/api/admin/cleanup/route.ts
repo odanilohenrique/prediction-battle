@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         const latestInfo = sorted[0];
         const toDelete = sorted.slice(1);
 
-        console.log(`[CLEANUP] Keeping latest bet: ${latestInfo.id} (${latestInfo.targetName || latestInfo.question || 'Untitled'})`);
+        console.log(`[CLEANUP] Keeping latest bet: ${latestInfo.id} (${(latestInfo as any).targetName || (latestInfo as any).question || (latestInfo as any).title || 'Untitled'})`);
         console.log(`[CLEANUP] Deleting ${toDelete.length} old bets...`);
 
         for (const bet of toDelete) {

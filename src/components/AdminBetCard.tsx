@@ -383,7 +383,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             const hash = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'claimCreatorRewards',
+                functionName: 'withdrawCreatorFees',
                 args: [],
             });
             if (publicClient) {
@@ -758,6 +758,30 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         });
     };
 
+    // V6: Withdraw Seed (Creator Only, Void Markets Only)
+    const handleWithdrawSeed = async () => {
+        if (!isConnected || !address) return;
+        setIsSubmitting(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'withdrawSeed',
+                args: [bet.id],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+            }
+            showAlert('Success', 'Seed withdrawn successfully!', 'success');
+            refetchMarketInfo();
+        } catch (error) {
+            console.error('Withdraw Seed error:', error);
+            showAlert('Error', (error as Error).message, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <>
             <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300 w-full max-w-full">
@@ -1083,6 +1107,18 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 title="Void/Refund Bet"
                             >
                                 🏳️ Void
+                            </button>
+                        )}
+
+                        {/* V6: Withdraw Seed Button (Creator Only, Void Markets Only) */}
+                        {address && activeMarketData && activeMarketData[1] === address && activeMarketData[8] === true && !hasClaimed && (
+                            <button
+                                onClick={handleWithdrawSeed}
+                                disabled={isSubmitting}
+                                className="px-4 py-3 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 font-bold hover:bg-blue-500/20 transition-all flex items-center gap-2"
+                                title="Withdraw your initial seed liquidity"
+                            >
+                                💰 Withdraw Seed
                             </button>
                         )}
 
