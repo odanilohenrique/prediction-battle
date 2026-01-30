@@ -1407,12 +1407,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                                 if (mySideEffectiveAfter <= 0) return (numericAmount * 1.75).toFixed(2);
 
-                                                // Formula: (TotalPoolAfter * 0.75) / MySideEffectiveAfter
-                                                // This gives the multiplier for the *marginal* dollar if we treated the whole bet as a block share? 
-                                                // Actually, Payout = (MyBet / SideTotalAfter) * (TotalPoolAfter * 0.75)
-                                                // So Multiplier = Payout / MyBet = (TotalPoolAfter * 0.75) / SideTotalAfter
+                                                // Formula: (TotalPoolAfter * 0.80) / MySideEffectiveAfter
+                                                // 80% goes to winners (10% house, 5% creator, 5% referrer/burn)
 
-                                                const estimatedMultiplier = (totalPoolAfter * 0.75) / mySideEffectiveAfter;
+                                                const estimatedMultiplier = (totalPoolAfter * 0.80) / mySideEffectiveAfter;
                                                 return (numericAmount * estimatedMultiplier).toFixed(2);
                                             })()}
                                             <span className="text-sm font-bold text-primary mb-1.5">
@@ -1432,7 +1430,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                                     if (mySideEffectiveAfter <= 0) return '1.75';
 
-                                                    const estimatedMultiplier = (totalPoolAfter * 0.75) / mySideEffectiveAfter;
+                                                    const estimatedMultiplier = (totalPoolAfter * 0.80) / mySideEffectiveAfter;
                                                     return estimatedMultiplier.toFixed(2);
                                                 })()}x)
                                             </span>
@@ -1494,7 +1492,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 marketId={bet.id}
                 marketQuestion={bet.question || `@${bet.username} - ${bet.type}`}
                 requiredBond={requiredBond || BigInt(1000000)}
-                reporterReward={BigInt(0)}
+                reporterReward={(() => {
+                    const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                    const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
+                    const initialSeed = bet.initialValue || 0;
+                    const totalPool = BigInt(Math.floor((yesPool + noPool + initialSeed) * 1000000)); // Convert to 6 decimals
+                    return (totalPool * BigInt(1)) / BigInt(100); // 1% Reward
+                })()}
                 currentState={marketStateV5}
                 proposalInfo={parsedProposalInfo}
                 optionALabel={bet.optionA?.label || 'YES'}
