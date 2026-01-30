@@ -10,6 +10,7 @@ pragma solidity ^0.8.20;
 contract PredictionBattle {
     address public admin;
     uint256 public creatorFeeBps = 500; // 5% fee for market creator
+    uint256 public platformFeeBps = 1000; // 10% platform fee
 
     struct Prediction {
         string id;

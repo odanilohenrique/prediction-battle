@@ -1,0 +1,308 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattle.sol": {
+      "lastModificationDate": 1769788375413,
+      "contentHash": "3227060850ee5912c03f5a20ad33ed08",
+      "sourceName": "contracts/PredictionBattle.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "PredictionBattle"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleTest.sol": {
+      "lastModificationDate": 1769449761827,
+      "contentHash": "d0702aeedb5c37bf78d7352e6d7b7714",
+      "sourceName": "contracts/PredictionBattleTest.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV3"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleUSDC.sol": {
+      "lastModificationDate": 1768394391175,
+      "contentHash": "c75e6b90ad1d390ec6e6809052d3054a",
+      "sourceName": "contracts/PredictionBattleUSDC.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleUSDC"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV2.sol": {
+      "lastModificationDate": 1768485732310,
+      "contentHash": "0d50f7d6cac8cdce0a72da6bf5b82270",
+      "sourceName": "contracts/PredictionBattleV2.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV2"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV3.sol": {
+      "lastModificationDate": 1768856560078,
+      "contentHash": "541e9ee648c9b69b915323243ba5bf02",
+      "sourceName": "contracts/PredictionBattleV3.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV3"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV4.sol": {
+      "lastModificationDate": 1769098735848,
+      "contentHash": "fce8185d46c1ae2f36676ef28630dc88",
+      "sourceName": "contracts/PredictionBattleV4.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV4"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV5.sol": {
+      "lastModificationDate": 1769534320776,
+      "contentHash": "84e0defcfcad4b94e2b8b2bae3bd7cc4",
+      "sourceName": "contracts/PredictionBattleV5.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV5"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV6.sol": {
+      "lastModificationDate": 1769787023972,
+      "contentHash": "9d4cc96a2894863e857ef39e7236b9df",
+      "sourceName": "contracts/PredictionBattleV6.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV6"
+      ]
+    }
+  }
+}

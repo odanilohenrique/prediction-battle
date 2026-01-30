@@ -183,7 +183,7 @@ export default function VerificationModal({
                 args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
             }) as bigint;
 
-            const requiredWithBuffer = (activeBond * 110n) / 100n; // 10% buffer
+            const requiredWithBuffer = (activeBond * BigInt(110)) / BigInt(100); // 10% buffer
 
             // If allowance is insufficient, approve
             if (allowance < activeBond) {
@@ -313,7 +313,7 @@ export default function VerificationModal({
                 args: [address, CURRENT_CONFIG.contractAddress as `0x${string}`]
             }) as bigint;
 
-            const requiredWithBuffer = (activeBond * 110n) / 100n; // 10% buffer
+            const requiredWithBuffer = (activeBond * BigInt(110)) / BigInt(100); // 10% buffer
 
             // If allowance is insufficient, approve
             if (allowance < activeBond) {
