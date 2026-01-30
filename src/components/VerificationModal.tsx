@@ -593,11 +593,21 @@ export default function VerificationModal({
                             </label>
 
                             {/* COST TO DISPUTE INFO */}
-                            <div className="mb-3 bg-red-500/10 rounded-lg p-3 flex justify-between items-center border border-red-500/20">
-                                <span className="text-xs text-red-300 flex items-center gap-1">
-                                    <DollarSign className="w-3 h-3" /> Cost to Dispute
-                                </span>
-                                <span className="text-sm font-bold text-white">${bondFormatted} USDC</span>
+                            <div className="mb-3 bg-red-500/10 rounded-lg p-3 border border-red-500/20 space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-red-300 flex items-center gap-1">
+                                        <DollarSign className="w-3 h-3" /> Cost to Dispute
+                                    </span>
+                                    <span className="text-sm font-bold text-white">${bondFormatted} USDC</span>
+                                </div>
+                                <div className="flex justify-between items-center border-t border-white/5 pt-2">
+                                    <span className="text-xs text-green-400 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" /> If You Win
+                                    </span>
+                                    <span className="text-sm font-bold text-green-400">
+                                        Receive ${(Number(bondFormatted) * 2 + Number(rewardFormatted)).toFixed(2)} USDC
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="space-y-2">

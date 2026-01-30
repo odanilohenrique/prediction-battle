@@ -86,7 +86,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'resolveDispute',
-                    args: [betId, winner, finalResult, shouldReopen] // V6: Added shouldReopen arg
+                    args: [betId, winner, finalResult]
                 });
             } else if (action === 'void') {
                 hash = await writeContractAsync({
