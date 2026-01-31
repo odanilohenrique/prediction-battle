@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
             predictionImage, // Optional image
             castUrl, // Optional Cast URL
             autoVerify, // [NEW] Admin switch for auto-verification
+            platform, // [NEW] Social platform preference
+            profileUrl, // [NEW] Explicit profile link
         } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback
@@ -116,6 +118,8 @@ export async function POST(request: NextRequest) {
                 username: castAuthor || 'unknown',
                 displayName: displayName || castAuthor, // Fallback to username
                 pfpUrl: pfpUrl || '',
+                platform: platform, // [NEW] added
+                profileUrl: profileUrl, // [NEW] added
                 type: metric,
                 target: targetValue,
                 timeframe: selectedTimeframe,

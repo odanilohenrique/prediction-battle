@@ -17,6 +17,8 @@ export interface Prediction {
     castHash: string;
     castAuthor: string;
     castText: string;
+    platform?: 'twitter' | 'farcaster' | 'baseapp'; // [NEW]
+    profileUrl?: string; // [NEW]
     metric: MetricType;
     targetValue: number;
     createdAt: number;

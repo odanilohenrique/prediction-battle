@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Users, Trophy, Skull, Coins, gavel } from 'lucide-react'; // gavel might not exist, checking imports
-import { Gavel } from 'lucide-react';
+import { Clock, Users, Trophy, Skull, Coins, Gavel } from 'lucide-react';
 import { Prediction } from '@/lib/types';
 import ResultReveal from './ResultReveal';
 import { useReadContract, useWriteContract, usePublicClient } from 'wagmi';
@@ -28,6 +27,13 @@ const BET_TYPE_LABELS: Record<string, string> = {
     'quotes': 'Quotes',
     'emoji_count': 'Emoji Count',
     'custom_text': 'Custom',
+};
+
+const getProfileLink = (p: Prediction) => {
+    if (p.profileUrl) return p.profileUrl;
+    if (p.platform === 'twitter') return `https://x.com/${p.castAuthor}`;
+    if (p.platform === 'baseapp') return `https://base.org/${p.castAuthor}`;
+    return `https://warpcast.com/${p.castAuthor}`;
 };
 
 export default function BetCard({
@@ -245,7 +251,9 @@ export default function BetCard({
                 {/* Cast Preview */}
                 <div className="mb-4 pb-4 border-b border-darkGray">
                     <div className="text-sm text-textSecondary mb-1">
-                        @{prediction.castAuthor}'s cast
+                        <a href={getProfileLink(prediction)} target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">
+                            @{prediction.castAuthor}
+                        </a>&apos;s cast
                     </div>
                     <p className="text-textPrimary text-sm line-clamp-2">
                         {prediction.castText || `Prediction on @${prediction.castAuthor}`}

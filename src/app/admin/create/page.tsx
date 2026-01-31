@@ -93,6 +93,8 @@ export default function CreateCommunityBet() {
         username: '',
         displayName: '',
         pfpUrl: '',
+        platform: 'farcaster', // Default
+        profileUrl: '',
 
         // Bet config
         betType: 'post_count' as BetType,
@@ -166,7 +168,9 @@ export default function CreateCommunityBet() {
             setFormData(prev => ({
                 ...prev,
                 displayName: foundPlayer.displayName,
-                pfpUrl: foundPlayer.pfpUrl
+                pfpUrl: foundPlayer.pfpUrl,
+                platform: foundPlayer.platform || 'farcaster',
+                profileUrl: foundPlayer.profileUrl || ''
             }));
         }
     }, [formData.username, savedPlayers]);
@@ -301,6 +305,8 @@ export default function CreateCommunityBet() {
                     // Manual Overrides
                     displayName: formData.displayName,
                     pfpUrl: formData.pfpUrl,
+                    platform: formData.platform,
+                    profileUrl: formData.profileUrl,
 
                     // Battle Mode specifics
                     isVersus: creationMode === 'battle' || formData.isVersus,
@@ -793,7 +799,9 @@ export default function CreateCommunityBet() {
                                                     ...formData,
                                                     username: player.username,
                                                     displayName: player.displayName,
-                                                    pfpUrl: player.pfpUrl
+                                                    pfpUrl: player.pfpUrl,
+                                                    platform: player.platform || 'farcaster',
+                                                    profileUrl: player.profileUrl || ''
                                                 })}
                                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${formData.username === player.username
                                                     ? 'border-primary bg-primary/20'

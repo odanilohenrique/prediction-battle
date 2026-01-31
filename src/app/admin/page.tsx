@@ -19,6 +19,8 @@ interface Player {
     username: string;
     displayName: string;
     pfpUrl: string;
+    platform?: 'twitter' | 'farcaster' | 'baseapp';
+    profileUrl?: string; // Explicit URL override
 }
 
 interface Bet {
@@ -56,12 +58,24 @@ export default function AdminDashboard() {
     const [selectedBet, setSelectedBet] = useState<Bet | null>(null);
 
 
+    // Filter bets into categories
+    const activeBetsList = bets.filter(b => b.status === 'active' && b.onChainState !== 4);
+    const resolvedBetsList = bets.filter(b => b.status === 'completed' || b.onChainState === 4);
+
     const filteredPlayers = players
         .filter(p =>
             p.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.displayName.toLowerCase().includes(searchQuery.toLowerCase())
         )
         .sort((a, b) => a.username.localeCompare(b.username));
+
+    // File to Base64 Helper
+    const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
 
     useEffect(() => {
         fetchAdminData();
@@ -279,6 +293,12 @@ export default function AdminDashboard() {
                         >
                             ⚠️ Disputes ({bets.filter(b => b.onChainState === 3).length})
                         </button>
+                        <button
+                            onClick={() => setActiveTab('resolved')}
+                            className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'resolved' ? 'bg-green-500 text-white' : 'text-textSecondary hover:text-green-500 bg-white/5'}`}
+                        >
+                            History ({resolvedBetsList.length})
+                        </button>
                     </div>
                 </div>
 
@@ -318,384 +338,475 @@ export default function AdminDashboard() {
             </div>
 
             {/* DISPUTES TAB CONTENT */}
-            {activeTab === 'disputes' && (
-                <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
-                    <div className="px-6 py-4 border-b border-white/5 bg-red-500/5">
-                        <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
-                            <Shield className="w-5 h-5" />
-                            Resolution Queue
-                        </h2>
-                        <p className="text-sm text-red-400/60">Markets that are active but expired/pending resolution.</p>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-black/20">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {bets.filter(b => b.onChainState === 3).map(bet => (
-                                    <tr key={bet.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-white">@{bet.username}</div>
-                                            <div className="text-xs text-textSecondary">{bet.type}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-mono text-green-400 font-bold">${bet.totalPot.toFixed(2)}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                                                🔴 DISPUTED
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <button
-                                                onClick={() => handleOpenResolveModal(bet)}
-                                                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold text-sm hover:bg-purple-500 transition-colors shadow-[0_0_10px_rgba(147,51,234,0.4)] flex items-center gap-2"
-                                            >
-                                                ⚖️ ARBITRAR DISPUTA
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {bets.filter(b => b.onChainState === 3).length === 0 && (
+            {
+                activeTab === 'disputes' && (
+                    <div className="bg-surface border border-red-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
+                        <div className="px-6 py-4 border-b border-white/5 bg-red-500/5">
+                            <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
+                                <Shield className="w-5 h-5" />
+                                Resolution Queue
+                            </h2>
+                            <p className="text-sm text-red-400/60">Markets that are active but expired/pending resolution.</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-black/20">
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
-                                            <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
-                                            <p className="text-lg font-bold text-white/20">No Pending Disputes</p>
-                                            <p className="text-sm">All markets are running smoothly.</p>
-                                        </td>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {bets.filter(b => b.onChainState === 3).map(bet => (
+                                        <tr key={bet.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-white">@{bet.username}</div>
+                                                <div className="text-xs text-textSecondary">{bet.type}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-green-400 font-bold">${bet.totalPot.toFixed(2)}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                                    🔴 DISPUTED
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <button
+                                                    onClick={() => handleOpenResolveModal(bet)}
+                                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg font-bold text-sm hover:bg-purple-500 transition-colors shadow-[0_0_10px_rgba(147,51,234,0.4)] flex items-center gap-2"
+                                                >
+                                                    ⚖️ ARBITRAR DISPUTA
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {bets.filter(b => b.onChainState === 3).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
+                                                <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                                                <p className="text-lg font-bold text-white/20">No Pending Disputes</p>
+                                                <p className="text-sm">All markets are running smoothly.</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* USERS TAB */}
-            {activeTab === 'users' && (
-                <div className="space-y-6">
-                    <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-                            <div>
-                                <h2 className="text-xl font-bold text-textPrimary">User Database</h2>
-                                <p className="text-textSecondary text-sm">Manage popular players for quick selection.</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={handleLoadTop100}
-                                    className="px-4 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg text-sm font-bold hover:bg-purple-500/30 transition-all"
-                                >
-                                    📥 Load Top 100 Template
-                                </button>
-                                <button
-                                    onClick={handleBulkSave}
-                                    className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all flex items-center gap-2"
-                                >
-                                    <Save className="w-4 h-4" /> Save All Changes
-                                </button>
-                                <button
-                                    onClick={() => setEditingPlayer({ username: '', displayName: '', pfpUrl: '' })}
-                                    className="px-4 py-2 bg-primary text-background rounded-lg text-sm font-bold hover:opacity-90 transition-all"
-                                >
-                                    + Add User
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Search */}
-                        <div className="relative mb-6">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search by username..."
-                                className="w-full bg-darkGray border border-darkGray rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-primary"
-                            />
-                        </div>
-
-                        {/* List */}
-                        <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-                            {/* Edit Form */}
-                            {editingPlayer && (
-                                <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                                    <div>
-                                        <label className="text-xs text-textSecondary mb-1 block">Username</label>
-                                        <input
-                                            value={editingPlayer.username}
-                                            onChange={(e) => setEditingPlayer({ ...editingPlayer, username: e.target.value })}
-                                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
-                                            placeholder="handle"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-textSecondary mb-1 block">Display Name</label>
-                                        <input
-                                            value={editingPlayer.displayName}
-                                            onChange={(e) => setEditingPlayer({ ...editingPlayer, displayName: e.target.value })}
-                                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
-                                            placeholder="Display Name"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-textSecondary mb-1 block">Avatar URL</label>
-                                        <input
-                                            value={editingPlayer.pfpUrl}
-                                            onChange={(e) => setEditingPlayer({ ...editingPlayer, pfpUrl: e.target.value })}
-                                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
-                                            placeholder="https://..."
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleSavePlayer(editingPlayer as Player)}
-                                            className="flex-1 bg-green-500/20 text-green-500 border border-green-500/30 rounded-lg py-2 font-bold hover:bg-green-500/30"
-                                        >
-                                            Save
-                                        </button>
-                                        <button
-                                            onClick={() => setEditingPlayer(null)}
-                                            className="px-3 bg-red-500/20 text-red-500 border border-red-500/30 rounded-lg py-2 hover:bg-red-500/30"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
+            {
+                activeTab === 'users' && (
+                    <div className="space-y-6">
+                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <h2 className="text-xl font-bold text-textPrimary">User Database</h2>
+                                    <p className="text-textSecondary text-sm">Manage popular players for quick selection.</p>
                                 </div>
-                            )}
-
-                            {filteredPlayers.map(player => (
-                                <div key={player.username} className="flex items-center gap-4 bg-white/5 border border-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors group">
-                                    <div className="w-10 h-10 rounded-full bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 relative">
-                                        {player.pfpUrl ? (
-                                            <img src={player.pfpUrl} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-xs text-white/20">?</div>
-                                        )}
-                                        {/* Quick Upload Overlay */}
-                                        <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                                            <Upload className="w-4 h-4 text-white" />
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={(e) => {
-                                                    const f = e.target.files?.[0];
-                                                    if (f) {
-                                                        const url = URL.createObjectURL(f);
-                                                        const updated = { ...player, pfpUrl: url };
-                                                        setPlayers(players.map(p => p.username === player.username ? updated : p));
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-white truncate">{player.displayName}</div>
-                                        <div className="text-xs text-textSecondary truncate">@{player.username}</div>
-                                    </div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => setEditingPlayer(player)}
-                                            className="p-2 hover:bg-white/10 rounded-lg text-blue-400"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeletePlayer(player.username)}
-                                            className="p-2 hover:bg-red-500/10 rounded-lg text-red-500"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleLoadTop100}
+                                        className="px-4 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg text-sm font-bold hover:bg-purple-500/30 transition-all"
+                                    >
+                                        📥 Load Top 100 Template
+                                    </button>
+                                    <button
+                                        onClick={handleBulkSave}
+                                        className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all flex items-center gap-2"
+                                    >
+                                        <Save className="w-4 h-4" /> Save All Changes
+                                    </button>
+                                    <button
+                                        onClick={() => setEditingPlayer({ username: '', displayName: '', pfpUrl: '' })}
+                                        className="px-4 py-2 bg-primary text-background rounded-lg text-sm font-bold hover:opacity-90 transition-all"
+                                    >
+                                        + Add User
+                                    </button>
                                 </div>
-                            ))}
-                            {filteredPlayers.length === 0 && (
-                                <div className="text-center py-10 text-white/40">No players found. Load the template!</div>
-                            )}
+                            </div>
+
+                            {/* Search */}
+                            <div className="relative mb-6">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search by username..."
+                                    className="w-full bg-darkGray border border-darkGray rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-primary"
+                                />
+                            </div>
+
+                            {/* List */}
+                            {/* List */}
+                            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                                {/* Edit Form */}
+                                {editingPlayer && (
+                                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="text-xs text-textSecondary mb-1 block">Username</label>
+                                                <input
+                                                    value={editingPlayer.username}
+                                                    onChange={(e) => setEditingPlayer({ ...editingPlayer!, username: e.target.value } as Player)}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="handle"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-textSecondary mb-1 block">Display Name</label>
+                                                <input
+                                                    value={editingPlayer.displayName}
+                                                    onChange={(e) => setEditingPlayer({ ...editingPlayer!, displayName: e.target.value } as Player)}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="Display Name"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-textSecondary mb-1 block">Avatar (URL or Upload)</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        value={editingPlayer.pfpUrl}
+                                                        onChange={(e) => setEditingPlayer({ ...editingPlayer!, pfpUrl: e.target.value } as Player)}
+                                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-xs"
+                                                        placeholder="https://..."
+                                                    />
+                                                    <label className="bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg cursor-pointer flex items-center justify-center">
+                                                        <Upload className="w-4 h-4 text-primary" />
+                                                        <input
+                                                            type="file"
+                                                            className="hidden"
+                                                            accept="image/*"
+                                                            onChange={async (e) => {
+                                                                const f = e.target.files?.[0];
+                                                                if (f) {
+                                                                    const base64 = await toBase64(f);
+                                                                    setEditingPlayer({ ...editingPlayer!, pfpUrl: base64 } as Player);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-textSecondary mb-1 block">Platform</label>
+                                                <select
+                                                    value={editingPlayer.platform || 'farcaster'}
+                                                    onChange={(e) => setEditingPlayer({ ...editingPlayer!, platform: e.target.value as any } as Player)}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                                >
+                                                    <option value="farcaster">Farcaster (Warpcast)</option>
+                                                    <option value="twitter">X (Twitter)</option>
+                                                    <option value="baseapp">BaseApp</option>
+                                                </select>
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <label className="text-xs text-textSecondary mb-1 block">Profile URL Link (Optional Override)</label>
+                                                <input
+                                                    value={editingPlayer.profileUrl || ''}
+                                                    onChange={(e) => setEditingPlayer({ ...editingPlayer!, profileUrl: e.target.value } as Player)}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="https://x.com/username (Leaves blank to auto-generate)"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2 justify-end">
+                                            <button
+                                                onClick={() => setEditingPlayer(null)}
+                                                className="px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg hover:bg-red-500/20"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => handleSavePlayer(editingPlayer as Player)}
+                                                className="px-6 py-2 bg-green-500 text-black font-bold rounded-lg hover:bg-green-400"
+                                            >
+                                                Save Player
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {filteredPlayers.map(player => (
+                                    <div key={player.username} className="flex items-center gap-4 bg-white/5 border border-white/5 p-3 rounded-xl hover:bg-white/10 transition-colors group">
+                                        <div className="w-10 h-10 rounded-full bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 relative">
+                                            {player.pfpUrl ? (
+                                                <img src={player.pfpUrl} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-xs text-white/20">?</div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-white truncate">{player.displayName}</span>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${player.platform === 'twitter' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' :
+                                                    player.platform === 'baseapp' ? 'bg-blue-700/20 border-blue-700/30 text-blue-300' :
+                                                        'bg-purple-500/20 border-purple-500/30 text-purple-400'
+                                                    }`}>
+                                                    {player.platform === 'twitter' ? 'X' : player.platform === 'baseapp' ? 'Base' : 'Warpcast'}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-textSecondary truncate">@{player.username}</div>
+                                        </div>
+                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => setEditingPlayer(player)}
+                                                className="p-2 hover:bg-white/10 rounded-lg text-blue-400"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeletePlayer(player.username)}
+                                                className="p-2 hover:bg-red-500/10 rounded-lg text-red-500"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {filteredPlayers.length === 0 && (
+                                    <div className="text-center py-10 text-white/40">No players found. Load the template!</div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* DASHBOARD TAB */}
-            {activeTab === 'dashboard' && (
-                <>
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-textSecondary">Total Apostas</span>
-                                <TrendingUp className="w-5 h-5 text-primary" />
+            {
+                activeTab === 'dashboard' && (
+                    <>
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-textSecondary">Total Apostas</span>
+                                    <TrendingUp className="w-5 h-5 text-primary" />
+                                </div>
+                                <div className="text-3xl font-bold text-textPrimary">
+                                    {stats.totalBets}
+                                </div>
                             </div>
-                            <div className="text-3xl font-bold text-textPrimary">
-                                {stats.totalBets}
+
+                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-textSecondary">Apostas Ativas</span>
+                                    <Clock className="w-5 h-5 text-primary" />
+                                </div>
+                                <div className="text-3xl font-bold text-textPrimary">
+                                    {stats.activeBets}
+                                </div>
+                            </div>
+
+                            <div className="bg-surface border border-darkGray rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-textSecondary">Volume Total</span>
+                                    <DollarSign className="w-5 h-5 text-primary" />
+                                </div>
+                                <div className="text-3xl font-bold text-textPrimary">
+                                    ${stats.totalVolume.toFixed(2)}
+                                </div>
+                                <div className="text-xs text-textSecondary mt-1">USDC</div>
+                            </div>
+
+                            <div className="bg-surface border border-green-500/30 rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-textSecondary">Suas Taxas (20%)</span>
+                                    <DollarSign className="w-5 h-5 text-green-500" />
+                                </div>
+                                <div className="text-3xl font-bold text-green-500">
+                                    ${stats.totalFees.toFixed(2)}
+                                </div>
+                                <div className="text-xs text-textSecondary mt-1">USDC</div>
                             </div>
                         </div>
 
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-textSecondary">Apostas Ativas</span>
-                                <Clock className="w-5 h-5 text-primary" />
+                        {/* Active Bets Table */}
+                        <div className="bg-surface border border-darkGray rounded-2xl overflow-hidden">
+                            <div className="px-6 py-4 border-b border-darkGray">
+                                <h2 className="text-xl font-bold text-textPrimary">
+                                    Apostas Ativas
+                                </h2>
                             </div>
-                            <div className="text-3xl font-bold text-textPrimary">
-                                {stats.activeBets}
-                            </div>
+
+                            {activeBetsList.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <div className="text-6xl mb-4">📊</div>
+                                    <h3 className="text-xl font-bold text-textPrimary mb-2">
+                                        Nenhuma Aposta Criada
+                                    </h3>
+                                    <p className="text-textSecondary mb-6">
+                                        Crie sua primeira aposta para começar
+                                    </p>
+                                    <Link
+                                        href="/admin/create"
+                                        className="inline-flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-6 py-3 rounded-xl transition-all"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                        Criar Primeira Aposta
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-darkGray/30">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Aposta
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Alvo
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Período
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Pote
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Participantes
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Tempo Restante
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                                                    Status
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-darkGray">
+                                            {activeBetsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((bet) => (
+                                                <tr key={bet.id} className="hover:bg-darkGray/20 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div>
+                                                            <div className="font-medium text-textPrimary">@{bet.username}</div>
+                                                            <div className="text-sm text-textSecondary">{bet.type}</div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="text-textPrimary font-medium">{bet.target}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-textSecondary">
+                                                        {bet.timeframe}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="text-primary font-bold">${bet.totalPot.toFixed(2)}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-1">
+                                                            <Users className="w-4 h-4 text-textSecondary" />
+                                                            <span className="text-textPrimary">{bet.participantCount}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="text-textSecondary">
+                                                            {formatTimeRemaining(bet.expiresAt)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex flex-col gap-2">
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.onChainState === 4
+                                                                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                                                    : bet.status === 'active'
+                                                                        ? 'bg-primary/10 text-primary border border-primary/30'
+                                                                        : 'bg-green-500/10 text-green-500 border border-green-500/30'
+                                                                    }`}>
+                                                                    {bet.onChainState === 4 ? 'Resolved (On-Chain)' : bet.status === 'active' ? 'Active' : 'Finished'}
+                                                                </span>
+
+                                                                {/* Resolution Button for Active but Expired Bets */}
+                                                                {(bet.status === 'active' && bet.onChainState !== 4) && (
+                                                                    <button
+                                                                        onClick={() => handleOpenResolveModal(bet)}
+                                                                        className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
+                                                                    >
+                                                                        ⚖️ Resolve
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Individual Delete Button */}
+                                                            <button
+                                                                onClick={() => handleDeleteBet(bet.id)}
+                                                                className="p-2 hover:bg-red-500/10 rounded-lg text-red-500/50 hover:text-red-500 transition-colors"
+                                                                title="Delete Bet"
+                                                            >
+                                                                <Trash2 className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="bg-surface border border-darkGray rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-textSecondary">Volume Total</span>
-                                <DollarSign className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="text-3xl font-bold text-textPrimary">
-                                ${stats.totalVolume.toFixed(2)}
-                            </div>
-                            <div className="text-xs text-textSecondary mt-1">USDC</div>
-                        </div>
+                        {/* Resolution Modal */}
 
-                        <div className="bg-surface border border-green-500/30 rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-textSecondary">Suas Taxas (20%)</span>
-                                <DollarSign className="w-5 h-5 text-green-500" />
-                            </div>
-                            <div className="text-3xl font-bold text-green-500">
-                                ${stats.totalFees.toFixed(2)}
-                            </div>
-                            <div className="text-xs text-textSecondary mt-1">USDC</div>
-                        </div>
-                    </div>
-
-                    {/* Active Bets Table */}
-                    <div className="bg-surface border border-darkGray rounded-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-darkGray">
-                            <h2 className="text-xl font-bold text-textPrimary">
-                                Apostas Ativas
+                    </>
+                )
+            }
+            {/* RESOLVED TAB */}
+            {
+                activeTab === 'resolved' && (
+                    <div className="bg-surface border border-green-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
+                        <div className="px-6 py-4 border-b border-white/5 bg-green-500/5">
+                            <h2 className="text-xl font-bold text-green-500 flex items-center gap-2">
+                                <Clock className="w-5 h-5" />
+                                Bet History & Resolutions
                             </h2>
                         </div>
-
-                        {bets.length === 0 ? (
-                            <div className="p-12 text-center">
-                                <div className="text-6xl mb-4">📊</div>
-                                <h3 className="text-xl font-bold text-textPrimary mb-2">
-                                    Nenhuma Aposta Criada
-                                </h3>
-                                <p className="text-textSecondary mb-6">
-                                    Crie sua primeira aposta para começar
-                                </p>
-                                <Link
-                                    href="/admin/create"
-                                    className="inline-flex items-center gap-2 bg-primary hover:bg-secondary text-background font-bold px-6 py-3 rounded-xl transition-all"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                    Criar Primeira Aposta
-                                </Link>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-darkGray/30">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Aposta
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Alvo
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Período
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Pote
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Participantes
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Tempo Restante
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                                                Status
-                                            </th>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-black/20">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Result</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Ended</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {resolvedBetsList.map(bet => (
+                                        <tr key={bet.id} className="hover:bg-white/5 transition-colors opacity-70 hover:opacity-100">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-white">@{bet.username}</div>
+                                                <div className="text-xs text-textSecondary">{bet.type}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-white/60">${bet.totalPot.toFixed(2)}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                                                    ✅ COMPLETE
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-white/40">
+                                                {new Date(bet.expiresAt).toLocaleDateString()}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-darkGray">
-                                        {[...bets].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((bet) => (
-                                            <tr key={bet.id} className="hover:bg-darkGray/20 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div>
-                                                        <div className="font-medium text-textPrimary">@{bet.username}</div>
-                                                        <div className="text-sm text-textSecondary">{bet.type}</div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-textPrimary font-medium">{bet.target}</span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-textSecondary">
-                                                    {bet.timeframe}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-primary font-bold">${bet.totalPot.toFixed(2)}</span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-1">
-                                                        <Users className="w-4 h-4 text-textSecondary" />
-                                                        <span className="text-textPrimary">{bet.participantCount}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-textSecondary">
-                                                        {formatTimeRemaining(bet.expiresAt)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex flex-col gap-2">
-                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${bet.onChainState === 4
-                                                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                                                                : bet.status === 'active'
-                                                                    ? 'bg-primary/10 text-primary border border-primary/30'
-                                                                    : 'bg-green-500/10 text-green-500 border border-green-500/30'
-                                                                }`}>
-                                                                {bet.onChainState === 4 ? 'Resolved (On-Chain)' : bet.status === 'active' ? 'Active' : 'Finished'}
-                                                            </span>
-
-                                                            {/* Resolution Button for Active but Expired Bets */}
-                                                            {(bet.status === 'active' && bet.onChainState !== 4) && (
-                                                                <button
-                                                                    onClick={() => handleOpenResolveModal(bet)}
-                                                                    className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
-                                                                >
-                                                                    ⚖️ Resolve
-                                                                </button>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Individual Delete Button */}
-                                                        <button
-                                                            onClick={() => handleDeleteBet(bet.id)}
-                                                            className="p-2 hover:bg-red-500/10 rounded-lg text-red-500/50 hover:text-red-500 transition-colors"
-                                                            title="Delete Bet"
-                                                        >
-                                                            <Trash2 className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                    ))}
+                                    {resolvedBetsList.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
+                                                No resolved bets yet.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+                )
+            }
 
-                    {/* Resolution Modal */}
-
-                </>
-            )}
             {/* Resolution Modal Component */}
             <ResolveModal
                 isOpen={resolveModalOpen}
@@ -704,7 +815,7 @@ export default function AdminDashboard() {
                 username={selectedBet?.username}
                 knownOnChainState={selectedBet?.onChainState}
             />
-        </div>
+        </div >
     );
 }
 

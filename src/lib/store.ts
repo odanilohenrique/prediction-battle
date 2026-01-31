@@ -23,6 +23,8 @@ export interface Bet {
     username: string;
     displayName?: string;  // Farcaster display name (e.g., "Dan Romero")
     pfpUrl?: string;       // Profile picture URL from Neynar
+    platform?: 'twitter' | 'farcaster' | 'baseapp'; // Platform preference
+    profileUrl?: string;   // Explicit profile link
     fid?: number;          // Farcaster ID for verification
     type: string;
     target: number;
@@ -84,6 +86,8 @@ export interface Player {
     username: string; // Unique identifier (handle)
     displayName: string;
     pfpUrl: string;
+    platform?: 'twitter' | 'farcaster' | 'baseapp';
+    profileUrl?: string;
 }
 
 export const store = {
@@ -188,14 +192,25 @@ export const store = {
 
     async savePlayers(players: Player[]): Promise<void> {
         try {
+            // FIX: We must delete the existing list to handle deletions properly.
+            // But deleting active keys can be race-condition prone.
+            // Since this is Admin only, we can Nuke & Set.
+
+            if (players.length === 0) {
+                await kv.del(PLAYERS_KEY);
+                return;
+            }
+
             const hashObj: Record<string, Player> = {};
             players.forEach(p => {
                 const key = p.username.toLowerCase();
                 hashObj[key] = { ...p, username: key };
             });
-            if (Object.keys(hashObj).length > 0) {
-                await kv.hset(PLAYERS_KEY, hashObj);
-            }
+
+            // Delete old hash first to clear removed items
+            // This is a "Replace All" strategy
+            await kv.del(PLAYERS_KEY);
+            await kv.hset(PLAYERS_KEY, hashObj);
         } catch (error) {
             console.error('Redis Error (savePlayers):', error);
             throw error;
