@@ -21,6 +21,7 @@ const NAV_ITEMS = [
     { label: 'Home', href: '/', icon: Home, active: true },
     { label: 'Trending', href: '/trending', icon: Flame, active: false, soon: true },
     { label: 'Profile', href: '/profile', icon: User, active: true },
+    { label: 'Earnings', href: '/earnings', icon: Wallet, active: true },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy, active: false, soon: true },
     { label: 'Categories', href: '/categories', icon: LayoutGrid, active: false, soon: true },
     { label: 'Docs', href: '/docs', icon: Book, active: true }, // Maybe link to external?
