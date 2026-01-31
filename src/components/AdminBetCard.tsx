@@ -1204,6 +1204,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
                                 onClick={handleClaim}
                                 loading={isSubmitting}
+                                label={normalizedResult === 'void' ? 'CLAIM REFUND' : 'CLAIM WINNINGS'}
+                                subtext={normalizedResult === 'void' ? 'FULL RETURN' : 'GET PAID'}
                             />
                         ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
                             <div className="flex flex-col gap-2 w-full">
