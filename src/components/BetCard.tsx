@@ -206,6 +206,22 @@ export default function BetCard({
                                             `-$${userAmount.toFixed(2)}`}
                                 </span>
                             </div>
+
+                            {/* Redirect for Fee Earners (Creators/Proposers) who 'Lost' the bet */}
+                            {status === 'lost' && (
+                                <div className="mt-3 pt-3 border-t border-white/10">
+                                    <div className="text-xs text-textSecondary mb-2">
+                                        Created this market or won a dispute?
+                                    </div>
+                                    <a
+                                        href="/earnings"
+                                        className="block w-full text-center bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-2 rounded-lg text-sm transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Coins className="w-4 h-4 text-yellow-400" />
+                                        Check Earnings
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     )}
 
