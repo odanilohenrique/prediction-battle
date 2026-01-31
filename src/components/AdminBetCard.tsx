@@ -288,14 +288,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         const distributablePool = totalPool - fee;
 
         if (normalizedResult === 'void') {
-            // Void Refund Logic: (UserBet / (TotalPool - Seeds)) * Distributable
-            // Or simplified: Users get their share of the net pool.
-            // Denominator: Total User Bets only? 
-            // V2 Logic: TotalUserBets = Total - Seeds
-            const totalUserBets = totalPool - seedYes - seedNo;
-            if (totalUserBets > BigInt(0)) {
-                calculatedPayout = (userShares * distributablePool) / totalUserBets;
-            }
+            // VOID REFUND (Contract V6.1 Line 398): Returns Exact Amount (No Fee)
+            // payout = yesBet.amount + noBet.amount
+            calculatedPayout = userYesAmount + userNoAmount;
         } else {
             // Winner Logic
             // Eligible Shares = WinningTotal - WinningSeed
