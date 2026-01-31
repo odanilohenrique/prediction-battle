@@ -112,7 +112,7 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <Flame className="w-5 h-5 text-primary animate-pulse" />
-                        <h2 className="text-lg font-bold text-white uppercase tracking-wider">
+                        <h2 className="text-lg font-display font-bold text-white uppercase tracking-wider">
                             {activeTab === 'official' ? 'Official Events' : activeTab === 'community' ? 'Community Battles' : 'Recently Expired'}
                         </h2>
                     </div>
