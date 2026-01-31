@@ -895,8 +895,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         )}
                     </div>
                     <div className="flex items-center gap-1 text-xs font-mono text-primary">
-                        <Clock className="w-3 h-3" />
-                        <span suppressHydrationWarning>{formatTimeRemaining()}</span>
+                        {/* Timer Removed */}
                     </div>
                 </div>
 
@@ -928,7 +927,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4 mb-6 w-full max-w-2xl mx-auto">
                                 {/* Player A (Left) */}
                                 <div className="flex flex-col items-center justify-start h-full">
-                                    <a href={`https://warpcast.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
+                                    <a href={`https://x.com/${bet.optionA.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
                                         <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-green-500/50 group-hover/player:border-green-500 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] relative">
                                             {bet.optionA.imageUrl ? (
                                                 <img src={bet.optionA.imageUrl} alt={bet.optionA.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
@@ -967,7 +966,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                 {/* Player B (Right) */}
                                 <div className="flex flex-col items-center justify-start h-full">
-                                    <a href={`https://warpcast.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
+                                    <a href={`https://x.com/${bet.optionB.label}`} target="_blank" rel="noreferrer" className="group/player flex flex-col items-center">
                                         <div className="w-16 h-16 md:w-32 md:h-32 rounded-xl overflow-hidden border-3 border-red-500/50 group-hover/player:border-red-500 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] relative">
                                             {bet.optionB.imageUrl ? (
                                                 <img src={bet.optionB.imageUrl} alt={bet.optionB.label} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = 'https://link.warpcast.com/api/avatar/default.png')} />
