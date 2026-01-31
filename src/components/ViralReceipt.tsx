@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Share2, CheckCircle, Smartphone, ShieldCheck, Trophy, X, Loader2 } from 'lucide-react';
+import { Share2, CheckCircle, Smartphone, ShieldCheck, Trophy, X, Loader2, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toPng } from 'html-to-image';
 
@@ -24,6 +24,7 @@ interface ViralReceiptProps {
         opponentAvatar?: string;
         myFighterAvatar?: string;
         referralCode?: string;
+        boost?: number; // Time Weight Bonus
     };
 }
 
@@ -209,9 +210,8 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
                                         ${data.potentialWin.toFixed(2)}
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="text-xs text-white/40 uppercase tracking-widest">MULTIPLIER</div>
-                                    <div className="text-sm font-bold text-white/60">{data.multiplier}x</div>
+                                <div className="text-[10px] text-center text-white/30 uppercase tracking-widest mt-1">
+                                    NET PAYOUT
                                 </div>
                             </div>
 
