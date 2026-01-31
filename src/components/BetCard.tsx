@@ -293,7 +293,7 @@ export default function BetCard({
 
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-textSecondary">Your Bet</span>
-                        <span className="text-primary font-bold">${userAmount.toFixed(2)}</span>
+                        <span className="text-primary font-display font-bold">${userAmount.toFixed(2)}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -301,7 +301,7 @@ export default function BetCard({
                             <Users className="w-4 h-4" />
                             Total Pot
                         </span>
-                        <span className="text-textPrimary font-bold">${totalPot.toFixed(2)}</span>
+                        <span className="text-textPrimary font-display font-bold">${totalPot.toFixed(2)}</span>
                     </div>
 
                     {/* Result Section */}
