@@ -306,6 +306,33 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                         {!isDisputed && (
                             <div className="border-t border-white/10 pt-4">
                                 <h4 className="text-xs text-textSecondary uppercase mb-2 font-bold">Override Actions</h4>
+
+                                {/* SOLITAIRE BET PROTECTION */}
+                                {(() => {
+                                    const totalYes = getField(marketData, 'totalYes', 18, 'bigint');
+                                    const totalNo = getField(marketData, 'totalNo', 19, 'bigint');
+                                    const isOneSided = (totalYes > 0 && totalNo === BigInt(0)) || (totalNo > 0 && totalYes === BigInt(0));
+
+                                    if (isOneSided) {
+                                        return (
+                                            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 mb-4 animate-pulse">
+                                                <div className="flex items-center gap-2 text-red-500 font-bold text-sm mb-1">
+                                                    <ShieldAlert className="w-5 h-5" />
+                                                    WARNING: One-Sided Market
+                                                </div>
+                                                <p className="text-xs text-white/80 leading-relaxed">
+                                                    There is only liquidity on ONE side.
+                                                    <br />
+                                                    Resolving as <strong className="text-white">WIN</strong> will charge 20% fees to the sole depositor(s).
+                                                    <br />
+                                                    Recommended: <strong className="text-white">VOID</strong> for 100% refund.
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
                                 <div className="grid grid-cols-2 gap-3 mb-3">
                                     <button
                                         onClick={() => handleAction('forceYes')}
@@ -325,7 +352,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                 <button
                                     onClick={() => handleAction('void')}
                                     disabled={isResolving}
-                                    className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all"
+                                    className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all flex items-center justify-center gap-2"
                                 >
                                     ⛔ Void Market (Refund All)
                                 </button>
