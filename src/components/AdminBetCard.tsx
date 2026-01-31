@@ -17,6 +17,8 @@ interface AdminBet {
     username: string;
     displayName?: string;
     pfpUrl?: string;
+    platform?: 'twitter' | 'farcaster' | 'baseapp'; // [NEW]
+    profileUrl?: string;   // [NEW]
     fid?: number;
     type: string;
     target: number;
@@ -63,6 +65,13 @@ const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
 import { useModal } from '@/providers/ModalProvider';
 // Remove import Modal from ... (will handle in next edit if strictly separate)
+
+const getProfileLink = (bet: AdminBet) => {
+    if (bet.profileUrl) return bet.profileUrl;
+    if (bet.platform === 'twitter') return `https://x.com/${bet.username}`;
+    if (bet.platform === 'baseapp') return `https://base.org/${bet.username}`;
+    return `https://warpcast.com/${bet.username}`;
+};
 
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { showModal, showConfirm, showAlert, closeModal } = useModal();
@@ -1001,24 +1010,24 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             <div className="flex items-center gap-4 w-full md:w-auto">
                                 {/* Avatar */}
                                 {bet.pfpUrl ? (
-                                    <div className="relative flex-shrink-0">
-                                        <div className="w-20 h-20 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-primary/30 group-hover:border-primary transition-colors">
+                                    <a href={getProfileLink(bet)} target="_blank" rel="noreferrer" className="relative flex-shrink-0 group/avatar block">
+                                        <div className="w-20 h-20 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-primary/30 group-hover/avatar:border-primary transition-colors">
                                             <img src={bet.pfpUrl} alt={bet.username} className="w-full h-full object-cover" />
                                         </div>
                                         <div className="absolute -bottom-2 -right-2 bg-primary text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded shadow-lg">
                                             OP
                                         </div>
-                                    </div>
+                                    </a>
                                 ) : (
-                                    <div className="w-20 h-20 md:w-32 md:h-32 rounded-xl bg-primary/20 flex items-center justify-center border-2 border-primary/30 flex-shrink-0">
-                                        <Swords className="w-8 h-8 md:w-12 md:h-12 text-primary" />
-                                    </div>
+                                    <a href={getProfileLink(bet)} target="_blank" rel="noreferrer" className="w-20 h-20 md:w-32 md:h-32 rounded-xl bg-primary/20 flex items-center justify-center border-2 border-primary/30 flex-shrink-0 group/avatar block">
+                                        <Swords className="w-8 h-8 md:w-12 md:h-12 text-primary group-hover/avatar:scale-110 transition-transform" />
+                                    </a>
                                 )}
 
                                 {/* Prediction Info */}
                                 <div className="min-w-0 flex-1">
                                     <h3 className="text-xl md:text-3xl font-black text-white leading-none mb-2 truncate">
-                                        <a href={`https://warpcast.com/${bet.username}`} target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">
+                                        <a href={getProfileLink(bet)} target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">
                                             @{bet.username}
                                         </a>
                                     </h3>
