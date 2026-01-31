@@ -495,7 +495,7 @@ export default function AdminDashboard() {
                                             <div>
                                                 <label className="text-xs text-textSecondary mb-1 block">Platform</label>
                                                 <select
-                                                    value={editingPlayer.platform || 'farcaster'}
+                                                    value={editingPlayer.platform || 'twitter'}
                                                     onChange={(e) => setEditingPlayer({ ...editingPlayer!, platform: e.target.value as any } as Player)}
                                                     className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
                                                 >

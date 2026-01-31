@@ -68,9 +68,9 @@ import { useModal } from '@/providers/ModalProvider';
 
 const getProfileLink = (bet: AdminBet) => {
     if (bet.profileUrl) return bet.profileUrl;
-    if (bet.platform === 'twitter') return `https://x.com/${bet.username}`;
+    if (bet.platform === 'farcaster') return `https://warpcast.com/${bet.username}`;
     if (bet.platform === 'baseapp') return `https://base.org/${bet.username}`;
-    return `https://warpcast.com/${bet.username}`;
+    return `https://x.com/${bet.username}`;
 };
 
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {

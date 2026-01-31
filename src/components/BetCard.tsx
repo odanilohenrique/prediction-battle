@@ -31,9 +31,9 @@ const BET_TYPE_LABELS: Record<string, string> = {
 
 const getProfileLink = (p: Prediction) => {
     if (p.profileUrl) return p.profileUrl;
-    if (p.platform === 'twitter') return `https://x.com/${p.castAuthor}`;
+    if (p.platform === 'farcaster') return `https://warpcast.com/${p.castAuthor}`;
     if (p.platform === 'baseapp') return `https://base.org/${p.castAuthor}`;
-    return `https://warpcast.com/${p.castAuthor}`;
+    return `https://x.com/${p.castAuthor}`;
 };
 
 export default function BetCard({

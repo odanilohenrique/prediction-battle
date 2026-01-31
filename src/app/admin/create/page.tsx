@@ -93,7 +93,7 @@ export default function CreateCommunityBet() {
         username: '',
         displayName: '',
         pfpUrl: '',
-        platform: 'farcaster', // Default
+        platform: 'twitter', // Default
         profileUrl: '',
 
         // Bet config
