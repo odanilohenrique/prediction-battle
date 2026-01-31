@@ -81,6 +81,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // V3: Verification Modal State
     const [showVerificationModal, setShowVerificationModal] = useState(false);
 
+    // V6: Public Dispute Timer State
+    const [disputeTimer, setDisputeTimer] = useState<string>('');
+    const [canFinalize, setCanFinalize] = useState(false);
+    const [isFinalizing, setIsFinalizing] = useState(false);
+
     // Wagmi hooks - Must be before useEffect
     const { address, isConnected, chainId } = useAccount();
     const { writeContractAsync } = useWriteContract();
@@ -376,6 +381,41 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Refetch function for verification modal success
     const refetchProposalInfo = refetchMarketInfo;
 
+    // --- TIMER LOGIC (Copied from BetCard) ---
+    useEffect(() => {
+        if (!activeMarketData || marketStateV5 !== 2) { // 2 = PROPOSED
+            setDisputeTimer('');
+            setCanFinalize(false);
+            return;
+        }
+
+        const propTime = Number(activeMarketData[11] || 0);
+        if (!propTime) return;
+
+        const DISPUTE_WINDOW = 12 * 60 * 60; // 43200s
+
+        const interval = setInterval(() => {
+            const now = Math.floor(Date.now() / 1000);
+            const endTime = propTime + DISPUTE_WINDOW;
+            const remaining = endTime - now;
+
+            if (remaining <= 0) {
+                setCanFinalize(true);
+                setDisputeTimer('00:00:00');
+                clearInterval(interval);
+            } else {
+                const h = Math.floor(remaining / 3600);
+                const m = Math.floor((remaining % 3600) / 60);
+                const s = remaining % 60;
+                setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+                setCanFinalize(false);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [activeMarketData, marketStateV5]);
+    // ------------------------------------------
+
     const handleClaimCreatorFees = async () => {
         if (!isConnected || !address) return;
         setIsSubmitting(true);
@@ -573,13 +613,32 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 const noPool = (bet?.participants?.no || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
                 const initialSeed = bet.initialValue || 0;
 
+                // Fee Config (V6: 10% House + 5% Creator + 5% Referrer = 20%)
+                const TOTAL_FEE_PERCENT = 0.20;
+
+                // Weight/Boost Calculation
+                // Max 1.5x, Min 1.0x
+                let weightMultiplier = 1.0;
+                // Try to estimate weight if we have creation info
+                // If not available, default to 1.0 (Safe) or assume max if new?
+                // Let's assume standard weight for now unless we can calc it.
+                // ideally: const creationTime = bet.createdAt (if available)
+                // For now, we fix the Fee (0.75 -> 0.80) which helps.
+
                 // DEAD LIQUIDITY FORMULA
                 const seedPerSide = initialSeed / 2;
                 const mySideTotal = choice === 'yes' ? yesPool + seedPerSide : noPool + seedPerSide;
                 const totalPoolAfterBet = yesPool + noPool + initialSeed + numericAmount;
-                const distributablePot = totalPoolAfterBet * 0.75;
+                const distributablePot = totalPoolAfterBet * (1 - TOTAL_FEE_PERCENT);
 
                 // Share = MyBet / (MySideTotal + MyBet)
+                // NOTE: This assumes everyone has weight 1.0. 
+                // To be precise we need weighted pools. 
+                // For the "Potential Win" shown on Ticket, we'll try to be more optimistic 
+                // if the user just selected a bonus. 
+                // But without 'creationTime' in 'bet' object, we can't calc exact weight.
+                // We'll proceed with Fee Fix (0.80) which improves it from 0.75.
+
                 const myShare = numericAmount / (mySideTotal + numericAmount);
                 const estimatedPayout = myShare * distributablePot;
 
@@ -1168,13 +1227,43 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </div>
                         ) : (isMarketProposed || isMarketDisputed) ? (
                             <div className="w-full flex flex-col gap-2">
-                                <button
-                                    disabled
-                                    className="w-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black py-3 rounded-xl transition-all uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    <Shield className="w-5 h-5 animate-pulse" />
-                                    {isMarketDisputed ? 'UNDER DISPUTE' : 'VERIFICATION IN PROGRESS'}
-                                </button>
+                                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 animate-fade-in relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2 relative z-10">
+                                        <div className="flex items-center gap-2 text-yellow-500 font-bold">
+                                            <Shield className="w-5 h-5" />
+                                            <span>VERIFICATION IN PROGRESS</span>
+                                        </div>
+                                        <div className="text-2xl font-mono font-black text-white drop-shadow-md">
+                                            {disputeTimer || 'Calculating...'}
+                                        </div>
+                                    </div>
+
+                                    {/* Progress Bar */}
+                                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mb-3 relative z-10">
+                                        {!canFinalize && <div className="h-full bg-yellow-500 animate-[progress_2s_ease-in-out_infinite] w-full origin-left" />}
+                                        {canFinalize && <div className="h-full bg-green-500 w-full" />}
+                                    </div>
+
+                                    <div className="text-xs text-white/40 flex justify-between mb-4 relative z-10">
+                                        <span>Observation Period (12h)</span>
+                                        <span className={canFinalize ? 'text-green-400 font-bold' : 'text-yellow-500'}>
+                                            {canFinalize ? 'WINDOW CLOSED' : 'DISPUTE WINDOW OPEN'}
+                                        </span>
+                                    </div>
+
+                                    {canFinalize && (
+                                        <button
+                                            onClick={handleClaim}
+                                            disabled={isSubmitting}
+                                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg text-sm transition-colors shadow-lg shadow-green-500/20 animate-pulse flex items-center justify-center gap-2 mb-2 relative z-10"
+                                        >
+                                            ✅ Finalize & Enable Payouts
+                                        </button>
+                                    )}
+
+                                    {/* Background Pulse */}
+                                    <div className="absolute inset-0 bg-yellow-500/5 animate-pulse z-0 pointer-events-none"></div>
+                                </div>
 
                                 {parsedProposalInfo && (
                                     <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs space-y-2">
