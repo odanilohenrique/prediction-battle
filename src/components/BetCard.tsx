@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Users, Trophy, Skull, Coins } from 'lucide-react';
+import { Clock, Users, Trophy, Skull, Coins, gavel } from 'lucide-react'; // gavel might not exist, checking imports
+import { Gavel } from 'lucide-react';
 import { Prediction } from '@/lib/types';
 import ResultReveal from './ResultReveal';
+import { useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import { CURRENT_CONFIG } from '@/lib/config';
 
 interface BetCardProps {
     prediction: Prediction;
@@ -46,6 +50,81 @@ export default function BetCard({
     const [showReveal, setShowReveal] = useState(false);
     const [hasViewedResult, setHasViewedResult] = useState(false);
 
+    // --- CONTRACT INTEGRATION (Smart Timer) ---
+    const { writeContractAsync } = useWriteContract();
+    const publicClient = usePublicClient();
+    const [isFinalizing, setIsFinalizing] = useState(false);
+    const [disputeTimer, setDisputeTimer] = useState<string>('');
+    const [canFinalize, setCanFinalize] = useState(false);
+
+    // Fetch live market state if pending & expired (to check for Proposed/Dispute phase)
+    const { data: marketData, refetch } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'markets',
+        args: [prediction.id],
+        query: {
+            enabled: status === 'pending' && isExpired,
+            refetchInterval: 10000, // Check periodically
+        }
+    }) as { data: any[] | undefined, refetch: () => void };
+
+    // Extract State info
+    const marketState = marketData ? Number(marketData[6]) : 0; // Index 6 is State
+    const proposalTime = marketData ? Number(marketData[11]) : 0; // Index 11 is ProposalTime
+    const DISPUTE_WINDOW = 12 * 60 * 60; // 12 hours in seconds
+
+    // Countdown Logic
+    useEffect(() => {
+        if (marketState !== 2 || !proposalTime) { // 2 = PROPOSED
+            setDisputeTimer('');
+            setCanFinalize(false);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = Math.floor(Date.now() / 1000);
+            const endTime = proposalTime + DISPUTE_WINDOW;
+            const remaining = endTime - now;
+
+            if (remaining <= 0) {
+                setCanFinalize(true);
+                setDisputeTimer('00:00:00');
+                clearInterval(interval);
+            } else {
+                const h = Math.floor(remaining / 3600);
+                const m = Math.floor((remaining % 3600) / 60);
+                const s = remaining % 60;
+                setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+                setCanFinalize(false);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [marketState, proposalTime]);
+
+    const handleFinalize = async () => {
+        setIsFinalizing(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'finalizeOutcome',
+                args: [prediction.id],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash });
+                refetch(); // Refresh state
+            }
+        } catch (error) {
+            console.error('Finalize failed:', error);
+            // Optional: alert user
+        } finally {
+            setIsFinalizing(false);
+        }
+    };
+    // -------------------------------------------
+
     // Check if result has been viewed before
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -71,8 +150,16 @@ export default function BetCard({
 
     // Status display
     const getStatusDisplay = () => {
+        // [NEW] Smart Status based on Chain State
+        if (marketState === 2) { // PROPOSED
+            return { label: 'VERIFYING', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50', icon: '⚖️' };
+        }
+        if (marketState === 3) { // DISPUTED
+            return { label: 'DISPUTED', color: 'bg-purple-500/20 text-purple-400 border-purple-500/50', icon: '🚨' };
+        }
+
         if (!isResolved && isExpired) {
-            return { label: 'EXPIRED - Awaiting Result', color: 'bg-orange-500/10 text-orange-400 border-orange-500/30', icon: '⏰' };
+            return { label: 'AWAITING RESULT', color: 'bg-orange-500/10 text-orange-400 border-orange-500/30', icon: '⏰' };
         }
         if (!isResolved) {
             return { label: 'ACTIVE', color: 'bg-primary/10 text-primary border-primary/30', icon: '⏳' };
@@ -119,6 +206,41 @@ export default function BetCard({
                         </div>
                     )}
                 </div>
+
+                {/* [NEW] Public Dispute Timer / Finalize Button */}
+                {!isResolved && marketState === 2 && (
+                    <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 animate-fade-in">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Gavel className="w-4 h-4 text-yellow-500" />
+                                <span className="text-sm font-bold text-yellow-500">Observation Period</span>
+                            </div>
+                            <span className="text-mono font-bold text-white">{disputeTimer || 'Calculando...'}</span>
+                        </div>
+
+                        {canFinalize ? (
+                            <button
+                                onClick={handleFinalize}
+                                disabled={isFinalizing}
+                                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isFinalizing ? (
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>✅ Enable Payouts</>
+                                )}
+                            </button>
+                        ) : (
+                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+                                <div className="h-full bg-yellow-500 animate-pulse w-full origin-left" style={{ animationDuration: '2s' }} />
+                            </div>
+                        )}
+                        <p className="text-[10px] text-white/40 mt-2 text-center">
+                            {canFinalize ? "Window closed. Anyone can finalize." : "Market is being verified. Only dispute if result is wrong."}
+                        </p>
+                    </div>
+                )}
+
 
                 {/* Cast Preview */}
                 <div className="mb-4 pb-4 border-b border-darkGray">
