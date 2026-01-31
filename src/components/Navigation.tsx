@@ -115,7 +115,7 @@ export default function Navigation() {
 
             {/* MOBILE TOP BAR (Header Replacement) */}
             <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-black/60 backdrop-blur-xl border-b border-white/5 z-50 flex items-center justify-between px-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow shadow-primary/20 overflow-hidden">
                         <Image
                             src="/icon.png"
@@ -125,10 +125,9 @@ export default function Navigation() {
                             className="object-cover"
                         />
                     </div>
-                    <span className="text-sm font-black text-white italic tracking-wide">ARENA</span>
+                    <span className="text-lg font-black text-white italic tracking-widest">ARENA</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <NetworkToggle />
+                <div>
                     <WalletButton />
                 </div>
             </header>
@@ -136,21 +135,8 @@ export default function Navigation() {
             {/* MOBILE BOTTOM NAV */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-black/80 backdrop-blur-xl border-t border-white/5 z-50 px-2 pb-5 pt-2 flex items-center justify-between">
                 {/* We pick 4-5 main items for mobile */}
-                {[NAV_ITEMS[0], NAV_ITEMS[1], { label: 'Create', href: '/create', icon: LayoutGrid, active: true }, NAV_ITEMS[3], NAV_ITEMS[2]].map((item) => {
-                    // Hacky middle button or just standard?
-                    // Let's standard for now.
-                    // Mapping: Home, Trending, LEADERBOARD? No, let's substitute Create or just keep standards.
-                    // User's request: Home, Trending, Profile, Leaderboard, Categs, Docs, Comm.
-                    // Mobile fit: Home, Trending, Leaderboard, Profile.
-                    // Let's do: Home, Trending, (Create?), Leaderboard, Profile.
-
-                    // actually let's stick to the list I decided: Home, Trending, Leaderboard, Profile.
-                    // Wait, the map above uses a manual array.
-                    return null;
-                })}
-
-                {/* Actual rendering */}
-                {['/', '/trending', '/create', '/leaderboard', '/profile'].map((path, idx) => {
+                {/* Custom list: Home, Trending, Create (Center), Earnings, Profile */}
+                {['/', '/trending', '/create', '/earnings', '/profile'].map((path, idx) => {
                     // Custom mapping for Mobile Bottom Bar visualization
                     let item = NAV_ITEMS.find(n => n.href === path);
                     if (path === '/create') {
@@ -164,7 +150,6 @@ export default function Navigation() {
                         )
                     }
 
-                    if (!item && path === '/leaderboard') item = NAV_ITEMS.find(n => n.label === 'Leaderboard');
                     if (!item) return null; // Should not happen
 
                     const isActive = pathname === item.href;
