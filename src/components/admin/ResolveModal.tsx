@@ -41,24 +41,40 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
 
     const { writeContractAsync } = useWriteContract();
 
-    // Parse V5 Struct
+    // Parse V5 Struct (Handle Array or Object return from Viem)
     // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadline, 6:state
     // 7:result, 8:isVoid, 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
     // 14:challenger, 15:challengeBondAmount, 16:challengeEvidenceUrl, 17:challengeTime
 
-    // Safety check type
-    const mData = marketData as any[] | undefined;
+    // Helper to get field by name or index
+    const getField = (data: any, name: string, index: number, type: 'string' | 'number' | 'bool' | 'bigint') => {
+        if (!data) {
+            if (type === 'string') return '';
+            if (type === 'number') return -1;
+            if (type === 'bool') return false;
+            if (type === 'bigint') return BigInt(0);
+        }
 
-    const marketState = mData ? Number(mData[6]) : -1;
-    const proposer = mData ? String(mData[9]) : '';
-    const proposedResult = mData ? Boolean(mData[10]) : false;
-    const evidenceUrl = mData ? String(mData[13]) : '';
-    const bondAmount = mData ? BigInt(mData[12]) : BigInt(0);
+        let val = data[name];
+        if (val === undefined) val = data[index];
+
+        if (type === 'string') return String(val || '');
+        if (type === 'number') return Number(val || 0);
+        if (type === 'bool') return Boolean(val);
+        if (type === 'bigint') return BigInt(val || 0);
+        return val;
+    };
+
+    const marketState = getField(marketData, 'state', 6, 'number');
+    const proposer = getField(marketData, 'proposer', 9, 'string');
+    const proposedResult = getField(marketData, 'proposedResult', 10, 'bool');
+    const evidenceUrl = getField(marketData, 'evidenceUrl', 13, 'string');
+    const bondAmount = getField(marketData, 'bondAmount', 12, 'bigint');
 
     // Challenger Info
-    const challenger = mData ? String(mData[14]) : '';
-    const challengeBondAmount = mData ? BigInt(mData[15]) : BigInt(0);
-    const challengeEvidenceUrl = mData ? String(mData[16]) : '';
+    const challenger = getField(marketData, 'challenger', 14, 'string');
+    const challengeBondAmount = getField(marketData, 'challengeBondAmount', 15, 'bigint');
+    const challengeEvidenceUrl = getField(marketData, 'challengeEvidenceUrl', 16, 'string');
 
     // Use knownOnChainState if provided, otherwise fall back to contract read
     const effectiveState = knownOnChainState !== undefined ? knownOnChainState : marketState;
