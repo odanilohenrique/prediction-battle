@@ -303,6 +303,44 @@
         "IERC20",
         "PredictionBattleV6"
       ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV6_1.sol": {
+      "lastModificationDate": 1769860103547,
+      "contentHash": "5793d3765091caf387aee17e48aafcef",
+      "sourceName": "contracts/PredictionBattleV6_1.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC20",
+        "PredictionBattleV6_1"
+      ]
     }
   }
 }
