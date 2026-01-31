@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
                 '12h': 12 * 60 * 60 * 1000,
                 '24h': 24 * 60 * 60 * 1000,
                 '7d': 7 * 24 * 60 * 60 * 1000,
+                '1y': 365 * 24 * 60 * 60 * 1000, // 1 year
                 'none': 100 * 365 * 24 * 60 * 60 * 1000, // 100 years
             };
             const selectedTimeframe = timeframe || '24h';
