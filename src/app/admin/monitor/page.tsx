@@ -5,6 +5,7 @@ import { ArrowLeft, RefreshCw, Clock, Users, DollarSign, TrendingUp, ExternalLin
 import Link from 'next/link';
 import { useWriteContract } from 'wagmi';
 import AdminBetRow from '@/components/AdminBetRow';
+import EarningsCard from '@/components/EarningsCard';
 
 interface BetMonitor {
     id: string;
@@ -167,6 +168,9 @@ export default function MonitorPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Earnings Section */}
+            <EarningsCard />
 
             {/* Stats Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
