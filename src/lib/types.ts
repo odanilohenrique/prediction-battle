@@ -23,6 +23,10 @@ export interface Prediction {
     targetValue: number;
     createdAt: number;
     expiresAt: number;
+    // [NEW] On-Chain Sync Fields
+    onChainState?: number; // 0=Open, 1=Locked, 2=Proposed, 3=Disputed, 4=Resolved, 5=Void
+    disputeEndTime?: number;
+    contractId?: string;
     pot: {
         yes: Bet[];
         no: Bet[];
