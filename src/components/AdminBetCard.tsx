@@ -907,7 +907,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             {/* Volume & Fighters - Top Right */}
                             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                                 <div className="text-center w-full md:w-auto flex-1">
-                                    <h3 className="text-lg md:text-xl font-display font-black text-white italic leading-tight drop-shadow-lg opacity-90">
+                                    <h3 className="text-lg md:text-xl font-black text-white italic leading-tight drop-shadow-lg opacity-90">
                                         {bet.castText || getBetTypeLabel()}
                                     </h3>
                                 </div>
