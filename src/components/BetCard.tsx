@@ -242,6 +242,19 @@ export default function BetCard({
                     </div>
                 )}
 
+                {/* [NEW] Disputed State Message */}
+                {!isResolved && marketState === 3 && (
+                    <div className="mb-4 bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 animate-fade-in">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Gavel className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm font-bold text-purple-500">Under Dispute</span>
+                        </div>
+                        <p className="text-xs text-textSecondary">
+                            This market has been disputed. An admin will verify the final result shortly.
+                        </p>
+                    </div>
+                )}
+
 
                 {/* Cast Preview */}
                 <div className="mb-4 pb-4 border-b border-darkGray">
