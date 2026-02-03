@@ -244,7 +244,7 @@ export default function VerificationModal({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'proposeOutcome',
-                args: [marketId, selectedResult === 'yes', finalEvidence],
+                args: [marketId, selectedResult === 'yes', finalEvidence, activeBond],
                 account: address
             });
 
@@ -369,7 +369,7 @@ export default function VerificationModal({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'challengeOutcome', // V5: Public Challenge
-                args: [marketId, finalEvidence],
+                args: [marketId, finalEvidence, activeBond],
                 account: address
             });
 
@@ -754,7 +754,7 @@ export default function VerificationModal({
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
                                     <Clock className="w-3 h-3" /> Dispute Window
                                 </span>
-                                <span className="text-sm font-bold text-yellow-500">~2 hours (3600 Blocks)</span>
+                                <span className="text-sm font-bold text-yellow-500">~12 hours (21600 Blocks)</span>
                             </div>
                         </div>
 
