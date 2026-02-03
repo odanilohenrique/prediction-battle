@@ -91,10 +91,13 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
         const MIN_WEIGHT = BigInt(100);
         const MAX_WEIGHT = BigInt(150);
 
+        // NET AMOUNT: 80% (20% Fees: 10 House + 5 Creator + 5 Ref)
+        const netAmount = (amountInWei * BigInt(80)) / BigInt(100);
+
         if (targetPool === BigInt(0) || oppositePool === BigInt(0)) {
             // Initial odds 1:1 (Weight 100%)
             // Shares = amount * 1e18
-            return (amountInWei * SHARE_PRECISION * BigInt(99)) / BigInt(100); // 1% Slippage
+            return (netAmount * SHARE_PRECISION * BigInt(99)) / BigInt(100); // 1% Slippage
         }
 
         const ratio = (oppositePool * SHARE_PRECISION) / targetPool;
@@ -103,7 +106,7 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
         if (weight < MIN_WEIGHT) weight = MIN_WEIGHT;
         if (weight > MAX_WEIGHT) weight = MAX_WEIGHT;
 
-        const expectedShares = (amountInWei * SHARE_PRECISION * weight) / BigInt(100);
+        const expectedShares = (netAmount * SHARE_PRECISION * weight) / BigInt(100);
 
         // Apply 1% Slippage Tolerance
         return (expectedShares * BigInt(99)) / BigInt(100);
