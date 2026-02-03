@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
@@ -152,6 +152,20 @@ export default function CreateCommunityBet() {
         getPlayersList().then(setSavedPlayers);
     }, []);
 
+    // Check Rate Limit (Read from Contract)
+    const { data: lastCreationData, queryKey: lastCreationQueryKey } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'lastMarketCreation',
+        args: [address],
+        query: {
+            enabled: !!address && !!CURRENT_CONFIG.contractAddress,
+        }
+    });
+
+    const lastCreationTime = lastCreationData ? Number(lastCreationData) : 0;
+    const MIN_INTERVAL = 3600; // 1 hour
+
     // Clear specific fields when switching modes
     useEffect(() => {
         if (creationMode === 'battle') {
@@ -184,6 +198,14 @@ export default function CreateCommunityBet() {
             return;
         }
 
+        // PRE-VALIDATION: Rate Limit
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        if (lastCreationTime > 0 && nowSeconds < lastCreationTime + MIN_INTERVAL) {
+            const waitMin = Math.ceil((lastCreationTime + MIN_INTERVAL - nowSeconds) / 60);
+            showAlert('Rate Limit', `You must wait ${waitMin} minutes before creating another market.`, 'warning');
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -201,9 +223,43 @@ export default function CreateCommunityBet() {
                 }
             }
 
-            // 1. Approve USDC for the Contract
+            // 1. Prepare Question & Check Length
+            let finalQuestion = '';
+            let username = formData.username;
+
+            if (creationMode === 'battle') {
+                finalQuestion = formData.battleQuestion;
+                username = `${formData.optionA.label} vs ${formData.optionB.label}`;
+            } else if (formData.betType === 'custom_text') {
+                finalQuestion = formData.predictionQuestion;
+            } else if (formData.betType === 'ratio') {
+                finalQuestion = `Will @${formData.username || 'user'} get RATIOED (Replies > Likes)?`;
+            } else {
+                finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType?.targetLabel || ''}?`;
+            }
+
+            // LENGTH CHECK
+            if (finalQuestion.length < 10) {
+                showAlert('Invalid Question', 'Question must be at least 10 characters long.', 'warning');
+                setIsSubmitting(false);
+                return;
+            }
+            if (finalQuestion.length > 500) {
+                showAlert('Invalid Question', 'Question is too long (max 500 chars).', 'warning');
+                setIsSubmitting(false);
+                return;
+            }
+
+            // 2. Approve USDC for the Contract
             console.log('[CREATE PAGE] Approving USDC...');
             const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
+
+            // EVEN AMOUNT CHECK (Contract Requirement)
+            if (totalSeedWei % 2n !== 0n) {
+                showAlert('Invalid Amount', 'Total seed amount must be divisible by 2 (e.g. 10.000002 not 10.000001). Please adjust your bet slightly.', 'warning');
+                setIsSubmitting(false);
+                return;
+            }
 
             const approveHash = await writeContractAsync({
                 address: USDC_ADDRESS as `0x${string}`,
@@ -227,15 +283,10 @@ export default function CreateCommunityBet() {
             }
             console.log('[CREATE PAGE] USDC Approved!');
 
-            // 2. Prepare Data
+            // 3. Prepare Data
             console.log('Creating prediction...');
-            let finalQuestion = '';
-            let username = formData.username;
 
             if (creationMode === 'battle') {
-                finalQuestion = formData.battleQuestion;
-                username = `${formData.optionA.label} vs ${formData.optionB.label}`;
-
                 // Save players logic (silent)
                 try {
                     if (formData.optionA.label) {
@@ -246,15 +297,9 @@ export default function CreateCommunityBet() {
                     }
                 } catch (err) { console.warn("Player save error ignored:", err); }
 
-            } else if (formData.betType === 'custom_text') {
-                finalQuestion = formData.predictionQuestion;
-            } else if (formData.betType === 'ratio') {
-                finalQuestion = `Will @${formData.username || 'user'} get RATIOED (Replies > Likes)?`;
-            } else {
-                finalQuestion = `Will @${formData.username || 'user'} hit ${formData.targetValue} ${currentBetType?.targetLabel || ''}?`;
             }
 
-            // 3. MAIN API CALL (Register in Database)
+            // 4. MAIN API CALL (Register in Database)
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -292,7 +337,7 @@ export default function CreateCommunityBet() {
 
             console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
 
-            // 4. Create Prediction on Smart Contract (Uses USDC transferFrom)
+            // 5. Create Prediction on Smart Contract (Uses USDC transferFrom)
             if (CURRENT_CONFIG.contractAddress && data.predictionId) {
                 try {
                     console.log('[CREATE PAGE] Creating on-chain prediction...');
@@ -321,7 +366,6 @@ export default function CreateCommunityBet() {
                         '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800, 'none': 31536000
                     };
                     const duration = TIMEFRAME_SECONDS[formData.timeframe] || 86400;
-                    const targetVal = formData.noTargetValue || formData.betType === 'custom_text' ? 0 : formData.targetValue;
 
                     // Check again if already exists to avoid the call
                     let skipCreation = false;
@@ -363,6 +407,12 @@ export default function CreateCommunityBet() {
                                 throw new Error('Contract transaction reverted');
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
+
+                            // Invalidate cache for rate limit so user sees new limit immediately if they try again
+                            if (publicClient.invalidateQueries) {
+                                // @ts-ignore
+                                publicClient.invalidateQueries({ queryKey: lastCreationQueryKey });
+                            }
                         }
                     } // End of if (!skipCreation)
                 } catch (contractError: any) {
