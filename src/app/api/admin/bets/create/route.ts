@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { getUserByUsername } from '@/lib/neynar';
+import { getOperatorClient } from '@/lib/contracts';
+import { BLOCK_TIME_SECONDS } from '@/lib/blockTime';
 
 // Timeframe mappings in milliseconds
 const TIMEFRAME_MS: Record<string, number> = {
@@ -78,7 +80,20 @@ export async function POST(request: NextRequest) {
         // Create bet ID
         const betId = `admin_bet_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         const now = Date.now();
-        const expiresAt = now + (TIMEFRAME_MS[timeframe] || TIMEFRAME_MS['24h']);
+        const duration = TIMEFRAME_MS[timeframe] || TIMEFRAME_MS['24h'];
+        const expiresAt = now + duration;
+
+        // [NEW] Calculate Deadline Block
+        let deadlineBlock = undefined;
+        try {
+            const client = getOperatorClient();
+            const currentBlock = await client.getBlockNumber();
+            const durationSeconds = duration / 1000;
+            const durationBlocks = Math.ceil(durationSeconds / BLOCK_TIME_SECONDS);
+            deadlineBlock = Number(currentBlock) + durationBlocks;
+        } catch (err) {
+            console.error('[API ADMIN CREATE] Failed to fetch block number:', err);
+        }
 
         const bet: Bet = {
             id: betId,
@@ -92,7 +107,9 @@ export async function POST(request: NextRequest) {
             minBet,
             maxBet,
             createdAt: now,
+            createdAt: now,
             expiresAt,
+            deadlineBlock, // [NEW]
             status: 'active',
             totalPot: 0,
             participantCount: 0,

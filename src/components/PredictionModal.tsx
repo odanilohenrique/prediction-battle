@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Copy, Check } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
-import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
 import { parseUnits } from 'viem';
 import { CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -71,6 +71,44 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
         }
     }, [address, isConnected, referralCode]);
 
+    // Fetch Market Data for Slippage Calculation
+    const { data: marketData } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'markets',
+        args: [predictionId],
+    }) as { data: any[] | undefined };
+
+    const calculateMinShares = (amountInWei: bigint, isYes: boolean) => {
+        if (!marketData) return BigInt(0);
+
+        const totalYes = BigInt(marketData[18] || 0); // Index 18: totalYes (V7 Secure)
+        const totalNo = BigInt(marketData[19] || 0);  // Index 19: totalNo (V7 Secure)
+
+        const targetPool = isYes ? totalYes : totalNo;
+        const oppositePool = isYes ? totalNo : totalYes;
+        const SHARE_PRECISION = BigInt(10 ** 18);
+        const MIN_WEIGHT = BigInt(100);
+        const MAX_WEIGHT = BigInt(150);
+
+        if (targetPool === BigInt(0) || oppositePool === BigInt(0)) {
+            // Initial odds 1:1 (Weight 100%)
+            // Shares = amount * 1e18
+            return (amountInWei * SHARE_PRECISION * BigInt(99)) / BigInt(100); // 1% Slippage
+        }
+
+        const ratio = (oppositePool * SHARE_PRECISION) / targetPool;
+        let weight = (ratio * BigInt(100)) / SHARE_PRECISION;
+
+        if (weight < MIN_WEIGHT) weight = MIN_WEIGHT;
+        if (weight > MAX_WEIGHT) weight = MAX_WEIGHT;
+
+        const expectedShares = (amountInWei * SHARE_PRECISION * weight) / BigInt(100);
+
+        // Apply 1% Slippage Tolerance
+        return (expectedShares * BigInt(99)) / BigInt(100);
+    };
+
     const handleSubmit = async () => {
         if (!isConnected) {
             const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
@@ -101,6 +139,10 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
             });
             if (publicClient) await publicClient.waitForTransactionReceipt({ hash: approveHash, timeout: 60000 });
 
+            // Calculate Min Shares
+            const minSharesOut = calculateMinShares(amountInWei, choice === 'yes');
+            console.log(`Slippage Protection: Amount=${amountInWei}, MinShares=${minSharesOut}`);
+
             // Place Bet
             const betHash = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
@@ -110,6 +152,7 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
                     predictionId,
                     choice === 'yes',
                     amountInWei,
+                    minSharesOut, // [NEW] Slippage Protection
                     (referrerAddress || '0x0000000000000000000000000000000000000000') as `0x${string}`
                 ],
                 gas: BigInt(350000),
