@@ -531,6 +531,44 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             console.log('Step 1: Approving USDC to contract...');
             const amountInWei = parseUnits(submitAmount.toString(), 6); // USDC has 6 decimals
 
+            // [NEW] Calculate Slippage Protection
+            // Using activeMarketData which is already fetched. If logic needs latest data, we might want to refetch, 
+            // but for UI responsiveness we use what we have or handle it optimistically.
+            const calculateMinShares = (amtWei: bigint, isYes: boolean) => {
+                if (!activeMarketData) return BigInt(0); // Should ideally revert or block locally if no data
+
+                // V7 Secure Indices: 
+                // totalYes = 18
+                // totalNo = 19
+                const totalYes = BigInt(activeMarketData[18] || 0);
+                const totalNo = BigInt(activeMarketData[19] || 0);
+
+                const targetPool = isYes ? totalYes : totalNo;
+                const oppositePool = isYes ? totalNo : totalYes;
+                const SHARE_PRECISION = BigInt(10 ** 18);
+                const MIN_WEIGHT = BigInt(100);
+                const MAX_WEIGHT = BigInt(150);
+
+                if (targetPool === BigInt(0) || oppositePool === BigInt(0)) {
+                    // Initial odds 1:1 -> Weight 100% -> Shares = amount * 1e18
+                    return (amtWei * SHARE_PRECISION * BigInt(99)) / BigInt(100); // 1% Slippage
+                }
+
+                const ratio = (oppositePool * SHARE_PRECISION) / targetPool;
+                let weight = (ratio * BigInt(100)) / SHARE_PRECISION;
+
+                if (weight < MIN_WEIGHT) weight = MIN_WEIGHT;
+                if (weight > MAX_WEIGHT) weight = MAX_WEIGHT;
+
+                const expectedShares = (amtWei * SHARE_PRECISION * weight) / BigInt(100);
+
+                // Apply 1% Slippage Tolerance
+                return (expectedShares * BigInt(99)) / BigInt(100);
+            };
+
+            const minSharesOut = calculateMinShares(amountInWei, choice === 'yes');
+            console.log(`[Detailed] Slippage Calc: Amount=${amountInWei}, Side=${choice}, MinShares=${minSharesOut}`);
+
             let approveHash;
             try {
                 approveHash = await writeContractAsync({
@@ -576,6 +614,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         bet.id,
                         choice === 'yes',
                         amountInWei,
+                        minSharesOut, // [NEW] Slippage Protection
                         (referrerAddress || '0x0000000000000000000000000000000000000000') as `0x${string}`
                     ],
                     gas: BigInt(350000),
