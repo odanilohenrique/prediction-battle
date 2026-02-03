@@ -304,8 +304,8 @@ export default function CreateCommunityBet() {
                         try {
                             const alreadyExists = await publicClient.readContract({
                                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'predictionExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
-                                functionName: 'predictionExists',
+                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'marketExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
+                                functionName: 'marketExists',
                                 args: [data.predictionId],
                             });
                             if (alreadyExists) {
