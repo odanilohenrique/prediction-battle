@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { Clock, Users, DollarSign, ExternalLink, Shield, AlertTriangle } from 'lucide-react';
-import { useReadContract, useWriteContract, usePublicClient, useAccount } from 'wagmi';
+import { useReadContract, useWriteContract, usePublicClient, useAccount, useBlockNumber } from 'wagmi';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import { CURRENT_CONFIG } from '@/lib/config';
 import { useModal } from '@/providers/ModalProvider';
 import VerificationModal from './VerificationModal';
+import { formatBlockDuration, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
 
 interface BetMonitor {
     id: string;
@@ -17,6 +18,7 @@ interface BetMonitor {
     target: number;
     timeframe: string;
     expiresAt: number;
+    deadlineBlock?: number; // [NEW]
     createdAt: number;
     totalPot: number;
     participantCount: number;
@@ -59,6 +61,8 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
     const { address } = useAccount();
+    const { data: blockNumber } = useBlockNumber({ watch: true });
+    const currentBlock = blockNumber ? Number(blockNumber) : 0;
 
     const [showVerificationModal, setShowVerificationModal] = useState(false);
 
@@ -97,13 +101,16 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
     }) as { data: bigint | undefined };
 
     // V5: Parse proposal info from market struct (no separate function needed)
+    // V5/V7: Parse proposal info from market struct
+    const DISPUTE_WINDOW_BLOCKS = 3600;
+
     const parsedProposalInfo = marketStruct ? {
         proposer: marketStruct[9] as string,
         proposedResult: marketStruct[10] as boolean,
-        proposalTime: BigInt(marketStruct[11] || 0),
+        proposalBlock: BigInt(marketStruct[11] || 0),
         bondAmount: BigInt(marketStruct[12] || 0),
-        disputeDeadline: BigInt(0), // Calculate from proposalTime + DISPUTE_WINDOW
-        canFinalize: isMarketProposed && Date.now() / 1000 > Number(marketStruct[11]) + 3600, // Approx 1hr window
+        disputeDeadlineBlock: BigInt(marketStruct[11] || 0) + BigInt(DISPUTE_WINDOW_BLOCKS),
+        canFinalize: isMarketProposed && currentBlock > Number(marketStruct[11] || 0) + DISPUTE_WINDOW_BLOCKS,
         evidenceUrl: marketStruct[13] as string,
     } : null;
 
@@ -144,7 +151,16 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         }
     };
 
-    const timeInfo = formatTimeRemaining(bet.expiresAt);
+    // Time Info Calculation
+    let timeInfo = { text: 'Loading...', isExpired: false };
+    if (bet.deadlineBlock && currentBlock > 0) {
+        timeInfo = {
+            text: formatBlockDuration(bet.deadlineBlock, currentBlock),
+            isExpired: currentBlock >= bet.deadlineBlock
+        };
+    } else {
+        timeInfo = formatTimeRemaining(bet.expiresAt);
+    }
     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
     const isExpired = Date.now() > bet.expiresAt;

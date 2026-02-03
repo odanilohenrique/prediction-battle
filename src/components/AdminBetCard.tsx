@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ClaimButton from './ClaimButton';
 import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins, Shield } from 'lucide-react';
-import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract, useBlockNumber } from 'wagmi';
 import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
+import { formatBlockDuration, estimateTimeFromBlocks, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
 
 interface AdminBet {
     id: string;
@@ -25,7 +26,9 @@ interface AdminBet {
     timeframe: string;
     minBet: number;
     maxBet: number;
+    maxBet: number;
     expiresAt: number;
+    deadlineBlock?: number; // [NEW]
     totalPot: number;
     participantCount: number;
     participants: {
@@ -101,6 +104,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { switchChainAsync } = useSwitchChain();
     const { connectors, connect } = useConnect();
     const publicClient = usePublicClient();
+    const { data: blockNumber } = useBlockNumber({ watch: true });
+    const currentBlock = blockNumber ? Number(blockNumber) : 0;
 
     // Referral State
     const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
@@ -370,22 +375,24 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined };
 
-    // V5: Parse proposal info from markets struct (no separate getProposalInfo in V5)
-    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
+    // V5/V7: Parse proposal info from markets struct
+    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalBlock, 12:bondAmount, 13:evidenceUrl
+    const DISPUTE_WINDOW_BLOCKS = 3600; // From Contract
+
     const parsedProposalInfo = activeMarketData && isMarketProposed ? {
         proposer: activeMarketData[9] as string,
         proposedResult: activeMarketData[10] as boolean,
-        proposalTime: BigInt(activeMarketData[11] || 0),
+        proposalBlock: BigInt(activeMarketData[11] || 0),
         bondAmount: BigInt(activeMarketData[12] || 0),
-        disputeDeadline: BigInt(activeMarketData[11] || 0) + BigInt(43200), // proposalTime + 12h dispute window
-        canFinalize: Date.now() / 1000 > Number(activeMarketData[11] || 0) + 43200, // After 12h
+        disputeDeadlineBlock: BigInt(activeMarketData[11] || 0) + BigInt(DISPUTE_WINDOW_BLOCKS),
+        canFinalize: currentBlock > Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_BLOCKS,
         evidenceUrl: activeMarketData[13] as string,
     } : null;
 
     // Refetch function for verification modal success
     const refetchProposalInfo = refetchMarketInfo;
 
-    // --- TIMER LOGIC (Copied from BetCard) ---
+    // --- TIMER LOGIC (Block-Based) ---
     useEffect(() => {
         if (!activeMarketData || marketStateV5 !== 2) { // 2 = PROPOSED
             setDisputeTimer('');
@@ -393,31 +400,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             return;
         }
 
-        const propTime = Number(activeMarketData[11] || 0);
-        if (!propTime) return;
+        const propBlock = Number(activeMarketData[11] || 0);
+        if (!propBlock || !currentBlock) return;
 
-        const DISPUTE_WINDOW = 12 * 60 * 60; // 43200s
+        const DISPUTE_WINDOW_BLOCKS = 3600;
+        const deadlineBlock = propBlock + DISPUTE_WINDOW_BLOCKS;
+        const blocksRemaining = deadlineBlock - currentBlock;
 
-        const interval = setInterval(() => {
-            const now = Math.floor(Date.now() / 1000);
-            const endTime = propTime + DISPUTE_WINDOW;
-            const remaining = endTime - now;
-
-            if (remaining <= 0) {
-                setCanFinalize(true);
-                setDisputeTimer('00:00:00');
-                clearInterval(interval);
-            } else {
-                const h = Math.floor(remaining / 3600);
-                const m = Math.floor((remaining % 3600) / 60);
-                const s = remaining % 60;
-                setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-                setCanFinalize(false);
-            }
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [activeMarketData, marketStateV5]);
+        if (blocksRemaining <= 0) {
+            setCanFinalize(true);
+            setDisputeTimer('00:00:00'); // Or "Ready"
+        } else {
+            setCanFinalize(false);
+            // Estimate time remaining
+            const seconds = blocksRemaining * BLOCK_TIME_SECONDS;
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+        }
+    }, [activeMarketData, marketStateV5, currentBlock]);
     // ------------------------------------------
 
     const handleClaimCreatorFees = async () => {
@@ -458,6 +460,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     const formatTimeRemaining = () => {
+        if (bet.deadlineBlock && currentBlock > 0) {
+            return formatBlockDuration(bet.deadlineBlock, currentBlock);
+        }
+
         if (!bet.expiresAt) return 'Invalid Date';
         const remaining = bet.expiresAt - Date.now();
         if (isNaN(remaining)) return 'Invalid Date';

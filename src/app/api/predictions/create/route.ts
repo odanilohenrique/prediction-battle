@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet, BetParticipant } from '@/lib/store';
+import { getOperatorClient } from '@/lib/contracts';
+import { BLOCK_TIME_SECONDS } from '@/lib/blockTime';
 
 export async function POST(request: NextRequest) {
     console.log('[API CREATE] Received create request!');
@@ -37,7 +39,6 @@ export async function POST(request: NextRequest) {
         const userId = userAddress || 'demo_user';
 
         // Validate input
-        // Validate input
         if (!castHash) return NextResponse.json({ success: false, error: 'Missing required field: castHash' }, { status: 400 });
         if (!metric) return NextResponse.json({ success: false, error: 'Missing required field: metric' }, { status: 400 });
         // targetValue can be 0 for subjective bets, so we check for undefined/null
@@ -46,9 +47,6 @@ export async function POST(request: NextRequest) {
         if (!betAmount) return NextResponse.json({ success: false, error: 'Missing required field: betAmount' }, { status: 400 });
 
         // Check for existing active prediction for this cast + metric + target
-        // We need to scan/filter bets (not efficient but okay for MVP).
-        // Ideally we'd have a secondary index `pred:{castHash}:{metric}:{target}`
-
         const allBets = await store.getBets();
         const existingBet = allBets.find(b =>
             b.castHash === castHash &&
@@ -102,6 +100,19 @@ export async function POST(request: NextRequest) {
             const duration = TIMEFRAME_MS[selectedTimeframe] || TIMEFRAME_MS['24h'];
             const expiresAt = now + duration;
 
+            // [NEW] Calculate Deadline Block
+            let deadlineBlock = undefined;
+            try {
+                const client = getOperatorClient();
+                const currentBlock = await client.getBlockNumber();
+                const durationSeconds = duration / 1000;
+                const durationBlocks = Math.ceil(durationSeconds / BLOCK_TIME_SECONDS);
+                deadlineBlock = Number(currentBlock) + durationBlocks;
+                console.log(`[API CREATE] Block calculation: Current=${currentBlock}, Duration=${durationBlocks}, Deadline=${deadlineBlock}`);
+            } catch (err) {
+                console.error('[API CREATE] Failed to fetch block number:', err);
+            }
+
             // LIQUIDITY CHECK (Anti-Spam)
             // Creator must seed 1x Max Entry on YES and 1x Max Entry on NO
             const entryLimit = maxEntrySize || 10; // Default to 10 if not specified
@@ -119,18 +130,19 @@ export async function POST(request: NextRequest) {
                 username: castAuthor || 'unknown',
                 displayName: displayName || castAuthor, // Fallback to username
                 pfpUrl: pfpUrl || '',
-                platform: platform, // [NEW] added
-                profileUrl: profileUrl, // [NEW] added
+                platform: platform,
+                profileUrl: profileUrl,
                 type: metric,
                 target: targetValue,
                 timeframe: selectedTimeframe,
-                minBet: minBet || 0.05, // Default to 0.05 if not provided
-                maxBet: entryLimit, // Set Max Entry Size
+                minBet: minBet || 0.05,
+                maxBet: entryLimit,
                 createdAt: now,
                 expiresAt,
+                deadlineBlock, // [NEW]
                 status: 'active',
-                totalPot: requiredSeed, // Initial Pot is the Seed
-                participantCount: 0, // Starts at 0 (Seed doesn't count as user participant)
+                totalPot: requiredSeed,
+                participantCount: 0,
                 participants: {
                     yes: [],
                     no: [],
@@ -138,9 +150,9 @@ export async function POST(request: NextRequest) {
                 castHash,
                 castAuthor,
                 castText,
-                castUrl, // Saved here
-                initialValue: requiredSeed, // CRITICAL: This is the seed amount used for multiplier calculation
-                creatorAddress: userId, // Store creator wallet for fee splitting
+                castUrl,
+                initialValue: requiredSeed,
+                creatorAddress: userId,
                 wordToMatch: wordToMatch || undefined,
                 // Battle Mode specifics
                 isVersus: isVersus || false,
@@ -162,10 +174,6 @@ export async function POST(request: NextRequest) {
                     wordToMatch: wordToMatch,
                 } : undefined
             };
-
-            // Seed Liquidity (Dead Liquidity) is tracked via initialValue/totalPot
-            // We do NOT add the creator as a participant because V2 seed does not generate shares.
-            // Creator only gets fees, not payout from the seed itself.
         }
 
         // Save to Redis

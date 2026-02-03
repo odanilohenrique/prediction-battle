@@ -1,4 +1,4 @@
-import { createWalletClient, http, publicActions } from 'viem';
+import { createWalletClient, http, publicActions, custom, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia, base } from 'viem/chains';
 import { CURRENT_CONFIG } from './config';
@@ -102,7 +102,7 @@ export async function getOnChainMarketData(predictionId: string) {
             state: Number(data[6]),
             result: Boolean(data[7]),
             isVoid: Boolean(data[8]),
-            deadline: Number(data[5]),
+            deadlineBlock: Number(data[5]),
             totalYes: BigInt(data[18] || 0),
             totalNo: BigInt(data[19] || 0)
         };
@@ -166,35 +166,47 @@ export async function getProposalInfo(predictionId: string) {
             args: [predictionId],
         }) as any[];
 
-        // Indices:
+        // Indices (V7 Secure):
         // 9: proposer
         // 10: proposedResult
-        // 11: proposalTime
+        // 11: proposalBlock
         // 12: bondAmount
         // 13: evidenceUrl
         // 14: challenger
         // 15: challengeBondAmount
         // 16: challengeEvidenceUrl
-        // 17: challengeTime
+        // 17: challengeBlock
 
-        const proposalTime = BigInt(data[11]);
-        const disputeWindow = BigInt(43200); // V6: 12 hours
-        const deadline = proposalTime + disputeWindow;
-        const now = BigInt(Math.floor(Date.now() / 1000));
+        const proposalBlock = BigInt(data[11]);
+        const challengeBlock = BigInt(data[17]);
+
+        // V7: Fixed window of 21600 blocks (~12 hours on Base @ 2s/block)
+        const DISPUTE_WINDOW_BLOCKS = BigInt(21600);
+
+        // Calculate deadline based on state
+        // If disputed, using challengeBlock? No, dispute window is fixed from proposal?
+        // Check contract: challengeOutcome requires block.number <= proposalBlock + DISPUTE_BLOCKS.
+        // After challenge, is there another window? 
+        // Contract: resolveDispute can be called immediately by admin.
+        // Contract: finalizeOutcome requires block.number > proposalBlock + DISPUTE_BLOCKS.
+        // So the window is always proposalBlock + 3600.
+
+        const deadlineBlock = proposalBlock + DISPUTE_WINDOW_BLOCKS;
+        const currentBlock = await client.getBlockNumber();
 
         return {
             proposer: data[9] as string,
             proposedResult: data[10] as boolean,
-            proposalTime: proposalTime,
+            proposalBlock: Number(proposalBlock),
             bondAmount: BigInt(data[12]),
-            disputeDeadline: deadline,
-            canFinalize: now > deadline,
+            disputeDeadlineBlock: Number(deadlineBlock),
+            canFinalize: currentBlock > deadlineBlock,
             evidenceUrl: data[13] as string,
-            // New V5 fields
+            // New V5/V7 fields
             challenger: data[14] as string,
             challengeBondAmount: BigInt(data[15]),
             challengeEvidenceUrl: data[16] as string,
-            challengeTime: BigInt(data[17])
+            challengeBlock: Number(challengeBlock)
         };
     } catch (error) {
         console.error("Failed to get proposal info:", error);
@@ -203,6 +215,36 @@ export async function getProposalInfo(predictionId: string) {
 }
 
 // V2 function: resolveMarket
+export async function placeBet(marketId: string, side: boolean, amountUSDC: string, minShares: string, referrer?: string) {
+    if (typeof window === 'undefined' || !window.ethereum) throw new Error('No crypto wallet found');
+
+    const walletClient = createWalletClient({
+        chain: baseSepolia,
+        transport: custom(window.ethereum)
+    });
+
+    const [address] = await walletClient.requestAddresses();
+    const amount = parseUnits(amountUSDC, 6);
+    const minSharesAmount = parseUnits(minShares, 18); // Shares has 18 decimals
+
+    console.log(`Placing bet: ${marketId}, Side: ${side}, Amount: ${amountUSDC}, MinShares: ${minShares}`);
+
+    const { request } = await publicClient.simulateContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'placeBet',
+        args: [
+            marketId,
+            side,
+            amount,
+            minSharesAmount,
+            referrer || '0x0000000000000000000000000000000000000000'
+        ],
+        account: address,
+    });
+
+    return await walletClient.writeContract(request);
+}
 export async function resolvePredictionOnChain(predictionId: string, result: boolean, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 

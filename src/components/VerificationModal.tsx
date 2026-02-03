@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { X, Shield, AlertTriangle, Clock, DollarSign, CheckCircle, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useBlockNumber } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CURRENT_CONFIG, isAdmin } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import { formatBlockDuration } from '@/lib/blockTime';
 
 // USDC Contract ABI (minimal for approve)
 const USDC_ABI = [
@@ -43,7 +44,10 @@ interface VerificationModalProps {
     proposalInfo?: {
         proposer: string;
         proposedResult: boolean;
-        disputeDeadline: bigint;
+        proposedResult: boolean;
+        disputeDeadlineBlock?: bigint; // [NEW] Block number
+        disputeDeadline: bigint; // Kept for backwards compat (timestamp)
+        canFinalize: boolean;
         canFinalize: boolean;
         evidenceUrl?: string; // V3.1
     } | null;
@@ -77,6 +81,8 @@ export default function VerificationModal({
     const { address } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
+    const { data: blockNumber } = useBlockNumber({ watch: true });
+    const currentBlock = blockNumber ? Number(blockNumber) : 0;
 
     const isAdminUser = address ? isAdmin(address) : false;
     const isLocked = currentState === 1;  // LOCKED
@@ -107,8 +113,14 @@ export default function VerificationModal({
     const rewardFormatted = formatUnits(reporterReward, 6);
 
     // Calculate time remaining for dispute
+    // Calculate time remaining for dispute
     const getTimeRemaining = () => {
+        if (proposalInfo?.disputeDeadlineBlock && currentBlock > 0) {
+            return formatBlockDuration(Number(proposalInfo.disputeDeadlineBlock), currentBlock);
+        }
+
         if (!proposalInfo?.disputeDeadline) return null;
+        // Fallback for timestamp
         const now = BigInt(Math.floor(Date.now() / 1000));
         const remaining = proposalInfo.disputeDeadline - now;
         if (remaining <= 0) return 'Expired';
@@ -742,7 +754,7 @@ export default function VerificationModal({
                                 <span className="text-xs text-textSecondary flex items-center gap-1">
                                     <Clock className="w-3 h-3" /> Dispute Window
                                 </span>
-                                <span className="text-sm font-bold text-yellow-500">12 hours</span>
+                                <span className="text-sm font-bold text-yellow-500">~2 hours (3600 Blocks)</span>
                             </div>
                         </div>
 
