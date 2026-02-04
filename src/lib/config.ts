@@ -52,12 +52,13 @@ export function getUsdcAddress(): `0x${string}` {
 // Admin wallet addresses (whitelist)
 export const ADMIN_ADDRESSES = [
     process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase() || '',
-    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // User's Admin Wallet
-    '0xfa278965a56a16252ccb850d3bb354f6a6e9fb02', // Operator Wallet
+    '0x8C451adc05eFDDe2B8cB2F0BA9d7A2223212BECb'.toLowerCase(), // Contract Owner (Deployed V7)
+    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // Previous Admin
+    '0xfa278965a56a16252ccb850d3bb354f6a6e9fb02', // Previous Operator
 ].filter(Boolean);
 
 // Operator address for resolution
-export const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'.toLowerCase();
+export const OPERATOR_ADDRESS = '0x8C451adc05eFDDe2B8cB2F0BA9d7A2223212BECb'.toLowerCase();
 
 // Check if address is admin
 export function isAdmin(address: string): boolean {
