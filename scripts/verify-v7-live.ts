@@ -11,7 +11,7 @@ async function main() {
 
     // 1. Setup
     const [signer] = await ethers.getSigners();
-    const CONTRACT_ADDRESS = "0xa41682332F792DC03D3191405CBaeC2D36AF4989"; // V7 Deployed
+    const CONTRACT_ADDRESS = "0x2Ea13B4eAa8424D518DF2FE88df85AC73Cb6Ed11"; // V7 Deployed (Early Resolution)
     const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
     const MARKET_ID = "v7-test-" + Math.floor(Math.random() * 100000);
 
