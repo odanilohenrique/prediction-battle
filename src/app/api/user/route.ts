@@ -22,6 +22,13 @@ export async function GET(request: NextRequest) {
 
 // POST - Update user profile
 export async function POST(request: NextRequest) {
+    console.log('[API] Saving user profile...');
+
+    if (!process.env.KV_URL) {
+        console.error('[API] Error: KV_URL is missing from environment variables.');
+        return NextResponse.json({ success: false, error: 'Server Config Error: Database connection missing.' }, { status: 500 });
+    }
+
     try {
         const body = await request.json();
         const { address, displayName, pfpUrl } = body;

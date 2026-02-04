@@ -1,15 +1,13 @@
-
-import { Bet } from '@/lib/store';
 import { Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
 
 interface BetHistoryListProps {
-    bets: Bet[];
+    bets: any[]; // UserBet[] from API
     address: string;
+    isRawBets?: boolean;
 }
 
-export function BetHistoryList({ bets, address }: BetHistoryListProps) {
+export function BetHistoryList({ bets, address, isRawBets = false }: BetHistoryListProps) {
     if (bets.length === 0) {
         return (
             <div className="text-center py-12 bg-white/5 rounded-3xl border border-white/5">
@@ -22,33 +20,27 @@ export function BetHistoryList({ bets, address }: BetHistoryListProps) {
         );
     }
 
-    const userLower = address.toLowerCase();
-
     return (
         <div className="space-y-3">
             {bets.map(bet => {
-                const yesP = bet.participants.yes.find(p => p.userId.toLowerCase() === userLower);
-                const noP = bet.participants.no.find(p => p.userId.toLowerCase() === userLower);
-                const mySide = yesP ? 'yes' : 'no';
-                const myAmount = yesP ? yesP.amount : (noP ? noP.amount : 0);
-                const isPaid = (yesP?.paid) || (noP?.paid);
-
-                let resultStatus = 'pending';
-                if (bet.status === 'completed') {
-                    if (bet.result === 'void') resultStatus = 'void';
-                    else if (bet.result === mySide) resultStatus = 'won';
-                    else resultStatus = 'lost';
-                }
+                // If using the flat UserBet structure from API
+                const mySide = bet.choice || 'yes';
+                const myAmount = bet.amount;
+                const isPaid = bet.paid;
+                const resultStatus = bet.status; // 'pending', 'won', 'lost', 'void'
+                const castText = bet.prediction?.castText || bet.castText || `Prediction #${bet.predictionId || bet.id}`;
+                const predictionId = bet.predictionId || bet.id;
 
                 return (
                     <Link
-                        key={bet.id}
-                        href={`/prediction/${bet.id}`}
+                        key={predictionId}
+                        href={`/prediction/${predictionId}`}
                         className="block bg-black/20 hover:bg-white/5 border border-white/5 rounded-xl p-4 transition-all"
                     >
                         <div className="flex items-center justify-between mb-2">
+                            {/* Timestamp might need formatting if it's a number */}
                             <span className="text-xs text-white/40 font-mono">
-                                {formatDistanceToNow(bet.createdAt)} ago
+                                {new Date(bet.timestamp || Date.now()).toLocaleDateString()}
                             </span>
                             <StatusBadge status={resultStatus} isPaid={isPaid} />
                         </div>
@@ -56,7 +48,7 @@ export function BetHistoryList({ bets, address }: BetHistoryListProps) {
                         <div className="flex items-start gap-4">
                             <div className="flex-1">
                                 <h4 className="text-white font-bold text-sm leading-tight mb-1 line-clamp-2">
-                                    {bet.castText || `Prediction Market #${bet.id.slice(0, 6)}`}
+                                    {castText}
                                 </h4>
                                 <div className="flex items-center gap-2 text-xs">
                                     <span className="text-white/50">You picked:</span>
