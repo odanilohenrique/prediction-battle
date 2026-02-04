@@ -377,7 +377,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // V5/V7: Parse proposal info from markets struct
     // Struct indices: 9:proposer, 10:proposedResult, 11:proposalBlock, 12:bondAmount, 13:evidenceUrl
-    const DISPUTE_WINDOW_BLOCKS = 3600; // From Contract
+    const DISPUTE_WINDOW_BLOCKS = 21600; // From Contract (12h @ 2s/block)
 
     const parsedProposalInfo = activeMarketData && isMarketProposed ? {
         proposer: activeMarketData[9] as string,
@@ -394,7 +394,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // --- TIMER LOGIC (Block-Based) ---
     useEffect(() => {
-        if (!activeMarketData || marketStateV5 !== 2) { // 2 = PROPOSED
+        if (!activeMarketData) {
+            setDisputeTimer('');
+            setCanFinalize(false);
+            return;
+        }
+
+        // Market State 3 = DISPUTED
+        if (marketStateV5 === 3) {
+            setDisputeTimer('Result Disputed. Awaiting Arbitrator.');
+            setCanFinalize(false);
+            return;
+        }
+
+        if (marketStateV5 !== 2) { // 2 = PROPOSED
             setDisputeTimer('');
             setCanFinalize(false);
             return;
@@ -403,7 +416,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         const propBlock = Number(activeMarketData[11] || 0);
         if (!propBlock || !currentBlock) return;
 
-        const DISPUTE_WINDOW_BLOCKS = 3600;
+        const DISPUTE_WINDOW_BLOCKS = 21600; // 12h @ 2s/block
         const deadlineBlock = propBlock + DISPUTE_WINDOW_BLOCKS;
         const blocksRemaining = deadlineBlock - currentBlock;
 

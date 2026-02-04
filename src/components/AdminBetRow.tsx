@@ -102,7 +102,7 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
 
     // V5: Parse proposal info from market struct (no separate function needed)
     // V5/V7: Parse proposal info from market struct
-    const DISPUTE_WINDOW_BLOCKS = 3600;
+    const DISPUTE_WINDOW_BLOCKS = 21600; // 12h @ 2s/block
 
     const parsedProposalInfo = marketStruct ? {
         proposer: marketStruct[9] as string,
