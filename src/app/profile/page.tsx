@@ -14,8 +14,9 @@ import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { StatsOverview } from '@/components/profile/StatsOverview';
 import { BetHistoryList } from '@/components/profile/BetHistoryList';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
-import { calculateUserStats, UserStats } from '@/lib/stats';
-import { Bet } from '@/lib/store';
+import { UserStats } from '@/lib/stats';
+// We don't import Bet from store, we use the API shape
+import { Bet } from '@/lib/store'; // Keep for now if needed, but we rely on API response
 
 export default function ProfilePage() {
     const { address, isConnected } = useAccount();
@@ -25,7 +26,7 @@ export default function ProfilePage() {
 
     // Data State
     const [userProfile, setUserProfile] = useState<any>(null);
-    const [allBets, setAllBets] = useState<Bet[]>([]);
+    const [myBets, setMyBets] = useState<any[]>([]); // Using any for API response shape
     const [stats, setStats] = useState<UserStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -56,30 +57,73 @@ export default function ProfilePage() {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            // Parallel Fetch: User Profile + Bets
-            // Note: In a real app we'd have a specific endpoint for "my bets", 
-            // but here we fetch all and filter client side as per store design.
+            // Parallel Fetch: User Profile + User Bets
             const [profileRes, betsRes] = await Promise.all([
                 fetch(`/api/user?address=${address}`),
-                fetch(`/api/predictions?limit=1000`) // Fetching large limit to get history
+                fetch(`/api/predictions/list?userId=${address}&limit=1000`)
             ]);
 
-            const profileData = await profileRes.json();
-            const betsData = await betsRes.json();
+            let profileData = { success: false, user: null };
+            let betsData = { success: false, bets: [] };
+
+            try {
+                if (profileRes.ok) profileData = await profileRes.json();
+            } catch (e) { console.error('Profile Parse Error', e); }
+
+            try {
+                if (betsRes.ok) betsData = await betsRes.json();
+            } catch (e) { console.error('Bets Parse Error', e); }
 
             if (profileData.success) {
                 setUserProfile(profileData.user);
             }
 
-            if (betsData.predictions) {
-                const bets = betsData.predictions as Bet[];
-                setAllBets(bets);
+            if (betsData.success && Array.isArray(betsData.bets)) {
+                const bets = betsData.bets;
+                setMyBets(bets);
 
-                // Calculate Stats
-                if (address) {
-                    const computedStats = calculateUserStats(address, bets);
-                    setStats(computedStats);
+                // Calculate Stats client-side from the API response
+                const computedStats: UserStats = {
+                    totalBets: bets.length,
+                    wins: 0,
+                    losses: 0,
+                    voids: 0,
+                    winRate: 0,
+                    totalInvested: 0,
+                    totalClaimed: 0,
+                    netProfit: 0,
+                    activeBetsCount: 0
+                };
+
+                bets.forEach((bet: any) => {
+                    computedStats.totalInvested += bet.amount || 0;
+
+                    if (bet.status === 'won') {
+                        computedStats.wins++;
+                        if (bet.payout) computedStats.totalClaimed += bet.payout;
+                    } else if (bet.status === 'lost') {
+                        computedStats.losses++;
+                    } else if (bet.status === 'void') {
+                        computedStats.voids++;
+                        computedStats.totalClaimed += bet.amount || 0; // Void refunds
+                    } else {
+                        computedStats.activeBetsCount++;
+                    }
+                });
+
+                if (computedStats.wins + computedStats.losses > 0) {
+                    computedStats.winRate = (computedStats.wins / (computedStats.wins + computedStats.losses)) * 100;
                 }
+
+                // Realized PnL: Claimed - Invested (only for completed bets)
+                // Filter realized invested
+                let realizedInvested = 0;
+                bets.forEach((bet: any) => {
+                    if (bet.status !== 'pending') realizedInvested += bet.amount;
+                });
+
+                computedStats.netProfit = computedStats.totalClaimed - realizedInvested;
+                setStats(computedStats);
             }
 
         } catch (error) {
@@ -96,7 +140,7 @@ export default function ProfilePage() {
             const hash = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'claimCreatorRewards',
+                functionName: 'withdrawCreatorFees',
                 args: [],
             });
             if (publicClient) {
@@ -132,14 +176,8 @@ export default function ProfilePage() {
         );
     }
 
-    // Filter bets for list
-    const myBets = allBets.filter(b =>
-        b.participants.yes.some(p => p.userId.toLowerCase() === address?.toLowerCase()) ||
-        b.participants.no.some(p => p.userId.toLowerCase() === address?.toLowerCase())
-    );
-
-    const activeList = myBets.filter(b => b.status === 'active');
-    const historyList = myBets.filter(b => b.status !== 'active');
+    const activeList = myBets.filter(b => b.status === 'pending');
+    const historyList = myBets.filter(b => b.status !== 'pending');
 
     return (
         <main className="min-h-screen pb-24 pt-24 px-4 bg-[#0a0a0a]">
@@ -209,11 +247,13 @@ export default function ProfilePage() {
 
                 {/* Tab Content */}
                 <div className="animate-fade-in-up">
-                    {activeTab === 'active' ? (
-                        <BetHistoryList bets={activeList} address={address || ''} />
-                    ) : (
-                        <BetHistoryList bets={historyList} address={address || ''} />
-                    )}
+                    {/* Note: BetHistoryList needs raw Bet[], but we have UserBet[]. 
+                        We need to adapt BetHistoryList or map here. 
+                        Actually BetHistoryList logic was: "find my participant in yes/no".
+                        But now we have a flat list of MY bets.
+                        So we need to update BetHistoryList as well.
+                    */}
+                    <BetHistoryList bets={activeTab === 'active' ? activeList : historyList} address={address || ''} isRawBets={false} />
                 </div>
             </div>
 
