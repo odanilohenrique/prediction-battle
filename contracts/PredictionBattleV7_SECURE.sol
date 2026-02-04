@@ -441,7 +441,7 @@ contract PredictionBattleV7_SECURE is ReentrancyGuard, Pausable, Ownable2Step {
         
         Market storage m = markets[_marketId];
         require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Invalid state");
-        require(block.number >= m.deadlineBlock, "Not ended");
+        // REMOVED: require(block.number >= m.deadlineBlock, "Not ended"); - Allow early resolution
         
         uint256 requiredBond = _getRequiredBond(m.totalYes + m.totalNo);
         require(_bondAmount >= requiredBond, "Insufficient bond");
