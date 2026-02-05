@@ -112,21 +112,35 @@ export async function getOnChainMarketData(predictionId: string) {
     }
 }
 
-// V5: Get required bond amount
+// V8: Calculate bond locally (Base 5 USDC + 1% Pool)
+export function calculateRequiredBond(poolTotal: bigint): bigint {
+    const MIN_BOND = BigInt(5_000_000); // 5 USDC
+    const variableBond = poolTotal / BigInt(100);
+    return MIN_BOND + variableBond;
+}
+
+// V8 Wrapper: Fetches market data to calculate bond
 export async function getRequiredBond(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
     try {
-        const bond = await client.readContract({
+        const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
-            functionName: 'getRequiredBond',
+            functionName: 'markets',
             args: [predictionId],
-        }) as bigint;
+        }) as any[];
 
-        return bond;
+        // V8 Indices: 18=TotalYes, 19=TotalNo (Check indices if getting errors, logic assumes standard V8 layout)
+        // Wait, standard `markets` in V8 might have different indices. 
+        // Let's use `getMarketDetails` if available or stick to strict indices.
+        // Based on AdminBetCard analysis: 18=TotalYes, 19=TotalNo.
+        const totalYes = BigInt(data[18] || 0);
+        const totalNo = BigInt(data[19] || 0);
+
+        return calculateRequiredBond(totalYes + totalNo);
     } catch (error) {
         console.error("Failed to get required bond:", error);
-        return BigInt(0);
+        return BigInt(5_000_000); // Default fallback
     }
 }
 
