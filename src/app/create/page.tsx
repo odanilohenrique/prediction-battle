@@ -139,8 +139,8 @@ export default function CreateCommunityBet() {
         predictionImage: '',
         noTargetValue: false,
         autoVerify: false,
-        // Default Timeframe: 1 Year (V6)
-        timeframe: '1y' as any, // Cast as any/string to avoid type errors with old Timeframe type if not updated
+        // Custom Deadline (V8) - default to 7 days from now
+        deadlineDateTime: '',
     });
 
     const currentBetType = BET_TYPE_CONFIG[formData.betType];
@@ -362,10 +362,19 @@ export default function CreateCommunityBet() {
                         }
                     }
 
-                    const TIMEFRAME_SECONDS: Record<string, number> = {
-                        '30m': 1800, '6h': 21600, '12h': 43200, '24h': 86400, '7d': 604800, 'none': 31536000
-                    };
-                    const duration = TIMEFRAME_SECONDS[formData.timeframe] || 86400;
+                    // Calculate duration from deadline datetime (V8)
+                    let duration = 86400; // Default 24h
+                    if (formData.deadlineDateTime) {
+                        const deadlineMs = new Date(formData.deadlineDateTime).getTime();
+                        const nowMs = Date.now();
+                        duration = Math.floor((deadlineMs - nowMs) / 1000);
+                        // Enforce minimum 24 hours
+                        if (duration < 86400) {
+                            showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
+                            setIsSubmitting(false);
+                            return;
+                        }
+                    }
 
                     // Check again if already exists to avoid the call
                     let skipCreation = false;
@@ -765,18 +774,29 @@ export default function CreateCommunityBet() {
                         </div>
 
 
-                        {/* Battle Duration */}
+                        {/* Battle Deadline */}
                         <div className="bg-black/20 border border-white/10 rounded-2xl p-6">
                             <label className="block text-sm font-medium text-white mb-3">
                                 <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-orange-500" />
-                                    Battle Duration
+                                    <Calendar className="w-4 h-4 text-orange-500" />
+                                    Market Deadline
                                 </div>
                             </label>
-                            <div className="flex items-center gap-2 p-3 bg-black/30 rounded-xl">
-                                <span className="text-orange-500 font-bold text-sm">365 Days</span>
-                                <span className="text-xs text-white/40">(Fixed Duration)</span>
-                            </div>
+                            <p className="text-xs text-white/50 mb-3">When will this market close for betting and resolution?</p>
+                            <input
+                                type="datetime-local"
+                                value={formData.deadlineDateTime}
+                                onChange={(e) => setFormData({ ...formData, deadlineDateTime: e.target.value })}
+                                min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                                className="w-full bg-black/30 border border-orange-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                                required
+                            />
+                            {formData.deadlineDateTime && (
+                                <div className="mt-2 text-xs text-orange-400">
+                                    Duration: {Math.ceil((new Date(formData.deadlineDateTime).getTime() - Date.now()) / (1000 * 60 * 60))} hours from now
+                                </div>
+                            )}
+                            <p className="text-xs text-white/40 mt-2">⚠️ Minimum: 24 hours from now</p>
                         </div>
 
 

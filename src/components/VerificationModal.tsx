@@ -44,12 +44,10 @@ interface VerificationModalProps {
     proposalInfo?: {
         proposer: string;
         proposedResult: boolean;
-        proposedResult: boolean;
-        disputeDeadlineBlock?: bigint; // [NEW] Block number
-        disputeDeadline: bigint; // Kept for backwards compat (timestamp)
+        disputeDeadlineTimestamp?: number; // V8: Unix timestamp
+        disputeDeadline?: bigint; // Legacy: kept for backwards compat
         canFinalize: boolean;
-        canFinalize: boolean;
-        evidenceUrl?: string; // V3.1
+        evidenceUrl?: string;
     } | null;
     optionALabel?: string;
     optionBLabel?: string;
@@ -112,15 +110,21 @@ export default function VerificationModal({
     const bondFormatted = formatUnits(requiredBond, 6);
     const rewardFormatted = formatUnits(reporterReward, 6);
 
-    // Calculate time remaining for dispute
-    // Calculate time remaining for dispute
+    // V8: Calculate time remaining for dispute using timestamps
     const getTimeRemaining = () => {
-        if (proposalInfo?.disputeDeadlineBlock && currentBlock > 0) {
-            return formatBlockDuration(Number(proposalInfo.disputeDeadlineBlock), currentBlock);
+        // V8: Use timestamp-based deadline
+        if (proposalInfo?.disputeDeadlineTimestamp) {
+            const now = Math.floor(Date.now() / 1000);
+            const remaining = proposalInfo.disputeDeadlineTimestamp - now;
+            if (remaining <= 0) return 'Expired';
+            const hours = remaining / 3600;
+            if (hours >= 1) return `${hours.toFixed(1)}h remaining`;
+            const minutes = remaining / 60;
+            return `${Math.floor(minutes)}min remaining`;
         }
 
+        // Legacy fallback for disputeDeadline BigInt
         if (!proposalInfo?.disputeDeadline) return null;
-        // Fallback for timestamp
         const now = BigInt(Math.floor(Date.now() / 1000));
         const remaining = proposalInfo.disputeDeadline - now;
         if (remaining <= 0) return 'Expired';

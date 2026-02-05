@@ -124,6 +124,8 @@ export default function CreateCommunityBet() {
         predictionImage: '',
         noTargetValue: false, // For subjective bets
         referenceUrl: '', // For Prediction Mode
+        // Custom Deadline (V8)
+        deadlineDateTime: '',
     });
 
 
@@ -332,7 +334,20 @@ export default function CreateCommunityBet() {
             // 3. Create on Smart Contract (Uses USDC transferFrom)
             try {
                 console.log('Registering prediction on-chain...');
-                const durationSeconds = 31536000; // 365 days (contracts enforce this anyway)
+
+                // Calculate duration from deadline datetime (V8)
+                let durationSeconds = 86400; // Default 24h
+                if (formData.deadlineDateTime) {
+                    const deadlineMs = new Date(formData.deadlineDateTime).getTime();
+                    const nowMs = Date.now();
+                    durationSeconds = Math.floor((deadlineMs - nowMs) / 1000);
+                    // Enforce minimum 24 hours
+                    if (durationSeconds < 86400) {
+                        showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
+                        setIsSubmitting(false);
+                        return;
+                    }
+                }
 
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
 
@@ -655,18 +670,29 @@ export default function CreateCommunityBet() {
                         </div>
 
 
-                        {/* Battle Duration */}
+                        {/* Battle Deadline */}
                         <div className="bg-black/20 border border-white/10 rounded-2xl p-6">
                             <label className="block text-sm font-medium text-white mb-3">
                                 <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-orange-500" />
-                                    Battle Duration
+                                    <Calendar className="w-4 h-4 text-orange-500" />
+                                    Market Deadline
                                 </div>
                             </label>
-                            <div className="flex items-center gap-2 p-3 bg-black/30 rounded-xl">
-                                <span className="text-orange-500 font-bold text-sm">365 Days</span>
-                                <span className="text-xs text-white/40">(Fixed Duration)</span>
-                            </div>
+                            <p className="text-xs text-white/50 mb-3">When will this market close for betting and resolution?</p>
+                            <input
+                                type="datetime-local"
+                                value={formData.deadlineDateTime}
+                                onChange={(e) => setFormData({ ...formData, deadlineDateTime: e.target.value })}
+                                min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                                className="w-full bg-black/30 border border-orange-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                                required
+                            />
+                            {formData.deadlineDateTime && (
+                                <div className="mt-2 text-xs text-orange-400">
+                                    Duration: {Math.ceil((new Date(formData.deadlineDateTime).getTime() - Date.now()) / (1000 * 60 * 60))} hours from now
+                                </div>
+                            )}
+                            <p className="text-xs text-white/40 mt-2">⚠️ Minimum: 24 hours from now</p>
                         </div>
 
                         {/* Limits for Battle */}

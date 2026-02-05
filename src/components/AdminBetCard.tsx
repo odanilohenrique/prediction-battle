@@ -375,17 +375,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: bigint | undefined };
 
-    // V5/V7: Parse proposal info from markets struct
-    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalBlock, 12:bondAmount, 13:evidenceUrl
-    const DISPUTE_WINDOW_BLOCKS = 21600; // From Contract (12h @ 2s/block)
+    // V8: Parse proposal info from markets struct (timestamp-based)
+    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
+    const DISPUTE_WINDOW_SECONDS = 43200; // V8: 12 hours in seconds
 
     const parsedProposalInfo = activeMarketData && isMarketProposed ? {
         proposer: activeMarketData[9] as string,
         proposedResult: activeMarketData[10] as boolean,
-        proposalBlock: BigInt(activeMarketData[11] || 0),
+        proposalTime: BigInt(activeMarketData[11] || 0), // V8: timestamp
         bondAmount: BigInt(activeMarketData[12] || 0),
-        disputeDeadlineBlock: BigInt(activeMarketData[11] || 0) + BigInt(DISPUTE_WINDOW_BLOCKS),
-        canFinalize: currentBlock > Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_BLOCKS,
+        disputeDeadlineTimestamp: Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_SECONDS, // V8: timestamp
+        canFinalize: Math.floor(Date.now() / 1000) > Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_SECONDS,
         evidenceUrl: activeMarketData[13] as string,
     } : null;
 
