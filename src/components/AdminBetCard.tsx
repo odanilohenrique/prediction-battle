@@ -398,6 +398,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const refetchProposalInfo = refetchMarketInfo;
 
     // --- TIMER LOGIC (Block-Based) ---
+    // --- TIMER LOGIC (Timestamp-Based for V8) ---
     useEffect(() => {
         if (!activeMarketData) {
             setDisputeTimer('');
@@ -418,26 +419,33 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             return;
         }
 
-        const propBlock = Number(activeMarketData[11] || 0);
-        if (!propBlock || !currentBlock) return;
+        const propTime = Number(activeMarketData[11] || 0);
+        if (!propTime) return;
 
-        const DISPUTE_WINDOW_BLOCKS = 21600; // 12h @ 2s/block
-        const deadlineBlock = propBlock + DISPUTE_WINDOW_BLOCKS;
-        const blocksRemaining = deadlineBlock - currentBlock;
+        const DISPUTE_WINDOW_SECONDS = 43200; // 12h
+        const deadline = propTime + DISPUTE_WINDOW_SECONDS;
 
-        if (blocksRemaining <= 0) {
-            setCanFinalize(true);
-            setDisputeTimer('00:00:00'); // Or "Ready"
-        } else {
-            setCanFinalize(false);
-            // Estimate time remaining
-            const seconds = blocksRemaining * BLOCK_TIME_SECONDS;
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-        }
-    }, [activeMarketData, marketStateV5, currentBlock]);
+        const updateTimer = () => {
+            const now = Math.floor(Date.now() / 1000);
+            const remaining = deadline - now;
+
+            if (remaining <= 0) {
+                setCanFinalize(true);
+                setDisputeTimer('00:00:00'); // Ready to finalize
+            } else {
+                setCanFinalize(false);
+                const h = Math.floor(remaining / 3600);
+                const m = Math.floor((remaining % 3600) / 60);
+                const s = remaining % 60;
+                setDisputeTimer(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            }
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+
+    }, [activeMarketData, marketStateV5]);
     // ------------------------------------------
 
     const handleClaimCreatorFees = async () => {
