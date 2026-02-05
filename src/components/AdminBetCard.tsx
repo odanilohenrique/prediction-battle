@@ -556,27 +556,23 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 const totalYes = BigInt(activeMarketData[18] || 0);
                 const totalNo = BigInt(activeMarketData[19] || 0);
 
-                const targetPool = isYes ? totalYes : totalNo;
-                const oppositePool = isYes ? totalNo : totalYes;
                 const SHARE_PRECISION = BigInt(10 ** 18);
-                const MIN_WEIGHT = BigInt(100);
-                const MAX_WEIGHT = BigInt(150);
 
-                // NET AMOUNT: 80% (20% Fees: 10 House + 5 Creator + 5 Ref)
+                // NET AMOUNT: 80% (20% Fees)
                 const netAmount = (amtWei * BigInt(80)) / BigInt(100);
 
-                if (targetPool === BigInt(0) || oppositePool === BigInt(0)) {
-                    // Initial odds 1:1 -> Weight 100% -> Shares = netAmount * 1e18
-                    return (netAmount * SHARE_PRECISION * BigInt(99)) / BigInt(100); // 1% Slippage
-                }
+                const targetPool = isYes ? totalYes : totalNo;
+                const oppositePool = isYes ? totalNo : totalYes;
+                const totalPool = totalYes + totalNo;
 
-                const ratio = (oppositePool * SHARE_PRECISION) / targetPool;
-                let weight = (ratio * BigInt(100)) / SHARE_PRECISION;
+                // V8 AMM Logic: Shares = Payout Amount (6 Decimals)
+                // Odds = (TotalPool * 1e18) / SidePool
+                // Shares = (Bet * Odds) / 1e18
 
-                if (weight < MIN_WEIGHT) weight = MIN_WEIGHT;
-                if (weight > MAX_WEIGHT) weight = MAX_WEIGHT;
+                if (targetPool === BigInt(0)) return BigInt(0); // Should not happen with Seeds
 
-                const expectedShares = (netAmount * SHARE_PRECISION * weight) / BigInt(100);
+                const odds = (totalPool * SHARE_PRECISION) / targetPool;
+                const expectedShares = (netAmount * odds) / SHARE_PRECISION;
 
                 // Apply 1% Slippage Tolerance
                 return (expectedShares * BigInt(99)) / BigInt(100);
