@@ -19,13 +19,12 @@ function cnLocal(...inputs: ClassValue[]) {
 
 const NAV_ITEMS = [
     { label: 'Home', href: '/', icon: Home, active: true },
-    { label: 'Trending', href: '/trending', icon: Flame, active: false, soon: true },
     { label: 'Profile', href: '/profile', icon: User, active: true },
     { label: 'Earnings', href: '/earnings', icon: Wallet, active: true },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy, active: false, soon: true },
     { label: 'Categories', href: '/categories', icon: LayoutGrid, active: false, soon: true },
-    { label: 'Docs', href: '/docs', icon: Book, active: true }, // Maybe link to external?
     { label: 'Community', href: '/community', icon: Users, active: true }, // Warpcast link?
+    { label: 'Docs', href: '/docs', icon: Book, active: true }, // Maybe link to external?
 ];
 
 export default function Navigation() {
@@ -48,10 +47,10 @@ export default function Navigation() {
                     </div>
                     <div className="text-center">
                         <h1 className="text-xl font-black text-white italic tracking-widest uppercase leading-none mb-1">
-                            BATTLE
+                            PREDICTION
                         </h1>
                         <h1 className="text-xl font-black text-primary italic tracking-widest uppercase leading-none">
-                            ARENA
+                            BATTLE
                         </h1>
                     </div>
                 </div>
@@ -125,7 +124,7 @@ export default function Navigation() {
                             className="object-cover"
                         />
                     </div>
-                    <span className="text-lg font-black text-white italic tracking-widest">ARENA</span>
+                    <span className="text-lg font-black text-white italic tracking-widest truncate">PREDICTION BATTLE</span>
                 </div>
                 <div>
                     <WalletButton />
@@ -135,8 +134,8 @@ export default function Navigation() {
             {/* MOBILE BOTTOM NAV */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-black/80 backdrop-blur-xl border-t border-white/5 z-50 px-2 pb-5 pt-2 flex items-center justify-between">
                 {/* We pick 4-5 main items for mobile */}
-                {/* Custom list: Home, Trending, Create (Center), Earnings, Profile */}
-                {['/', '/trending', '/create', '/earnings', '/profile'].map((path, idx) => {
+                {/* Custom list: Home, Create (Center), Earnings, Profile */}
+                {['/', '/create', '/earnings', '/profile'].map((path, idx) => {
                     // Custom mapping for Mobile Bottom Bar visualization
                     let item = NAV_ITEMS.find(n => n.href === path);
                     if (path === '/create') {
