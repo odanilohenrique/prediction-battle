@@ -8,6 +8,7 @@ import { CURRENT_CONFIG } from '@/lib/config';
 import { useModal } from '@/providers/ModalProvider';
 import VerificationModal from './VerificationModal';
 import { formatBlockDuration, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
+import { calculateRequiredBond } from '@/lib/contracts';
 
 interface BetMonitor {
     id: string;
@@ -93,12 +94,10 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
     const isMarketOpen = marketStateV5 === 0;
 
     // V5: Get Required Bond
-    const { data: requiredBond } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'getRequiredBond',
-        args: [bet.id],
-    }) as { data: bigint | undefined };
+    // V8: Bond Calculation (RPC 'getRequiredBond' removed in V8)
+    const requiredBond = marketStruct
+        ? calculateRequiredBond(BigInt(marketStruct[18] || 0) + BigInt(marketStruct[19] || 0))
+        : BigInt(5000000);
 
     // V8: Parse proposal info from market struct (timestamp-based)
     const DISPUTE_WINDOW_SECONDS = 43200; // 12 hours in seconds (V8)

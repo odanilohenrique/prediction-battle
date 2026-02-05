@@ -12,6 +12,7 @@ import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 import { formatBlockDuration, estimateTimeFromBlocks, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
+import { calculateRequiredBond } from '@/lib/contracts';
 
 interface AdminBet {
     id: string;
@@ -25,7 +26,6 @@ interface AdminBet {
     target: number;
     timeframe: string;
     minBet: number;
-    maxBet: number;
     maxBet: number;
     expiresAt: number;
     deadlineBlock?: number; // [NEW]
@@ -365,15 +365,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const canVerify = !isMarketResolved;
 
     // V5: Get Required Bond (this function exists in V5)
-    const { data: requiredBond } = useReadContract({
+    // V8: Calculate Bond locally (RPC 'getRequiredBond' removed in V8)
+    const { data: marketForBond } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: 'getRequiredBond',
+        functionName: 'markets',
         args: [bet.id],
         query: {
             enabled: canVerify,
         }
-    }) as { data: bigint | undefined };
+    }) as { data: any[] | undefined };
+
+    const requiredBond = marketForBond
+        ? calculateRequiredBond(BigInt(marketForBond[18] || 0) + BigInt(marketForBond[19] || 0))
+        : BigInt(5000000);
 
     // V8: Parse proposal info from markets struct (timestamp-based)
     // Struct indices: 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl

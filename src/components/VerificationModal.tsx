@@ -8,6 +8,7 @@ import { parseUnits, formatUnits } from 'viem';
 import { CURRENT_CONFIG, isAdmin } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import { formatBlockDuration } from '@/lib/blockTime';
+import { calculateRequiredBond } from '@/lib/contracts';
 
 // USDC Contract ABI (minimal for approve)
 const USDC_ABI = [
@@ -164,15 +165,33 @@ export default function VerificationModal({
         setError(null);
 
         try {
-            // Step 0: Get FRESH Bond amount directly from contract
-            const activeBond = await publicClient.readContract({
+            // Step 0: Get FRESH Bond amount manually (V8 Solvency Logic)
+            const marketData = await publicClient.readContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'getRequiredBond',
+                functionName: 'markets',
+                args: [marketId]
+            }) as any[];
+
+            // V8 Indices: 18=TotalYes, 19=TotalNo
+            const totalYes = BigInt(marketData[18] || 0);
+            const totalNo = BigInt(marketData[19] || 0);
+            const activeBond = calculateRequiredBond(totalYes + totalNo);
+
+            console.log('Fresh bond required:', formatUnits(activeBond, 6));
+
+            // Check Cooldown (Hot Market Safety)
+            const lastBetTime = await publicClient.readContract({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'lastBetTime',
                 args: [marketId]
             }) as bigint;
 
-            console.log('Fresh bond required:', formatUnits(activeBond, 6));
+            const now = Math.floor(Date.now() / 1000);
+            if (now < Number(lastBetTime) + (30 * 60)) {
+                throw new Error("Market is HOT! Verification blocked for 30min after last bet.");
+            }
 
             // Upload Image first if exists
             let finalEvidence = evidenceLink;
@@ -277,6 +296,7 @@ export default function VerificationModal({
             if (msg.includes('Market not active')) msg = "Market is not open for verification yet/anymore.";
             if (msg.includes('Bond transfer failed')) msg = "Could not transfer USDC bond (Check balance/allowance).";
             if (msg.includes('User rejected')) msg = "User rejected the transaction.";
+            if (msg.includes('Cool-down')) msg = "Market is HOT! Wait 30min after last bet.";
 
             setError(msg);
             setStep('select');
@@ -296,12 +316,18 @@ export default function VerificationModal({
             // Step 0: Get FRESH Bond amount directly from contract
             // Disputing typically requires matching the bond or a specific amount. 
             // We use getRequiredBond which usually returns the current required bond.
-            const activeBond = await publicClient.readContract({
+            // Step 0: Get FRESH Bond amount from Market Struct (for Dispute, match the existing Proposal Bond)
+            const marketData = await publicClient.readContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'getRequiredBond',
+                functionName: 'markets',
                 args: [marketId]
-            }) as bigint;
+            }) as any[];
+
+            // V8 Indices: 12=BondAmount
+            const activeBond = BigInt(marketData[12] || 0);
+
+            if (activeBond === BigInt(0)) throw new Error("No bond to challenge. Market might not be proposed.");
 
             console.log('Fresh bond required for dispute:', formatUnits(activeBond, 6));
 
