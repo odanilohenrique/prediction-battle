@@ -217,7 +217,7 @@ export async function placeBet(marketId: string, side: boolean, amountUSDC: stri
 
     const [address] = await walletClient.requestAddresses();
     const amount = parseUnits(amountUSDC, 6);
-    const minSharesAmount = parseUnits(minShares, 18); // Shares has 18 decimals
+    const minSharesAmount = parseUnits(minShares, 6); // Shares has 6 decimals in V8
 
     console.log(`Placing bet: ${marketId}, Side: ${side}, Amount: ${amountUSDC}, MinShares: ${minShares}`);
 
