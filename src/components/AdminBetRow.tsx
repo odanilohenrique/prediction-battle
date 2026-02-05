@@ -100,17 +100,16 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         args: [bet.id],
     }) as { data: bigint | undefined };
 
-    // V5: Parse proposal info from market struct (no separate function needed)
-    // V5/V7: Parse proposal info from market struct
-    const DISPUTE_WINDOW_BLOCKS = 21600; // 12h @ 2s/block
+    // V8: Parse proposal info from market struct (timestamp-based)
+    const DISPUTE_WINDOW_SECONDS = 43200; // 12 hours in seconds (V8)
 
     const parsedProposalInfo = marketStruct ? {
         proposer: marketStruct[9] as string,
         proposedResult: marketStruct[10] as boolean,
-        proposalBlock: BigInt(marketStruct[11] || 0),
+        proposalTime: BigInt(marketStruct[11] || 0), // V8: timestamp
         bondAmount: BigInt(marketStruct[12] || 0),
-        disputeDeadlineBlock: BigInt(marketStruct[11] || 0) + BigInt(DISPUTE_WINDOW_BLOCKS),
-        canFinalize: isMarketProposed && currentBlock > Number(marketStruct[11] || 0) + DISPUTE_WINDOW_BLOCKS,
+        disputeDeadlineTimestamp: BigInt(marketStruct[11] || 0) + BigInt(DISPUTE_WINDOW_SECONDS),
+        canFinalize: isMarketProposed && Math.floor(Date.now() / 1000) > Number(marketStruct[11] || 0) + DISPUTE_WINDOW_SECONDS,
         evidenceUrl: marketStruct[13] as string,
     } : null;
 

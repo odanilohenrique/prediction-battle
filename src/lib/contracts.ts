@@ -155,7 +155,7 @@ export async function getReporterReward(predictionId: string): Promise<bigint> {
     }
 }
 
-// V5: Get proposal info (Extended)
+// V8: Get proposal info (Timestamp-based)
 export async function getProposalInfo(predictionId: string) {
     const client = getOperatorClient();
     try {
@@ -166,47 +166,39 @@ export async function getProposalInfo(predictionId: string) {
             args: [predictionId],
         }) as any[];
 
-        // Indices (V7 Secure):
+        // V8 Struct Indices:
         // 9: proposer
         // 10: proposedResult
-        // 11: proposalBlock
+        // 11: proposalTime (V8 uses timestamp, not block)
         // 12: bondAmount
         // 13: evidenceUrl
         // 14: challenger
         // 15: challengeBondAmount
         // 16: challengeEvidenceUrl
-        // 17: challengeBlock
+        // 17: challengeTime (V8 uses timestamp)
 
-        const proposalBlock = BigInt(data[11]);
-        const challengeBlock = BigInt(data[17]);
+        const proposalTime = BigInt(data[11]);
+        const challengeTime = BigInt(data[17]);
 
-        // V7: Fixed window of 21600 blocks (~12 hours on Base @ 2s/block)
-        const DISPUTE_WINDOW_BLOCKS = BigInt(21600);
+        // V8: Fixed window of 43200 seconds (12 hours)
+        const DISPUTE_WINDOW_SECONDS = BigInt(43200);
 
-        // Calculate deadline based on state
-        // If disputed, using challengeBlock? No, dispute window is fixed from proposal?
-        // Check contract: challengeOutcome requires block.number <= proposalBlock + DISPUTE_BLOCKS.
-        // After challenge, is there another window? 
-        // Contract: resolveDispute can be called immediately by admin.
-        // Contract: finalizeOutcome requires block.number > proposalBlock + DISPUTE_BLOCKS.
-        // So the window is always proposalBlock + 3600.
-
-        const deadlineBlock = proposalBlock + DISPUTE_WINDOW_BLOCKS;
-        const currentBlock = await client.getBlockNumber();
+        // V8 uses timestamp.now() for deadline calculation
+        const deadlineTimestamp = proposalTime + DISPUTE_WINDOW_SECONDS;
+        const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
         return {
             proposer: data[9] as string,
             proposedResult: data[10] as boolean,
-            proposalBlock: Number(proposalBlock),
+            proposalTime: Number(proposalTime), // V8: now in seconds
             bondAmount: BigInt(data[12]),
-            disputeDeadlineBlock: Number(deadlineBlock),
-            canFinalize: currentBlock > deadlineBlock,
+            disputeDeadlineTimestamp: Number(deadlineTimestamp), // V8: timestamp
+            canFinalize: currentTimestamp > deadlineTimestamp,
             evidenceUrl: data[13] as string,
-            // New V5/V7 fields
             challenger: data[14] as string,
             challengeBondAmount: BigInt(data[15]),
             challengeEvidenceUrl: data[16] as string,
-            challengeBlock: Number(challengeBlock)
+            challengeTime: Number(challengeTime) // V8: timestamp
         };
     } catch (error) {
         console.error("Failed to get proposal info:", error);
@@ -221,7 +213,7 @@ export async function placeBet(marketId: string, side: boolean, amountUSDC: stri
     const walletClient = createWalletClient({
         chain: baseSepolia,
         transport: custom(window.ethereum)
-    });
+    }).extend(publicActions); // Extend with public actions to simulate
 
     const [address] = await walletClient.requestAddresses();
     const amount = parseUnits(amountUSDC, 6);
@@ -229,7 +221,7 @@ export async function placeBet(marketId: string, side: boolean, amountUSDC: stri
 
     console.log(`Placing bet: ${marketId}, Side: ${side}, Amount: ${amountUSDC}, MinShares: ${minShares}`);
 
-    const { request } = await publicClient.simulateContract({
+    const { request } = await walletClient.simulateContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'placeBet',

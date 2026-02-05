@@ -1,7 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
-// New deployed contract with creator fee + void support + early resolution + evidence (V3.1)
-const TESTNET_CONTRACT_ADDRESS = '0x2Ea13B4eAa8424D518DF2FE88df85AC73Cb6Ed11'; // V7 SECURE w/ Early Bird Bonus + MEV Protection + Early Resolution
+// New deployed contract: V8 with C-01 Fix (claimReporterReward), Hardcoded USDC, Min Bet, Delays
+const TESTNET_CONTRACT_ADDRESS = '0xe78EfbDBFd3016D9674Cd1798c48c71AF5927fdD'; // V8 Audit Fixes
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
