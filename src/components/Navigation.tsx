@@ -23,7 +23,7 @@ const NAV_ITEMS = [
     { label: 'Earnings', href: '/earnings', icon: Wallet, active: true },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy, active: false, soon: true },
     { label: 'Categories', href: '/categories', icon: LayoutGrid, active: false, soon: true },
-    { label: 'Community', href: '/community', icon: Users, active: true }, // Warpcast link?
+    { label: 'Community', href: '/community', icon: Users, active: false, soon: true }, // Warpcast link?
     { label: 'Docs', href: '/docs', icon: Book, active: true }, // Maybe link to external?
 ];
 
