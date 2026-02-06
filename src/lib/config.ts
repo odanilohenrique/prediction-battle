@@ -1,7 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
 // New deployed contract: V8 with C-01 Fix (claimReporterReward), Hardcoded USDC, Min Bet, Delays
-const TESTNET_CONTRACT_ADDRESS = '0xe78EfbDBFd3016D9674Cd1798c48c71AF5927fdD'; // V8 Audit Fixes
+const TESTNET_CONTRACT_ADDRESS = '0xbB2a28A27dDef4e01Ee77c407E298523De3F5f6A'; // V8 Audit Fixes (Deployed 06/Feb)
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
