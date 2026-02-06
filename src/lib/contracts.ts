@@ -401,7 +401,7 @@ export async function withdrawCreatorFeesOnChain(waitForReceipt: boolean = true)
     }
 }
 
-// V6: Creator withdraws seed on void market
+// V8: Creator withdraws seed on void market
 export async function withdrawSeedOnChain(predictionId: string, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
     console.log(`[OPERATOR] Withdrawing seed for voided market ${predictionId}...`);
@@ -420,6 +420,52 @@ export async function withdrawSeedOnChain(predictionId: string, waitForReceipt: 
         return hash;
     } catch (error) {
         console.error("[OPERATOR] Failed to withdraw seed:", error);
+        throw error;
+    }
+}
+
+// V8: Proposer claims reporter reward (1% of pool)
+export async function claimReporterRewardOnChain(predictionId: string, waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+    console.log(`[OPERATOR] Claiming reporter reward for market ${predictionId}...`);
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'claimReporterReward',
+            args: [predictionId],
+        });
+        console.log(`[OPERATOR] Claim Reporter Reward Tx Hash: ${hash}`);
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
+        }
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to claim reporter reward:", error);
+        throw error;
+    }
+}
+
+// V8: Void abandoned market (anyone can call after 30 days post-deadline)
+export async function voidAbandonedMarketOnChain(predictionId: string, waitForReceipt: boolean = true) {
+    const client = getOperatorClient();
+    console.log(`[OPERATOR] Voiding abandoned market ${predictionId}...`);
+    try {
+        const hash = await client.writeContract({
+            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+            abi: PredictionBattleABI.abi,
+            functionName: 'voidAbandonedMarket',
+            args: [predictionId],
+        });
+        console.log(`[OPERATOR] Void Abandoned Market Tx Hash: ${hash}`);
+        if (waitForReceipt) {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
+        }
+        return hash;
+    } catch (error) {
+        console.error("[OPERATOR] Failed to void abandoned market:", error);
         throw error;
     }
 }

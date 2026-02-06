@@ -1230,8 +1230,8 @@
       ]
     },
     "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV8.sol": {
-      "lastModificationDate": 1770225718549,
-      "contentHash": "e60e4ca612fe7106999fc42ecc2f5369",
+      "lastModificationDate": 1770384142895,
+      "contentHash": "4c2666cbd5a738acb594e00b424ec732",
       "sourceName": "contracts/PredictionBattleV8.sol",
       "solcConfig": {
         "version": "0.8.20",

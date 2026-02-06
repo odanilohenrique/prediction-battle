@@ -208,6 +208,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: any[] | undefined, refetch: () => void };
 
+    // V8: Check if Reporter Reward Claimed
+    const { data: isRewardClaimed, refetch: refetchRewardClaimed } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'reporterRewardClaimed',
+        args: [bet.id],
+        query: { enabled: !!address }
+    }) as { data: boolean | undefined, refetch: () => void };
+
     // Derive Active Market Data EARLY
     const activeMarketData = marketInfo || marketStruct;
     const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
@@ -774,6 +783,30 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     };
 
+
+    const handleClaimReporterReward = async () => {
+        if (!isConnected || !address) return;
+        setIsSubmitting(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'claimReporterReward',
+                args: [bet.id],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+            }
+            showAlert('Success', 'Reporter reward claimed successfully!', 'success');
+            refetchRewardClaimed();
+        } catch (error) {
+            console.error('Claim Reward error:', error);
+            showAlert('Error', (error as Error).message, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSeedPool = async () => {
         // V2 NOTE: seedPrediction does NOT exist in V2!
         // In V2, seed is provided during createMarket() call.
@@ -794,14 +827,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ betId: bet.id }),
                 });
-
-                if (response.ok) {
-                    showAlert('Deleted', 'Bet deleted successfully.', 'success');
-                    onBet(); // Refresh list
-                } else {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Failed to delete');
-                }
             } catch (error) {
                 console.error('Delete error:', error);
                 showAlert('Error', (error as Error).message, 'error');
@@ -918,6 +943,23 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             setIsSubmitting(false);
         }
     };
+
+    // V8 Logic: Check if reporter reward has been claimed
+    const { data: isRewardClaimed, refetch: refetchRewardClaimed } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'reporterRewardClaimed',
+        args: [bet.id],
+        query: {
+            enabled: isConnected && isMarketResolved && !!address,
+            select: (data) => data as boolean,
+        },
+    });
+
+    // V8 Logic: Is current user the proposer?
+    // activeMarketData[9] is proposer address
+    const isProposer = activeMarketData && address && (activeMarketData[9] as string).toLowerCase() === address.toLowerCase();
+    const canClaimReward = isMarketResolved && isProposer && !isRewardClaimed;
 
     return (
         <>

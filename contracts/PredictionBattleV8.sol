@@ -23,8 +23,6 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
 
     // ============ STATE VARIABLES ============
     
-    // ============ STATE VARIABLES ============
-    
     address public treasury;
     // USDC Address - Change for network:
     // Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
@@ -150,6 +148,8 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
     event HouseFeeWithdrawn(address indexed treasury, uint256 amount);
     event BondWithdrawn(address indexed user, uint256 amount);
     event ReporterRewardClaimed(string indexed marketId, address indexed proposer, uint256 reward);
+    event CreatorFeesWithdrawn(address indexed creator, uint256 amount);
+    event ReferrerFeesWithdrawn(address indexed referrer, uint256 amount);
     
     address public currentOperator; 
 
@@ -564,6 +564,22 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         emit MarketVoided(_marketId);
     }
 
+    /**
+     * @notice Allows anyone to void an abandoned market after 30 days past deadline
+     * @dev Market must be OPEN or LOCKED with no proposal for 30+ days after deadline
+     */
+    function voidAbandonedMarket(string calldata _marketId) external nonReentrant {
+        require(marketExists[_marketId], "No market");
+        Market storage m = markets[_marketId];
+        require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Invalid state");
+        require(block.timestamp > m.deadlineTime + 30 days, "Not abandoned");
+        
+        _updateMarketState(m, MarketState.RESOLVED);
+        m.isVoid = true;
+        
+        emit MarketVoided(_marketId);
+    }
+
     function withdrawSeed(string calldata _marketId) external nonReentrant {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
@@ -592,6 +608,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         require(amount > 0, "No fees");
         creatorBalance[msg.sender] = 0;
         usdcToken.safeTransfer(msg.sender, amount);
+        emit CreatorFeesWithdrawn(msg.sender, amount);
     }
     
     function withdrawReferrerFees() external nonReentrant {
@@ -599,6 +616,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         require(amount > 0, "No fees");
         rewardsBalance[msg.sender] = 0;
         usdcToken.safeTransfer(msg.sender, amount);
+        emit ReferrerFeesWithdrawn(msg.sender, amount);
     }
     
     function withdrawHouseFees() external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
