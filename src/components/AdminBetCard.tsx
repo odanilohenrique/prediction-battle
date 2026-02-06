@@ -144,12 +144,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }, [address, isConnected]);
 
-    // Calculate percentages
-    const totalYes = bet?.participants?.yes?.length || 0;
-    const totalNo = bet?.participants?.no?.length || 0;
-    const totalVotes = totalYes + totalNo;
-    const yesPercent = totalVotes > 0 ? (totalYes / totalVotes) * 100 : 50;
-    const noPercent = totalVotes > 0 ? (totalNo / totalVotes) * 100 : 50;
+    // Calculate percentages based on VALUE (firepower) not just number of people
+    const yesPoolValue = (bet?.participants?.yes || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const noPoolValue = (bet?.participants?.no || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const initialSeedValue = bet.initialValue || 0;
+    const seedPerSide = initialSeedValue / 2;
+    const totalYesValue = yesPoolValue + seedPerSide;
+    const totalNoValue = noPoolValue + seedPerSide;
+    const totalPoolValue = totalYesValue + totalNoValue;
+    const yesPercent = totalPoolValue > 0 ? (totalYesValue / totalPoolValue) * 100 : 50;
+    const noPercent = totalPoolValue > 0 ? (totalNoValue / totalPoolValue) * 100 : 50;
 
     // Claim Check Logic
     const winningSide = bet.result === 'yes'; // true for yes, false for no
@@ -921,12 +925,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 {/* Header Ticket Stub */}
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                            <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                                {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
-                            </span>
-                        </div>
+                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
+                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
+                        </span>
                         {/* Creator Badge */}
                         {bet.creatorAddress && (
                             <div className="flex items-center gap-1.5">
@@ -964,9 +966,26 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-1 text-xs font-mono text-primary">
-                        {/* Timer Removed */}
-                    </div>
+                    {/* Deadline Timer - Top Right Corner */}
+                    {bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt && (
+                        <div className="flex items-center gap-1.5 text-xs font-mono text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+                            <Clock className="w-3 h-3 text-primary" />
+                            <span suppressHydrationWarning>
+                                {(() => {
+                                    if (bet.deadlineBlock && currentBlock > 0) {
+                                        return formatBlockDuration(bet.deadlineBlock, currentBlock);
+                                    }
+                                    const timeRemainingMs = bet.expiresAt - Date.now();
+                                    const days = Math.floor(timeRemainingMs / (1000 * 60 * 60 * 24));
+                                    const hours = Math.floor((timeRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                    const minutes = Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    if (days > 0) return `${days}d ${hours}h`;
+                                    if (hours > 0) return `${hours}h ${minutes}m`;
+                                    return `${minutes}m`;
+                                })()}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-6">
