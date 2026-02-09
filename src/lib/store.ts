@@ -33,6 +33,7 @@ export interface Bet {
     maxBet: number;
     createdAt: number;
     expiresAt: number;
+    deadlineBlock?: number; // Block number when market expires (V8)
     status: 'active' | 'completed';
     totalPot: number;
     participantCount: number;

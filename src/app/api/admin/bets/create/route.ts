@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
             minBet,
             maxBet,
             createdAt: now,
-            createdAt: now,
+
             expiresAt,
             deadlineBlock, // [NEW]
             status: 'active',

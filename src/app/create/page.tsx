@@ -114,7 +114,7 @@ export default function CreateCommunityBet() {
         // Bet config
         betType: 'post_count' as BetType,
         targetValue: 3,
-        // timeframe: '24h' as Timeframe, // Removed in favor of V6 1y default
+        timeframe: '24h' as Timeframe,
         castUrl: '',
 
         // Limits & Econ
@@ -255,7 +255,7 @@ export default function CreateCommunityBet() {
             const totalSeedWei = parseUnits(totalRequiredSeed.toString(), 6);
 
             // EVEN AMOUNT CHECK (Contract Requirement)
-            if (totalSeedWei % 2n !== 0n) {
+            if (totalSeedWei % BigInt(2) !== BigInt(0)) {
                 showAlert('Invalid Amount', 'Total seed amount must be divisible by 2 (e.g. 10.000002 not 10.000001). Please adjust your bet slightly.', 'warning');
                 setIsSubmitting(false);
                 return;
@@ -417,11 +417,7 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // Invalidate cache for rate limit so user sees new limit immediately if they try again
-                            if (publicClient.invalidateQueries) {
-                                // @ts-ignore
-                                publicClient.invalidateQueries({ queryKey: lastCreationQueryKey });
-                            }
+
                         }
                     } // End of if (!skipCreation)
                 } catch (contractError: any) {

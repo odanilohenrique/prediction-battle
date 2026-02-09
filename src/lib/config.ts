@@ -1,7 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
-// New deployed contract: V8 with C-01 Fix (claimReporterReward), Hardcoded USDC, Min Bet, Delays
-const TESTNET_CONTRACT_ADDRESS = '0xbB2a28A27dDef4e01Ee77c407E298523De3F5f6A'; // V8 Audit Fixes (Deployed 06/Feb)
+// New deployed contract: V9 with ECR-002 Fixes (Recoverable Seed, Fee Distribution, Gas Optimization)
+const TESTNET_CONTRACT_ADDRESS = '0x9e03B2660aB25FA7A11bCB90326337A405cb7D94'; // V9 (Deployed 09/Feb/2026)
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
@@ -14,7 +14,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: TESTNET_CONTRACT_ADDRESS,
+    contractAddress: '0x9e03B2660aB25FA7A11bCB90326337A405cb7D94', // Base Sepolia (V9 - Audit Remediation & Gas Opt)
 };
 
 export const MAINNET_CONFIG = {

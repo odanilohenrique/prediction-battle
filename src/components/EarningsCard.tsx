@@ -52,7 +52,7 @@ export default function EarningsCard() {
         functionName: 'admin',
     });
 
-    const isAdmin = address && adminAddress && address.toLowerCase() === (adminAddress as string).toLowerCase();
+    const isAdmin = !!(address && adminAddress && address.toLowerCase() === (adminAddress as string).toLowerCase());
 
     const { data: houseBalanceRaw, refetch: refetchHouse } = useReadContract({
         address: contractAddress,

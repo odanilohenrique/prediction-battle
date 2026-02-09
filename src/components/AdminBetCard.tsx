@@ -12,7 +12,7 @@ import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 import { formatBlockDuration, estimateTimeFromBlocks, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
-import { calculateRequiredBond } from '@/lib/contracts';
+import { calculateRequiredBond, MarketOutcome } from '@/lib/contracts';
 
 interface AdminBet {
     id: string;
@@ -219,17 +219,25 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     // Derive Active Market Data EARLY
     const activeMarketData = marketInfo || marketStruct;
+    // V9 Indices: 6=State, 7=Outcome (Enum), 8=SeedAmount, 9=SeedWithdrawn
     const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
-    const isMarketResolved = marketStateV5 === 4;
+    const isMarketResolved = marketStateV5 === 4; // RESOLVED
 
     // Determine Result (Chain > DB)
     let resultString = (bet.result || '').toLowerCase();
 
+    // V9: Seed Info
+    const seedAmount = activeMarketData ? BigInt(activeMarketData[8] || 0) : BigInt(0);
+    const isSeedWithdrawn = activeMarketData ? Boolean(activeMarketData[9]) : false;
+    const isCreator = address && bet.creatorAddress && address.toLowerCase() === bet.creatorAddress.toLowerCase();
+
     if (isMarketResolved && activeMarketData) {
-        const isVoid = activeMarketData[8] as boolean;
-        const resultBool = activeMarketData[7] as boolean;
-        if (isVoid) resultString = 'void';
-        else resultString = resultBool ? 'yes' : 'no';
+        const outcome = Number(activeMarketData[7]);
+        // Enum: PENDING=0, YES=1, NO=2, DRAW=3, CANCELLED=4
+        if (outcome === MarketOutcome.CANCELLED) resultString = 'void';
+        else if (outcome === MarketOutcome.DRAW) resultString = 'draw';
+        else if (outcome === MarketOutcome.YES) resultString = 'yes';
+        else if (outcome === MarketOutcome.NO) resultString = 'no';
     }
     // ------------------------------------------
 
@@ -254,7 +262,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // Use the robust resultString derived above
     const normalizedResult = resultString;
 
-    if (normalizedResult === 'void') userShares = userYesAmount + userNoAmount;
+    if (normalizedResult === 'void' || normalizedResult === 'draw') userShares = userYesAmount + userNoAmount; // Full refund in void, partial in draw (logic handled in contract)
     else if (normalizedResult === 'yes') userShares = userYesAmount;
     else if (normalizedResult === 'no') userShares = userNoAmount;
 
@@ -944,17 +952,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     };
 
-    // V8 Logic: Check if reporter reward has been claimed
-    const { data: isRewardClaimed, refetch: refetchRewardClaimed } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: PredictionBattleABI.abi,
-        functionName: 'reporterRewardClaimed',
-        args: [bet.id],
-        query: {
-            enabled: isConnected && isMarketResolved && !!address,
-            select: (data) => data as boolean,
-        },
-    });
+
 
     // V8 Logic: Is current user the proposer?
     // activeMarketData[9] is proposer address
@@ -1303,8 +1301,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </button>
                         )}
 
-                        {/* V6: Withdraw Seed Button (Creator Only, Void Markets Only) */}
-                        {address && activeMarketData && activeMarketData[1] === address && activeMarketData[8] === true && !hasClaimed && (
+                        {/* V9: Withdraw Seed Button (Creator Only, Any Resolved Market) */}
+                        {address && isCreator && isMarketResolved && seedAmount > BigInt(0) && !isSeedWithdrawn && (
                             <button
                                 onClick={handleWithdrawSeed}
                                 disabled={isSubmitting}

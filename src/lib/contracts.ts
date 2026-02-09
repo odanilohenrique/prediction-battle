@@ -28,13 +28,22 @@ export function getOperatorClient() {
     return client;
 }
 
-// V5: MarketState enum
+// V9: MarketState enum
 export enum MarketState {
     OPEN = 0,
     LOCKED = 1,
     PROPOSED = 2,
     DISPUTED = 3,
     RESOLVED = 4
+}
+
+// V9: MarketOutcome enum (NEW - replaces result + isVoid booleans)
+export enum MarketOutcome {
+    PENDING = 0,
+    YES = 1,
+    NO = 2,
+    DRAW = 3,
+    CANCELLED = 4
 }
 
 // Check if prediction is resolved on-chain
@@ -85,7 +94,14 @@ export async function getMarketState(predictionId: string): Promise<MarketState>
     }
 }
 
-// V5: Get Full Market Data
+// V9: Get Full Market Data
+// V9 Struct Indices:
+// 0: id, 1: creator, 2: question, 3: creationTime, 4: bonusDuration, 5: deadlineTime
+// 6: state, 7: outcome, 8: seedAmount, 9: seedWithdrawn
+// 10: proposer, 11: proposedResult, 12: proposalTime, 13: bondAmount, 14: evidenceUrl
+// 15: challenger, 16: challengeBondAmount, 17: challengeEvidenceUrl, 18: challengeTime
+// 19: totalYes, 20: totalNo, 21: totalSharesYes, 22: totalSharesNo
+// 23: yesBettorsCount, 24: noBettorsCount
 export async function getOnChainMarketData(predictionId: string) {
     const client = getOperatorClient();
     try {
@@ -98,13 +114,22 @@ export async function getOnChainMarketData(predictionId: string) {
 
         if (!Array.isArray(data)) return null;
 
+        const outcome = Number(data[7]) as MarketOutcome;
+
         return {
-            state: Number(data[6]),
-            result: Boolean(data[7]),
-            isVoid: Boolean(data[8]),
-            deadlineBlock: Number(data[5]),
-            totalYes: BigInt(data[18] || 0),
-            totalNo: BigInt(data[19] || 0)
+            state: Number(data[6]) as MarketState,
+            outcome: outcome,
+            // Legacy compatibility helpers
+            result: outcome === MarketOutcome.YES,
+            isVoid: outcome === MarketOutcome.CANCELLED,
+            isDraw: outcome === MarketOutcome.DRAW,
+            // V9 fields
+            deadlineTime: Number(data[5]),
+            seedAmount: BigInt(data[8] || 0),
+            seedWithdrawn: Boolean(data[9]),
+            totalYes: BigInt(data[19] || 0),
+            totalNo: BigInt(data[20] || 0),
+            creator: data[1] as string,
         };
     } catch (error) {
         console.error("Failed to get market data:", error);
@@ -119,7 +144,7 @@ export function calculateRequiredBond(poolTotal: bigint): bigint {
     return MIN_BOND + variableBond;
 }
 
-// V8 Wrapper: Fetches market data to calculate bond
+// V9 Wrapper: Fetches market data to calculate bond
 export async function getRequiredBond(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
     try {
@@ -130,12 +155,9 @@ export async function getRequiredBond(predictionId: string): Promise<bigint> {
             args: [predictionId],
         }) as any[];
 
-        // V8 Indices: 18=TotalYes, 19=TotalNo (Check indices if getting errors, logic assumes standard V8 layout)
-        // Wait, standard `markets` in V8 might have different indices. 
-        // Let's use `getMarketDetails` if available or stick to strict indices.
-        // Based on AdminBetCard analysis: 18=TotalYes, 19=TotalNo.
-        const totalYes = BigInt(data[18] || 0);
-        const totalNo = BigInt(data[19] || 0);
+        // V9 Indices: 19=TotalYes, 20=TotalNo
+        const totalYes = BigInt(data[19] || 0);
+        const totalNo = BigInt(data[20] || 0);
 
         return calculateRequiredBond(totalYes + totalNo);
     } catch (error) {
@@ -144,12 +166,10 @@ export async function getRequiredBond(predictionId: string): Promise<bigint> {
     }
 }
 
-// V5: Get reporter reward (approx 1% of pool)
+// V9: Get reporter reward (1% of pool)
 export async function getReporterReward(predictionId: string): Promise<bigint> {
     const client = getOperatorClient();
     try {
-        // We can just calculate it from pool info if needed, or return 0 for now as it's not critical
-        // OR read market info and calc 1% of totalYes + totalNo
         const data = await client.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
@@ -158,8 +178,9 @@ export async function getReporterReward(predictionId: string): Promise<bigint> {
         }) as any[];
 
         if (Array.isArray(data)) {
-            const totalYes = BigInt(data[18] || 0);
-            const totalNo = BigInt(data[19] || 0);
+            // V9 Indices: 19=TotalYes, 20=TotalNo
+            const totalYes = BigInt(data[19] || 0);
+            const totalNo = BigInt(data[20] || 0);
             return (totalYes + totalNo) / BigInt(100);
         }
         return BigInt(0);
@@ -169,7 +190,7 @@ export async function getReporterReward(predictionId: string): Promise<bigint> {
     }
 }
 
-// V8: Get proposal info (Timestamp-based)
+// V9: Get proposal info (Timestamp-based)
 export async function getProposalInfo(predictionId: string) {
     const client = getOperatorClient();
     try {
@@ -180,39 +201,31 @@ export async function getProposalInfo(predictionId: string) {
             args: [predictionId],
         }) as any[];
 
-        // V8 Struct Indices:
-        // 9: proposer
-        // 10: proposedResult
-        // 11: proposalTime (V8 uses timestamp, not block)
-        // 12: bondAmount
-        // 13: evidenceUrl
-        // 14: challenger
-        // 15: challengeBondAmount
-        // 16: challengeEvidenceUrl
-        // 17: challengeTime (V8 uses timestamp)
+        // V9 Struct Indices:
+        // 10: proposer, 11: proposedResult, 12: proposalTime, 13: bondAmount, 14: evidenceUrl
+        // 15: challenger, 16: challengeBondAmount, 17: challengeEvidenceUrl, 18: challengeTime
 
-        const proposalTime = BigInt(data[11]);
-        const challengeTime = BigInt(data[17]);
+        const proposalTime = BigInt(data[12]);
+        const challengeTime = BigInt(data[18]);
 
-        // V8: Fixed window of 43200 seconds (12 hours)
+        // V9: Fixed window of 43200 seconds (12 hours)
         const DISPUTE_WINDOW_SECONDS = BigInt(43200);
 
-        // V8 uses timestamp.now() for deadline calculation
         const deadlineTimestamp = proposalTime + DISPUTE_WINDOW_SECONDS;
         const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
         return {
-            proposer: data[9] as string,
-            proposedResult: data[10] as boolean,
-            proposalTime: Number(proposalTime), // V8: now in seconds
-            bondAmount: BigInt(data[12]),
-            disputeDeadlineTimestamp: Number(deadlineTimestamp), // V8: timestamp
+            proposer: data[10] as string,
+            proposedResult: data[11] as boolean,
+            proposalTime: Number(proposalTime),
+            bondAmount: BigInt(data[13]),
+            disputeDeadlineTimestamp: Number(deadlineTimestamp),
             canFinalize: currentTimestamp > deadlineTimestamp,
-            evidenceUrl: data[13] as string,
-            challenger: data[14] as string,
-            challengeBondAmount: BigInt(data[15]),
-            challengeEvidenceUrl: data[16] as string,
-            challengeTime: Number(challengeTime) // V8: timestamp
+            evidenceUrl: data[14] as string,
+            challenger: data[15] as string,
+            challengeBondAmount: BigInt(data[16]),
+            challengeEvidenceUrl: data[17] as string,
+            challengeTime: Number(challengeTime)
         };
     } catch (error) {
         console.error("Failed to get proposal info:", error);

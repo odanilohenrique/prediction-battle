@@ -208,6 +208,11 @@ export default function VerificationModal({
                 }
             }
 
+            // V9 Validation: Evidence URL length max 512 bytes
+            if (finalEvidence.length > 512) {
+                throw new Error(`Evidence too long (${finalEvidence.length}/512 chars). Please shorten your link or text.`);
+            }
+
             // Step 1: Check current allowance with FRESH bond + 10% BUFFER
             // Buffer prevents race conditions if bond grows slightly during tx flow
             setStep('approve');
@@ -344,6 +349,11 @@ export default function VerificationModal({
                 } finally {
                     setIsUploading(false);
                 }
+            }
+
+            // V9 Validation: Evidence URL length max 512 bytes
+            if (finalEvidence.length > 512) {
+                throw new Error(`Evidence too long (${finalEvidence.length}/512 chars). Please shorten your link or text.`);
             }
 
             // Step 1: Check current allowance with FRESH bond + 10% BUFFER

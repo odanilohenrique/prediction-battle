@@ -23,6 +23,14 @@ enum MarketState {
     RESOLVED = 4
 }
 
+enum MarketOutcome {
+    PENDING = 0,
+    YES = 1,
+    NO = 2,
+    DRAW = 3,
+    CANCELLED = 4
+}
+
 export default function ResolveModal({ isOpen, onClose, betId, username, knownOnChainState }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
     const [shouldReopen, setShouldReopen] = useState(false);
@@ -81,7 +89,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
     const isProposed = effectiveState === MarketState.PROPOSED;
     const isDisputed = effectiveState === MarketState.DISPUTED;
 
-    const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo', winner?: string, finalResult?: boolean) => {
+    const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
         setIsResolving(true);
 
@@ -116,14 +124,21 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, true]
+                    args: [betId, MarketOutcome.YES] // 1
                 });
             } else if (action === 'forceNo') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, false]
+                    args: [betId, MarketOutcome.NO] // 2
+                });
+            } else if (action === 'forceDraw') {
+                hash = await writeContractAsync({
+                    address: contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'adminResolve',
+                    args: [betId, MarketOutcome.DRAW] // 3
                 });
             }
 
@@ -347,6 +362,13 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                         className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all"
                                     >
                                         Force NO
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction('forceDraw')}
+                                        disabled={isResolving}
+                                        className="col-span-2 p-3 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 font-bold transition-all"
+                                    >
+                                        Force DRAW (Refund 80%)
                                     </button>
                                 </div>
                                 <button

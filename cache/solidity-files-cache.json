@@ -1230,8 +1230,8 @@
       ]
     },
     "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV8.sol": {
-      "lastModificationDate": 1770384142895,
-      "contentHash": "4c2666cbd5a738acb594e00b424ec732",
+      "lastModificationDate": 1770642429601,
+      "contentHash": "a18214aa969671882aaa4fb888b72da2",
       "sourceName": "contracts/PredictionBattleV8.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1271,6 +1271,49 @@
       ],
       "artifacts": [
         "PredictionBattleV8"
+      ]
+    },
+    "C:\\APPS\\Prediction Batle\\contracts\\PredictionBattleV9.sol": {
+      "lastModificationDate": 1770654919908,
+      "contentHash": "989270b418597f3b4ebadb638851e586",
+      "sourceName": "contracts/PredictionBattleV9.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol",
+        "@openzeppelin/contracts/access/AccessControl.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "PredictionBattleV9"
       ]
     }
   }
