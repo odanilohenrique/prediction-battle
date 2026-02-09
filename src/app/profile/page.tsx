@@ -6,7 +6,7 @@ import { useAccount, useReadContract, useWriteContract, usePublicClient } from '
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
-import { ArrowLeft, Coins, Crown, Loader2 } from 'lucide-react';
+import { ArrowLeft, Coins, Crown, Loader2, Gift } from 'lucide-react';
 import Link from 'next/link';
 
 // New Components
@@ -34,6 +34,7 @@ export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isClaimingFees, setIsClaimingFees] = useState(false);
+    const [isClaimingReferrer, setIsClaimingReferrer] = useState(false);
 
     // Creator Balance Read
     const { data: creatorBalance, refetch: refetchCreatorBalance } = useReadContract({
@@ -41,9 +42,16 @@ export default function ProfilePage() {
         abi: PredictionBattleABI.abi,
         functionName: 'creatorBalance',
         args: [address || '0x0000000000000000000000000000000000000000'],
-        query: {
-            enabled: !!address,
-        }
+        query: { enabled: !!address }
+    }) as { data: bigint | undefined, refetch: () => void };
+
+    // Referrer Balance Read
+    const { data: referrerBalance, refetch: refetchReferrerBalance } = useReadContract({
+        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+        abi: PredictionBattleABI.abi,
+        functionName: 'rewardsBalance',
+        args: [address || '0x0000000000000000000000000000000000000000'],
+        query: { enabled: !!address }
     }) as { data: bigint | undefined, refetch: () => void };
 
     useEffect(() => {
@@ -156,6 +164,29 @@ export default function ProfilePage() {
         }
     };
 
+    const handleClaimReferrerFees = async () => {
+        if (!isConnected || !address) return;
+        setIsClaimingReferrer(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'withdrawReferrerFees',
+                args: [],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+            }
+            showAlert('Success', 'Referrer rewards claimed successfully!', 'success');
+            refetchReferrerBalance();
+        } catch (error) {
+            console.error('Claim Referrer Fees error:', error);
+            showAlert('Error', (error as Error).message, 'error');
+        } finally {
+            setIsClaimingReferrer(false);
+        }
+    };
+
     if (!isConnected) {
         return (
             <main className="min-h-screen pt-24 pb-20 px-4 flex items-center justify-center">
@@ -203,14 +234,14 @@ export default function ProfilePage() {
 
                 {/* Creator Rewards Banner */}
                 {creatorBalance && creatorBalance > BigInt(0) && (
-                    <div className="mb-10 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 border border-yellow-500/20 rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="mb-4 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 border border-yellow-500/20 rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="p-3 bg-yellow-500/20 rounded-xl">
                                 <Crown className="w-6 h-6 text-yellow-500" />
                             </div>
                             <div>
                                 <h3 className="text-white font-black uppercase text-lg">Creator Rewards</h3>
-                                <p className="text-white/50 text-xs">You have earnings available to claim.</p>
+                                <p className="text-white/50 text-xs">Fees earned from markets you created.</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4 relative z-10">
@@ -223,6 +254,34 @@ export default function ProfilePage() {
                                 className="bg-white text-black font-bold text-xs uppercase px-4 py-2.5 rounded-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                             >
                                 {isClaimingFees && <Loader2 className="w-3 h-3 animate-spin" />}
+                                Claim
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Referrer Rewards Banner */}
+                {referrerBalance && referrerBalance > BigInt(0) && (
+                    <div className="mb-10 bg-gradient-to-r from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="p-3 bg-purple-500/20 rounded-xl">
+                                <Gift className="w-6 h-6 text-purple-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black uppercase text-lg">Referral Rewards</h3>
+                                <p className="text-white/50 text-xs">Fees earned from your referrals.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="text-xl font-black text-white">
+                                ${(Number(referrerBalance) / 1000000).toFixed(2)} <span className="text-xs text-purple-500">USDC</span>
+                            </div>
+                            <button
+                                onClick={handleClaimReferrerFees}
+                                disabled={isClaimingReferrer}
+                                className="bg-white text-black font-bold text-xs uppercase px-4 py-2.5 rounded-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                            >
+                                {isClaimingReferrer && <Loader2 className="w-3 h-3 animate-spin" />}
                                 Claim
                             </button>
                         </div>

@@ -107,7 +107,7 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
         proposedResult: marketStruct[10] as boolean,
         proposalTime: BigInt(marketStruct[11] || 0), // V8: timestamp
         bondAmount: BigInt(marketStruct[12] || 0),
-        disputeDeadlineTimestamp: BigInt(marketStruct[11] || 0) + BigInt(DISPUTE_WINDOW_SECONDS),
+        disputeDeadlineTimestamp: Number(BigInt(marketStruct[11] || 0)) + DISPUTE_WINDOW_SECONDS,
         canFinalize: isMarketProposed && Math.floor(Date.now() / 1000) > Number(marketStruct[11] || 0) + DISPUTE_WINDOW_SECONDS,
         evidenceUrl: marketStruct[13] as string,
     } : null;

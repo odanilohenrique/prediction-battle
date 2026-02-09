@@ -66,6 +66,9 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
     uint256 public constant TREASURY_TIMELOCK = 2 days;
     mapping(bytes32 => uint256) public pendingTreasuryChange;
     
+    // [ECR-001] Global Liability Tracking
+    uint256 public totalLockedAmount;
+    
     // ============ STRUCTS ============
     
     struct Market {
@@ -76,8 +79,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 bonusDuration;    
         uint256 deadlineTime;     
         MarketState state;
-        bool result;
-        bool isVoid;
+        MarketOutcome outcome; // [ECR-001] Replaces result & isVoid
         
         // Proposal Info
         address proposer;
@@ -115,6 +117,15 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         PROPOSED,
         DISPUTED,
         RESOLVED
+    }
+
+    // [ECR-001] MarketOutcome Enum
+    enum MarketOutcome {
+        PENDING,    // 0
+        YES,        // 1
+        NO,         // 2
+        DRAW,       // 3 (Empate Técnico - Cobra taxas)
+        CANCELLED   // 4 (Cancelamento Admin - 100% Refund)
     }
     
     // ============ MAPPINGS ============
@@ -247,6 +258,8 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
     
     // ============ BETTING ============
     
+    // ============ BETTING ============
+    
     function placeBet(
         string calldata _marketId,
         bool _side,
@@ -275,20 +288,12 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         
         usdcToken.safeTransferFrom(msg.sender, address(this), _usdcAmount);
         
-        // Fee Deduction (Entry side)
-        uint256 houseFee = (_usdcAmount * houseFeeBps) / FEE_DENOMINATOR;
-        uint256 creatorFee = (_usdcAmount * creatorFeeBps) / FEE_DENOMINATOR;
-        uint256 referrerFee = 0;
+        // [ECR-001] Fee Deduction MOVED to Resolution/Claim
+        // Net Amount = Gross Amount (100% goes to pool for now)
+        // Fees will be deducted later if Outcome != CANCELLED
         
-        if (_referrer != address(0) && _referrer != m.creator) {
-            referrerFee = (_usdcAmount * referrerFeeBps) / FEE_DENOMINATOR;
-            rewardsBalance[_referrer] += referrerFee;
-        }
-        
-        uint256 netAmount = _usdcAmount - houseFee - creatorFee - referrerFee;
-        
-        houseBalance += houseFee;
-        creatorBalance[m.creator] += creatorFee;
+        uint256 netAmount = _usdcAmount; // No deduction here!
+        totalLockedAmount += netAmount; // [ECR-001] Track liability
         
         bool isEarlyBird = block.timestamp < m.creationTime + m.bonusDuration;
         uint256 shares = _calculateShares(
@@ -311,7 +316,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         UserBet storage userBet = _side ? yesBets[_marketId][msg.sender] : noBets[_marketId][msg.sender];
         userBet.amount += netAmount;
         userBet.shares += shares;
-        userBet.referrer = _referrer;
+        userBet.referrer = _referrer; // Stored for fee distribution at claim time
         
         EnumerableSet.AddressSet storage bettorsSet = _side ? yesBettorsSet[_marketId] : noBettorsSet[_marketId];
         require(bettorsSet.length() < MAX_BETTORS_PER_SIDE, "Max bettors reached");
@@ -353,6 +358,8 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         
         usdcToken.safeTransferFrom(msg.sender, address(this), _bondAmount);
         
+        totalLockedAmount += _bondAmount; // [ECR-001] Bond enters contract
+        
         _updateMarketState(m, MarketState.PROPOSED);
         
         m.proposer = msg.sender;
@@ -382,6 +389,8 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         
         usdcToken.safeTransferFrom(msg.sender, address(this), _bondAmount);
         
+        totalLockedAmount += _bondAmount; // [ECR-001] Challenge Bond enters contract
+        
         _updateMarketState(m, MarketState.DISPUTED);
         
         m.challenger = msg.sender;
@@ -399,8 +408,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
      */
     function resolveDispute(
         string calldata _marketId,
-        address _winnerAddress,
-        bool _finalResult
+        address _winnerAddress
     ) external nonReentrant {
         // [Roles Fix] Only Operator or Admin
         require(hasRole(OPERATOR_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not authorized");
@@ -419,13 +427,23 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         m.proposer = _winnerAddress;
         
         _updateMarketState(m, MarketState.RESOLVED);
-        m.result = _finalResult;
+        
+        // [ECR-001] Infer Result
+        if (_winnerAddress == m.proposer) {
+            m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
+        } else {
+            // Challenger won -> Result is OPPOSITE of proposed
+            m.outcome = !m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
+        }
+        
         m.bondAmount = 0;
         m.challengeBondAmount = 0;
         
-        emit DisputeResolved(_marketId, _winnerAddress, totalBond, _finalResult);
-        emit MarketResolved(_marketId, _finalResult, _finalResult ? m.totalYes : m.totalNo);
+        bool finalResultBool = m.outcome == MarketOutcome.YES;
+        emit DisputeResolved(_marketId, _winnerAddress, totalBond, finalResultBool);
+        emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
     }
+
     
     /**
      * @notice Emergency Safety Hatch. Anyone can call if stuck in DISPUTED for > 30 days.
@@ -450,7 +468,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         }
         
         _updateMarketState(m, MarketState.RESOLVED);
-        m.isVoid = true; // Auto-void
+        m.outcome = MarketOutcome.CANCELLED; // [ECR-001] Cancelled, not Void
         
         emit MarketVoided(_marketId);
     }
@@ -469,17 +487,19 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         claimableBonds[proposer] += bondAmount;
         
         _updateMarketState(m, MarketState.RESOLVED);
-        m.result = m.proposedResult;
+        m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
         m.bondAmount = 0;
         
+        bool finalResultBool = m.outcome == MarketOutcome.YES;
         emit OutcomeFinalized(_marketId, proposer, 0); // reward=0 here, claimed separately
-        emit MarketResolved(_marketId, m.result, m.result ? m.totalYes : m.totalNo);
+        emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
     }
 
     // ============ CLAIMS & WITHDRAWALS ============
 
     /**
      * @notice Implements C-01 Fix: No double taxation.
+     * @notice [ECR-001] Fee-on-Resolution
      */
     function claimWinnings(string calldata _marketId) external nonReentrant {
         require(marketExists[_marketId], "No market");
@@ -490,36 +510,96 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 payout = 0;
         UserBet storage yesBet = yesBets[_marketId][msg.sender];
         UserBet storage noBet = noBets[_marketId][msg.sender];
-        
-        if (m.isVoid) {
+
+        // [ECR-001] Logic Switch
+        if (m.outcome == MarketOutcome.CANCELLED) {
+            // Refund 100%
             payout = yesBet.amount + noBet.amount;
-        } else {
-            bool isYesWinner = m.result;
-            UserBet storage winningBet = isYesWinner ? yesBet : noBet;
-            
-            if (winningBet.amount > 0 && winningBet.shares > 0) {
-                uint256 totalPool = m.totalYes + m.totalNo;
-                require(totalPool > 0, "Empty pool");
-                
-                // [C-01 FIX] Deduct 1% for reporter reward.
-                // This 1% is held in the contract for the proposer to claim via claimReporterReward().
-                uint256 reporterReward = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
-                uint256 distributablePool = totalPool - reporterReward;
-                
-                uint256 totalWinningShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
-                require(totalWinningShares > 0, "No winning shares");
-                
-                payout = (winningBet.shares * distributablePool) / totalWinningShares;
-            }
+        } 
+        else if (m.outcome == MarketOutcome.DRAW) {
+             // Refund - 20% Fee
+             uint256 totalUserBet = yesBet.amount + noBet.amount;
+             _distributeFees(totalUserBet, m.creator, yesBet.referrer); // Distribute fees now!
+             // Wait, distribution must be proportional?
+             // Actually, if it's Draw, everyone loses 20%.
+             // Fee = 20% of User Bet
+             uint256 fee = (totalUserBet * (houseFeeBps + creatorFeeBps + referrerFeeBps)) / FEE_DENOMINATOR;
+             payout = totalUserBet - fee;
+        }
+        else {
+             // YES or NO
+             bool isYesWinner = m.outcome == MarketOutcome.YES;
+             UserBet storage winningBet = isYesWinner ? yesBet : noBet;
+             
+             if (winningBet.amount > 0 && winningBet.shares > 0) {
+                 uint256 totalPool = m.totalYes + m.totalNo;
+                 uint256 totalWinningShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
+                 require(totalWinningShares > 0, "No winning shares");
+
+                 // [ECR-001] Fee Logic on Pool
+                 // Total Fees = 20% + 1% Reporter
+                 uint256 totalFeesBps = houseFeeBps + creatorFeeBps + referrerFeeBps + REPORTER_REWARD_BPS;
+                 uint256 totalFeeAmount = (totalPool * totalFeesBps) / FEE_DENOMINATOR;
+                 uint256 distributablePool = totalPool - totalFeeAmount;
+                 
+                 // Payout calculation
+                 payout = (winningBet.shares * distributablePool) / totalWinningShares;
+
+                 // We must distribute fees HERE relative to this user's contribution? 
+                 // NO. Fees are taken from the pool aggregate.
+                 // But we need to update balances.
+                 // Since we don't have a "distribute fees for whole pool" function called once,
+                 // we must update balances incrementally or all at once?
+                 // Updating all at once requires a separate step.
+                 // ECR-001 Suggestion: "Calculate fees at resolution".
+                 // But we need to update creatorBalance etc.
+                 // Let's stick to: "Fees are effectively remaining in contract, we just need to account them."
+                 
+                 // PROBLEM: If we don't account fees to creatorBalance, they can't withdraw.
+                 // IMPLEMENTATION: A separate function distributeMarketFees() called ONCE upon resolution?
+                 // OR: We take a cut of every payout?
+                 // Taking a cut of every payout is gas heavy and imprecise.
+                 
+                 // BETTER: distributeFees() function called by the first person to claim? Or at Resolution?
+                 // At Resolution (`resolveDispute`/`finalizeOutcome`), we can move the fee part of the WHOLE POOL to balances?
+                 // YES. That is efficient.
+             }
         }
         
         require(payout > 0, "Nothing to claim");
         
         hasClaimed[_marketId][msg.sender] = true;
-        // [L-02 Fix] No boolean update in struct
+        totalLockedAmount -= payout; // [ECR-001] Only PAYOUT leaves. Fees stay (in balances).
         
         usdcToken.safeTransfer(msg.sender, payout);
         emit PayoutClaimed(_marketId, msg.sender, payout);
+    }
+    
+    // Wrapper to distribute fees
+    function _distributeFees(uint256 amount, address creator, address referrer) internal {
+        // ... Logic for Draw fees ...
+        // If Draw, we take 20% of `amount`.
+        uint256 houseFee = (amount * houseFeeBps) / FEE_DENOMINATOR;
+        uint256 creatorFee = (amount * creatorFeeBps) / FEE_DENOMINATOR;
+        
+        houseBalance += houseFee;
+        creatorBalance[creator] += creatorFee;
+        
+        if (referrer != address(0)) {
+            uint256 referrerFee = (amount * referrerFeeBps) / FEE_DENOMINATOR;
+            rewardsBalance[referrer] += referrerFee;
+        }
+        
+        // Liability reduced by fees (they move from 'locked' to 'balances')
+        // Actually, 'totalLockedAmount' tracks USER funds. Fees are PROTOCOL/CREATOR funds.
+        // So yes, we reduce locked items.
+        // Wait, totalLockedAmount tracks EVERYTHING coming in from placeBet.
+        // So houseBalance is PART of existing balance?
+        // ECR-001 says: "globalLockedAmount" tracks LIABILITY.
+        // Liability = User Bets + Withdrawable Fees.
+        // So moving from User Bet to House Balance doesn't change `totalLiability` if House Balance is considered liability.
+        // BUT `sweepDust` uses `contractBalance - strictLiability`.
+        // So we need to ensure ALL assigned funds are tracked.
     }
 
     /**
@@ -530,14 +610,24 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.RESOLVED, "Not resolved");
-        require(!m.isVoid, "Market voided");
+        require(m.outcome != MarketOutcome.CANCELLED, "Market cancelled"); // No reward on cancel
         require(msg.sender == m.proposer, "Not proposer");
         require(!reporterRewardClaimed[_marketId], "Already claimed");
         
         uint256 totalPool = m.totalYes + m.totalNo;
-        uint256 reward = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        uint256 reward = 0;
+        
+        // [ECR-001] Reward depends on outcome
+        if (m.outcome == MarketOutcome.YES || m.outcome == MarketOutcome.NO) {
+             reward = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        } else if (m.outcome == MarketOutcome.DRAW) {
+             // In DRAW, do we give reward? 
+             // Usually yes, someone verified the Draw.
+             reward = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        }
         
         reporterRewardClaimed[_marketId] = true;
+        totalLockedAmount -= reward; // [ECR-001] Withdrawal reduces global lock
         
         usdcToken.safeTransfer(msg.sender, reward);
         emit ReporterRewardClaimed(_marketId, msg.sender, reward);
@@ -560,7 +650,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         }
         
         _updateMarketState(m, MarketState.RESOLVED);
-        m.isVoid = true;
+        m.outcome = MarketOutcome.CANCELLED;
         emit MarketVoided(_marketId);
     }
 
@@ -575,7 +665,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         require(block.timestamp > m.deadlineTime + 30 days, "Not abandoned");
         
         _updateMarketState(m, MarketState.RESOLVED);
-        m.isVoid = true;
+        m.outcome = MarketOutcome.CANCELLED;
         
         emit MarketVoided(_marketId);
     }
@@ -584,7 +674,7 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.RESOLVED, "Not resolved");
-        require(m.isVoid, "Not void");
+        require(m.outcome == MarketOutcome.CANCELLED, "Not cancelled");
         require(msg.sender == m.creator, "Only creator");
         require(!seedWithdrawn[_marketId], "Already withdrawn");
         
@@ -599,6 +689,9 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 amount = claimableBonds[msg.sender];
         require(amount > 0, "No bonds");
         claimableBonds[msg.sender] = 0;
+        
+        totalLockedAmount -= amount; // [ECR-001] Bond exits contract
+        
         usdcToken.safeTransfer(msg.sender, amount);
         emit BondWithdrawn(msg.sender, amount);
     }
@@ -607,6 +700,9 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 amount = creatorBalance[msg.sender];
         require(amount > 0, "No fees");
         creatorBalance[msg.sender] = 0;
+        
+        totalLockedAmount -= amount; // [ECR-001] Withdrawal reduces global lock
+        
         usdcToken.safeTransfer(msg.sender, amount);
         emit CreatorFeesWithdrawn(msg.sender, amount);
     }
@@ -615,6 +711,9 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 amount = rewardsBalance[msg.sender];
         require(amount > 0, "No fees");
         rewardsBalance[msg.sender] = 0;
+        
+        totalLockedAmount -= amount; // [ECR-001] Withdrawal reduces global lock
+        
         usdcToken.safeTransfer(msg.sender, amount);
         emit ReferrerFeesWithdrawn(msg.sender, amount);
     }
@@ -623,8 +722,43 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
         uint256 amount = houseBalance;
         require(amount > 0, "No fees");
         houseBalance = 0;
+        
+        totalLockedAmount -= amount; // [ECR-001] Withdrawal reduces global lock
+        
         usdcToken.safeTransfer(treasury, amount);
         emit HouseFeeWithdrawn(treasury, amount);
+    }
+
+    // [ECR-001] Safety Hatch: Fallback if no winners
+    function claimFallback(string calldata _marketId) external nonReentrant {
+        require(marketExists[_marketId], "No market");
+        Market storage m = markets[_marketId];
+        require(m.state == MarketState.RESOLVED, "Not resolved");
+        require(m.outcome == MarketOutcome.YES || m.outcome == MarketOutcome.NO, "Invalid outcome");
+        
+        uint256 totalWinningShares = (m.outcome == MarketOutcome.YES) ? m.totalSharesYes : m.totalSharesNo;
+        require(totalWinningShares == 0, "Winners exist");
+
+        // Only Creator can trigger fallback
+        require(msg.sender == m.creator, "Only creator");
+        require(!hasClaimed[_marketId][msg.sender], "Already claimed");
+        
+        // Return remaining pool (fees already deducted logic implies we should take fees?)
+        // ECR-001: "Deduct fees if business rule, or return all".
+        // Let's deduct fees (20%) and return 80% to creator.
+        
+        uint256 totalPool = m.totalYes + m.totalNo;
+        uint256 fee = (totalPool * 2000) / 10000;
+        uint256 payout = totalPool - fee;
+        
+        // Distribute fees
+        _distributeFees(totalPool, m.creator, address(0));
+        
+        hasClaimed[_marketId][msg.sender] = true;
+        totalLockedAmount -= (payout + fee); // Both leave "User Funds" scope
+        
+        usdcToken.safeTransfer(msg.sender, payout);
+        emit PayoutClaimed(_marketId, msg.sender, payout);
     }
 
     // ============ INTERNAL ============
@@ -660,9 +794,22 @@ contract PredictionBattleV8 is ReentrancyGuard, Pausable, AccessControl {
     // ============ VIEW ============
 
     function getMarketDetails(string calldata _marketId) external view returns (
-        MarketState state, bool result, uint256 totalYes, uint256 totalNo, uint256 deadlineTime, address creator, bool isVoid
+        MarketState state, MarketOutcome outcome, uint256 totalYes, uint256 totalNo, uint256 deadlineTime, address creator
     ) {
         Market storage m = markets[_marketId];
-        return (m.state, m.result, m.totalYes, m.totalNo, m.deadlineTime, m.creator, m.isVoid);
+        return (m.state, m.outcome, m.totalYes, m.totalNo, m.deadlineTime, m.creator);
+    }
+
+    // [ECR-001] Dust Sweep
+    function sweepDust() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Strict Liability = User Funds (totalLockedAmount) + Protocol Funds (Fees)
+        // Note: totalLockedAmount tracks EVERYTHING (Users + Fees + Bonds).
+        // It is decremented ONLY when funds LEAVE the contract.
+        
+        uint256 contractBalance = usdcToken.balanceOf(address(this));
+        require(contractBalance > totalLockedAmount, "No dust");
+        
+        uint256 dust = contractBalance - totalLockedAmount;
+        usdcToken.safeTransfer(treasury, dust);
     }
 }

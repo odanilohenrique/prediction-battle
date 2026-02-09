@@ -119,7 +119,7 @@ export default function BetCard({
 
     // Extract State info
     const marketState = marketData ? Number(marketData[6]) : 0; // Index 6 is State
-    const proposalTime = marketData ? Number(marketData[11]) : 0; // Index 11 is ProposalTime
+    const proposalTime = marketData ? Number(marketData[12]) : 0; // V9 Index 12 is ProposalTime
     const DISPUTE_WINDOW = 12 * 60 * 60; // 12 hours in seconds
 
     // Countdown Logic
@@ -172,10 +172,38 @@ export default function BetCard({
         }
     };
 
-    // Claim Reporter Reward (V8 Exclusive)
-    const proposerAddress = marketData && marketData[9] ? (marketData[9] as string) : '';
+    // Claim Reporter Reward (V9 Exclusive)
+    const proposerAddress = marketData && marketData[10] ? (marketData[10] as string) : ''; // V9 Index 10 is Proposer
     const isProposer = address && proposerAddress && address.toLowerCase() === proposerAddress.toLowerCase();
     const isResolvedState = marketState === 4; // RESOLVED
+
+    // Seed Withdrawal (V9)
+    const creatorAddress = marketData && marketData[1] ? (marketData[1] as string) : '';
+    const isCreator = address && creatorAddress && address.toLowerCase() === creatorAddress.toLowerCase();
+    const seedAmount = marketData && marketData[8] ? BigInt(marketData[8]) : BigInt(0);
+    const seedWithdrawn = marketData && marketData[9] ? Boolean(marketData[9]) : false;
+    const [isWithdrawingSeed, setIsWithdrawingSeed] = useState(false);
+
+    const handleWithdrawSeed = async () => {
+        if (!isCreator) return;
+        setIsWithdrawingSeed(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'withdrawSeed',
+                args: [prediction.id],
+            });
+            if (publicClient) {
+                await publicClient.waitForTransactionReceipt({ hash });
+                refetch();
+            }
+        } catch (error) {
+            console.error("Seed Withdraw Failed", error);
+        } finally {
+            setIsWithdrawingSeed(false);
+        }
+    };
 
     // Check if reward already claimed
     const { data: isRewardClaimed, refetch: refetchReward } = useReadContract({
@@ -183,7 +211,7 @@ export default function BetCard({
         abi: EXTRA_ABI,
         functionName: 'reporterRewardClaimed',
         args: [prediction.id],
-        query: { enabled: isResolvedState && isProposer }
+        query: { enabled: !!(isResolvedState && isProposer) }
     });
 
     const handleClaimReward = async () => {
@@ -402,8 +430,8 @@ export default function BetCard({
                         <span className="text-textPrimary font-display font-bold">${totalPot.toFixed(2)}</span>
                     </div>
 
-                    {/* Finalize / Claim Actions (V8) */}
-                    {(canFinalize || (isResolvedState && isProposer && isRewardClaimed === false)) && (
+                    {/* Finalize / Claim Actions (V8/V9) */}
+                    {(canFinalize || (isResolvedState && isProposer && isRewardClaimed === false) || (isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn)) && (
                         <div className="mt-4 space-y-2 pb-4 border-b border-white/10">
                             {canFinalize && (
                                 <button
@@ -422,6 +450,16 @@ export default function BetCard({
                                     className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg flex items-center justify-center gap-2 transition-all animate-pulse"
                                 >
                                     {isClaiming ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-black" /> : '💰 Claim Reporter Reward (1%)'}
+                                </button>
+                            )}
+
+                            {isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn && (
+                                <button
+                                    onClick={handleWithdrawSeed}
+                                    disabled={isWithdrawingSeed}
+                                    className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-all"
+                                >
+                                    {isWithdrawingSeed ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white" /> : '🌱 Withdraw Seed Funds'}
                                 </button>
                             )}
                         </div>

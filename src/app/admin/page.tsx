@@ -38,6 +38,7 @@ interface Bet {
     createdAt: number;
     payout?: number;
     onChainState?: number; // 0=OPEN, 1=LOCKED, 2=PROPOSED, 3=DISPUTED, 4=RESOLVED
+    onChainOutcome?: number; // 0=PENDING, 1=YES, 2=NO, 3=DRAW, 4=CANCELLED
 }
 
 import { useModal } from '@/providers/ModalProvider';
@@ -784,8 +785,16 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="px-6 py-4 font-mono text-white/60">${bet.totalPot.toFixed(2)}</td>
                                             <td className="px-6 py-4">
-                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                                                    ✅ COMPLETE
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold border ${bet.onChainOutcome === 1 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                                        bet.onChainOutcome === 2 ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                                            bet.onChainOutcome === 3 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                                                bet.onChainOutcome === 4 ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' :
+                                                                    'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                                    }`}>
+                                                    {bet.onChainOutcome === 1 ? '🏆 YES' :
+                                                        bet.onChainOutcome === 2 ? '🏆 NO' :
+                                                            bet.onChainOutcome === 3 ? '🤝 DRAW' :
+                                                                bet.onChainOutcome === 4 ? '🚫 VOID' : '✅ RESOLVED'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-xs text-white/40">
