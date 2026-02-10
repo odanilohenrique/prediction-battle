@@ -16,9 +16,10 @@ async function main() {
 
     const PredictionBattle = await ethers.getContractFactory("PredictionBattleV9");
 
-    // Constructor: (address _admin, address _operator, address _treasury)
-    // USDC is hardcoded in V9
-    const predictionBattle = await PredictionBattle.deploy(ADMIN, OPERATOR, TREASURY);
+    // Constructor: (address _admin, address _operator, address _treasury, address _usdcToken)
+    // Base Sepolia USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+    const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+    const predictionBattle = await PredictionBattle.deploy(ADMIN, OPERATOR, TREASURY, USDC_ADDRESS);
 
     await predictionBattle.waitForDeployment();
 
@@ -29,7 +30,7 @@ async function main() {
     console.log("- Admin:", ADMIN);
     console.log("- Operator:", OPERATOR);
     console.log("- Treasury:", TREASURY);
-    console.log("- USDC (Base Sepolia): 0x036CbD53842c5426634e7929541eC2318f3dCF7e");
+    console.log("- USDC:", USDC_ADDRESS);
 }
 
 main()

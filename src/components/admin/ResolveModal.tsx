@@ -89,6 +89,9 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
     const isProposed = effectiveState === MarketState.PROPOSED;
     const isDisputed = effectiveState === MarketState.DISPUTED;
 
+    // [V9.4] Slash Creator Option
+    const [slashCreator, setSlashCreator] = useState(false);
+
     const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
         setIsResolving(true);
@@ -106,6 +109,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
             } else if (action === 'resolveDispute') {
                 if (!winner) throw new Error("Winner required for dispute resolution");
                 // resolveDispute(string _marketId, address _winnerAddress, bool _finalResult)
+                // [V9.4]: Did resolveDispute change? No, only adminResolve.
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
@@ -124,21 +128,21 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.YES] // 1
+                    args: [betId, MarketOutcome.YES, slashCreator] // [V9.4] Added slashCreator
                 });
             } else if (action === 'forceNo') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.NO] // 2
+                    args: [betId, MarketOutcome.NO, slashCreator] // [V9.4] Added slashCreator
                 });
             } else if (action === 'forceDraw') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.DRAW] // 3
+                    args: [betId, MarketOutcome.DRAW, slashCreator] // [V9.4] Added slashCreator
                 });
             }
 
@@ -321,6 +325,22 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                         {!isDisputed && (
                             <div className="border-t border-white/10 pt-4">
                                 <h4 className="text-xs text-textSecondary uppercase mb-2 font-bold">Override Actions</h4>
+
+                                {/* SLASH CREATOR CHECKBOX */}
+                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={slashCreator}
+                                            onChange={(e) => setSlashCreator(e.target.checked)}
+                                            className="w-5 h-5 rounded border-red-500/50 bg-black text-red-500 focus:ring-red-500"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-bold text-red-400 block">SLASH CREATOR (Confiscate Seed)</span>
+                                            <span className="text-xs text-white/60">Check this if the market is fraudulent/spam. Seed goes to Treasury.</span>
+                                        </div>
+                                    </label>
+                                </div>
 
                                 {/* SOLITAIRE BET PROTECTION */}
                                 {(() => {
