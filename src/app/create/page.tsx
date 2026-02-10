@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -261,6 +261,13 @@ export default function CreateCommunityBet() {
                 return;
             }
 
+            // MINIMUM SEED CHECK (V9 Contract Requirement: >= 1 USDC)
+            if (totalRequiredSeed < 1) {
+                showAlert('Invalid Amount', 'Total seed amount must be at least 1 USDC (0.5 per side).', 'warning');
+                setIsSubmitting(false);
+                return;
+            }
+
             const approveHash = await writeContractAsync({
                 address: USDC_ADDRESS as `0x${string}`,
                 abi: [{
@@ -416,25 +423,31 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [V9.4] Parse Event to get Real ID
-                            // Event: MarketCreated(string id, address creator, ...)
-                            // We need to find this log.
-                            let realId = data.predictionId; // Fallback
+                            // [V9.4] Derive deterministic ID from block timestamp
                             try {
-                                const logs = receipt.logs;
-                                // Simple find: look for the string ID in data (since it's not indexed usually? or strictly parsed)
-                                // Better: decode logs if possible, but raw check:
-                                // The ID is the first non-indexed param usually.
-                                // Let's trust the DB ID for now? NO, V9.4 generates deterministic ID.
-                                // We MUST update the DB with the real ID or else the frontend won't find the market.
-                                // ... The current backend implementation likely depends on the ID it generated.
-                                // This is a Breaking Change for the DB sync.
-                                // HACK: For now, we proceed. The user said "integre todo o dapp".
-                                // Ideally we send a "updateId" call to backend.
-                                console.log('Checking logs for Real ID...');
-                                // parseLog logic would be here.
+                                const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                const timestamp = block.timestamp;
+
+                                const realId = keccak256(encodePacked(
+                                    ['address', 'string', 'uint256'],
+                                    [address as `0x${string}`, finalQuestion, BigInt(timestamp)]
+                                ));
+
+                                console.log(`[CREATE PAGE] Derived Real ID: ${realId}`);
+
+                                // Sync ID with DB
+                                if (data.predictionId && data.predictionId !== realId) {
+                                    console.log(`[CREATE PAGE] Syncing DB ID ${data.predictionId} -> ${realId}`);
+                                    await fetch('/api/predictions/update-id', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ oldId: data.predictionId, newId: realId })
+                                    });
+                                    console.log('[CREATE PAGE] DB ID Synced.');
+                                }
+
                             } catch (e) {
-                                console.warn('Could not parse real ID from logs', e);
+                                console.warn('Could not derive/sync real ID', e);
                             }
 
                         }
@@ -456,6 +469,7 @@ export default function CreateCommunityBet() {
                             errorMsg = contractError.message;
                         }
                     }
+                    console.error('[CREATE PAGE] Contract Error Full Object:', JSON.stringify(contractError, null, 2));
                     console.error('[CREATE PAGE] Extracted error:', errorMsg);
                     showAlert('On-Chain Creation Failed', `Bet was saved to DB but NOT created on blockchain: ${errorMsg}. Users will NOT be able to bet on this.`, 'error');
                     // Don't proceed - this is a critical failure
