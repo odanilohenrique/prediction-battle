@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useReadContract, usePublicClient, useWriteContract } from 'wagmi';
-import { TrendingUp, Wallet, CheckCircle, Clock, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Wallet, CheckCircle, Clock, Loader2, RefreshCw, AlertTriangle, Coins } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
@@ -130,6 +130,23 @@ export default function PayoutsPage() {
         }
     };
 
+    // Sweep Dust handler
+    const handleSweepDust = async () => {
+        if (!confirm('Sweep Dust? This will send residual USDC dust to the treasury.')) return;
+        try {
+            const tx = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'sweepDust',
+                args: []
+            });
+            showAlert('Success', 'Dust swept! Tx: ' + tx, 'success');
+        } catch (e: any) {
+            console.error(e);
+            showAlert('Error', e.message || 'Failed to sweep dust', 'error');
+        }
+    };
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -137,172 +154,151 @@ export default function PayoutsPage() {
                     <Wallet className="w-6 h-6 text-primary" />
                     Claims Monitor (V2)
                 </h1>
-                Refresh Data
-            </button>
-            <button
-                onClick={async () => {
-                    if (!confirm('Sweep Dust? This will send dust USDC to treasury.')) return;
-                    setLoading(true);
-                    try {
-                        const client = createPublicClient({
-                            chain: process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia,
-                            transport: http()
-                        });
-                        // We need write access... sticking to client-side write if possible? 
-                        // This page uses `useAccount` (Line 14), so we can use `useWriteContract`.
-                        // But wait, `useWriteContract` is not destructured in the component. 
-                        // I need to check if I can add it or if I should just use a simple fetch to an API route (which uses operator)?
-                        // The user asked for Admin functionalities. Doing it client-side is better for "God Mode".
-                        // I'll assume I can add `useWriteContract` hook usage.
-                        // ... Actually, I can't easily add a hook in a `replace` block if it's not already there.
-                        // I see `useReadContract` and `useAccount` are there.
-                        // Let's add `const { writeContractAsync } = useWriteContract();` to the top component logic first?
-                        // No, I'll use a new `SweepButton` component or just hack it if I can edit the whole file or ...
-                        // Wait, I can't add hooks inside `onClick`.
-                        // I will use `replace_file_content` to add the hook at the top, THEN add the button.
-                        // For now, let's just add the button UI and I'll do a second pass for the hook if needed.
-                        // Ah, `useWriteContract` is NOT imported from wagmi in Line 4.
-                        // I will use `multi_replace` to do both: add import/hook and add button.
-                    } catch (e) { console.error(e); }
-                    setLoading(false);
-                }}
-                className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all border border-orange-500/50"
-            >
-                <RefreshCw className="w-4 h-4" />
-                Sweep Dust
-            </button>
-        </div>
-
-            {/* Tabs */ }
-    <div className="flex items-center gap-1 bg-surface border border-white/5 p-1 rounded-xl w-fit">
-        <button
-            onClick={() => setActiveTab('unclaimed')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'unclaimed'
-                ? 'bg-yellow-500 text-black shadow-lg'
-                : 'text-textSecondary hover:text-white hover:bg-white/5'
-                }`}
-        >
-            <Clock className="w-4 h-4" />
-            Pending Claims ({pendingBets.length})
-        </button>
-        <button
-            onClick={() => setActiveTab('fully_claimed')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'fully_claimed'
-                ? 'bg-green-500 text-black shadow-lg'
-                : 'text-textSecondary hover:text-white hover:bg-white/5'
-                }`}
-        >
-            <CheckCircle className="w-4 h-4" />
-            Fully Claimed ({claimedBets.length})
-        </button>
-    </div>
-
-    {
-        loading ? (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={fetchPayouts}
+                        className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh Data
+                    </button>
+                    <button
+                        onClick={handleSweepDust}
+                        className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all border border-orange-500/50"
+                    >
+                        <Coins className="w-4 h-4" />
+                        Sweep Dust
+                    </button>
+                </div>
             </div>
-        ) : (
-            <div className="grid gap-6">
-                {displayedBets.length === 0 && (
-                    <div className="text-center py-12 text-textSecondary bg-surface border border-white/5 rounded-xl">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        <p>No bets found in this category.</p>
-                    </div>
-                )}
 
-                {displayedBets.map(bet => {
-                    const winningOption = bet.result; // 'yes' | 'no'
-                    const winners = bet.participants?.[winningOption] || [];
-                    const totalWinningStake = winners.reduce((acc: number, p: any) => acc + p.amount, 0);
-                    const totalLosingStake = bet.participants?.[winningOption === 'yes' ? 'no' : 'yes']?.reduce((acc: number, p: any) => acc + p.amount, 0) || 0;
-                    const winnersPot = totalWinningStake + totalLosingStake;
+            {/* Tabs */}
+            <div className="flex items-center gap-1 bg-surface border border-white/5 p-1 rounded-xl w-fit">
+                <button
+                    onClick={() => setActiveTab('unclaimed')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'unclaimed'
+                        ? 'bg-yellow-500 text-black shadow-lg'
+                        : 'text-textSecondary hover:text-white hover:bg-white/5'
+                        }`}
+                >
+                    <Clock className="w-4 h-4" />
+                    Pending Claims ({pendingBets.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('fully_claimed')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'fully_claimed'
+                        ? 'bg-green-500 text-black shadow-lg'
+                        : 'text-textSecondary hover:text-white hover:bg-white/5'
+                        }`}
+                >
+                    <CheckCircle className="w-4 h-4" />
+                    Fully Claimed ({claimedBets.length})
+                </button>
+            </div>
 
-                    // Filter out Creator/Seed wallet logic
-                    const creator = (bet.creatorAddress || bet.creator || '').toLowerCase();
-                    const visibleWinners = winners.filter((w: any) => w.userId.toLowerCase() !== creator);
+            {loading ? (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                </div>
+            ) : (
+                <div className="grid gap-6">
+                    {displayedBets.length === 0 && (
+                        <div className="text-center py-12 text-textSecondary bg-surface border border-white/5 rounded-xl">
+                            <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p>No bets found in this category.</p>
+                        </div>
+                    )}
 
-                    return (
-                        <div key={bet.id} className="bg-surface border border-white/5 rounded-xl p-6">
-                            <div className="flex flex-col md:flex-row justify-between mb-4 gap-4">
-                                <div>
-                                    <div className="text-xs text-white/40 font-mono mb-1">ID: {bet.id}</div>
-                                    <h3 className="text-lg font-bold text-white">{bet.title || bet.question || bet.castText || 'Untitled Prediction'}</h3>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${bet.result === 'yes' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                            Winner: {bet.result?.toUpperCase()}
-                                        </span>
-                                        <span className="text-textSecondary text-sm">Pot: ${winnersPot.toFixed(2)}</span>
+                    {displayedBets.map(bet => {
+                        const winningOption = bet.result; // 'yes' | 'no'
+                        const winners = bet.participants?.[winningOption] || [];
+                        const totalWinningStake = winners.reduce((acc: number, p: any) => acc + p.amount, 0);
+                        const totalLosingStake = bet.participants?.[winningOption === 'yes' ? 'no' : 'yes']?.reduce((acc: number, p: any) => acc + p.amount, 0) || 0;
+                        const winnersPot = totalWinningStake + totalLosingStake;
+
+                        // Filter out Creator/Seed wallet logic
+                        const creator = (bet.creatorAddress || bet.creator || '').toLowerCase();
+                        const visibleWinners = winners.filter((w: any) => w.userId.toLowerCase() !== creator);
+
+                        return (
+                            <div key={bet.id} className="bg-surface border border-white/5 rounded-xl p-6">
+                                <div className="flex flex-col md:flex-row justify-between mb-4 gap-4">
+                                    <div>
+                                        <div className="text-xs text-white/40 font-mono mb-1">ID: {bet.id}</div>
+                                        <h3 className="text-lg font-bold text-white">{bet.title || bet.question || bet.castText || 'Untitled Prediction'}</h3>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${bet.result === 'yes' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                Winner: {bet.result?.toUpperCase()}
+                                            </span>
+                                            <span className="text-textSecondary text-sm">Pot: ${winnersPot.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <button
+                                            onClick={() => syncBet(bet)}
+                                            className="px-3 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-all flex items-center gap-2"
+                                        >
+                                            <RefreshCw className="w-3 h-3" /> Check All Claims
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <button
-                                        onClick={() => syncBet(bet)}
-                                        className="px-3 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-all flex items-center gap-2"
-                                    >
-                                        <RefreshCw className="w-3 h-3" /> Check All Claims
-                                    </button>
+
+                                <div className="space-y-2 bg-black/20 rounded-xl p-4 border border-white/5">
+                                    <h4 className="text-xs font-bold text-textSecondary uppercase tracking-wider mb-2">
+                                        Winners List ({visibleWinners.length})
+                                        <span className="text-[10px] text-white/20 ml-1">(Seed Hidden)</span>
+                                    </h4>
+
+                                    {visibleWinners.length === 0 ? (
+                                        <p className="text-sm text-textSecondary italic">No winners (or only seed liquidity).</p>
+                                    ) : (
+                                        visibleWinners.map((winner: any, i: number) => {
+                                            const isPaid = winner.paid; // claimed
+                                            const key = `${bet.id}-${winner.userId}`;
+
+                                            return (
+                                                <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPaid ? 'bg-green-900/10 border-green-500/20' : 'bg-white/5 border-white/5'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-white/40'}`}>
+                                                            {i + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-mono text-white">{winner.userId}</div>
+                                                            <div className="text-xs text-textSecondary">Bet: ${winner.amount}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3">
+                                                        {isPaid ? (
+                                                            <span className="flex items-center gap-1 text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded">
+                                                                <CheckCircle className="w-3 h-3" /> CLAIMED
+                                                            </span>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" /> UNCLAIMED
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => checkClaimStatus(bet, winner)}
+                                                                    disabled={verifying[key]}
+                                                                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/60 hover:text-white transition-colors"
+                                                                    title="Verify on Blockchain"
+                                                                >
+                                                                    <RefreshCw className={`w-3 h-3 ${verifying[key] ? 'animate-spin' : ''}`} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
-
-                            <div className="space-y-2 bg-black/20 rounded-xl p-4 border border-white/5">
-                                <h4 className="text-xs font-bold text-textSecondary uppercase tracking-wider mb-2">
-                                    Winners List ({visibleWinners.length})
-                                    <span className="text-[10px] text-white/20 ml-1">(Seed Hidden)</span>
-                                </h4>
-
-                                {visibleWinners.length === 0 ? (
-                                    <p className="text-sm text-textSecondary italic">No winners (or only seed liquidity).</p>
-                                ) : (
-                                    visibleWinners.map((winner: any, i: number) => {
-                                        const isPaid = winner.paid; // claimed
-                                        const key = `${bet.id}-${winner.userId}`;
-
-                                        return (
-                                            <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPaid ? 'bg-green-900/10 border-green-500/20' : 'bg-white/5 border-white/5'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isPaid ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-white/40'}`}>
-                                                        {i + 1}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-mono text-white">{winner.userId}</div>
-                                                        <div className="text-xs text-textSecondary">Bet: ${winner.amount}</div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3">
-                                                    {isPaid ? (
-                                                        <span className="flex items-center gap-1 text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded">
-                                                            <CheckCircle className="w-3 h-3" /> CLAIMED
-                                                        </span>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-yellow-500 text-xs font-bold bg-yellow-500/10 px-2 py-1 rounded flex items-center gap-1">
-                                                                <Clock className="w-3 h-3" /> UNCLAIMED
-                                                            </span>
-                                                            <button
-                                                                onClick={() => checkClaimStatus(bet, winner)}
-                                                                disabled={verifying[key]}
-                                                                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/60 hover:text-white transition-colors"
-                                                                title="Verify on Blockchain"
-                                                            >
-                                                                <RefreshCw className={`w-3 h-3 ${verifying[key] ? 'animate-spin' : ''}`} />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        )
-    }
-
-        </div >
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
