@@ -1430,9 +1430,9 @@ export default function CreateCommunityBet() {
                                     min="0.5"
                                     step="0.1"
                                 />
-                                <p className={`text-xs mt-1 ${(parseFloat(formData.maxBet.toString()) || 0) < 0.5 ? 'text-red-500 font-bold' : 'text-textSecondary'
+                                <p className={`text-sm mt-2 font-bold transition-colors ${(parseFloat(formData.maxBet.toString()) || 0) < 0.5 ? 'text-red-500' : 'text-neutral-400'
                                     }`}>
-                                    Min: $0.50 (required for $1.00 Total Seed).
+                                    ⚠️ Min: $0.50 (required for $1.00 Total Seed).
                                 </p>
                             </div>
                         </div>
