@@ -425,8 +425,9 @@ export default function CreateCommunityBet() {
 
                             // [V9.4] Derive deterministic ID from block timestamp
                             try {
+                                console.log('[CREATE PAGE] Version 2.1: Starting ID sync...');
                                 let block = null;
-                                let retries = 5;
+                                let retries = 10;
                                 while (retries > 0 && !block) {
                                     try {
                                         block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
