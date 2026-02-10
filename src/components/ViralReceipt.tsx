@@ -218,7 +218,7 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
                             {/* FOOTER BAR */}
                             <div className="bg-black/40 p-3 text-center border-t border-white/5">
                                 <div className="text-[10px] text-white/20 font-mono tracking-widest break-all">
-                                    ID: {Math.random().toString(36).substr(2, 12).toUpperCase()}
+                                    ID: {data.predictionId ? `${data.predictionId.slice(0, 6)}...${data.predictionId.slice(-4)}` : 'UNKNOWN'}
                                 </div>
                             </div>
                         </div>
@@ -274,7 +274,7 @@ export default function ViralReceipt({ isOpen, onClose, data }: ViralReceiptProp
 
                             <div className="bg-black text-white p-4 text-center mb-4">
                                 <div className="text-xs uppercase opacity-60 mb-1">Battle ID</div>
-                                <div className="font-mono text-sm tracking-widest">{Math.random().toString(36).substr(2, 9).toUpperCase()}</div>
+                                <div className="font-mono text-sm tracking-widest">{data.predictionId ? `${data.predictionId.slice(0, 6)}...${data.predictionId.slice(-4)}` : 'UNKNOWN'}</div>
                             </div>
 
                             {/* Jagged Bottom */}
