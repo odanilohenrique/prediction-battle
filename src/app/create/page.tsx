@@ -425,7 +425,19 @@ export default function CreateCommunityBet() {
 
                             // [V9.4] Derive deterministic ID from block timestamp
                             try {
-                                const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                let block = null;
+                                let retries = 5;
+                                while (retries > 0 && !block) {
+                                    try {
+                                        block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                    } catch (err) {
+                                        console.warn(`[CREATE PAGE] Block ${receipt.blockNumber} not found, retrying... (${retries})`);
+                                        await new Promise(r => setTimeout(r, 2000));
+                                        retries--;
+                                    }
+                                }
+                                if (!block) throw new Error(`Failed to fetch block ${receipt.blockNumber} after retries`);
+
                                 const timestamp = block.timestamp;
 
                                 const realId = keccak256(encodePacked(
