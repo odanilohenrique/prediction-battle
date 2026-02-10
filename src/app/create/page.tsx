@@ -1407,14 +1407,19 @@ export default function CreateCommunityBet() {
                                         setFormData({ ...formData, maxBet: raw === '' ? '' as any : (parseFloat(raw) || 0) });
                                     }}
                                     onBlur={(e) => {
-                                        const val = parseFloat(e.target.value.replace(',', '.')) || 10;
+                                        let val = parseFloat(e.target.value.replace(',', '.')) || 0.5;
+                                        if (val < 0.5) val = 0.5;
                                         setFormData({ ...formData, maxBet: val.toString() });
                                     }}
-                                    className="w-full bg-darkGray border border-darkGray rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary"
-                                    placeholder="10"
+                                    className={`w-full bg-darkGray border rounded-xl px-4 py-3 text-textPrimary focus:outline-none focus:border-primary ${(parseFloat(formData.maxBet.toString()) || 0) < 0.5 ? 'border-red-500' : 'border-darkGray'
+                                        }`}
+                                    placeholder="0.5"
+                                    min="0.5"
+                                    step="0.1"
                                 />
-                                <p className="text-xs text-textSecondary mt-1">
-                                    Higher max bet requires more initial seeding.
+                                <p className={`text-xs mt-1 ${(parseFloat(formData.maxBet.toString()) || 0) < 0.5 ? 'text-red-500 font-bold' : 'text-textSecondary'
+                                    }`}>
+                                    Min: $0.50 (required for $1.00 Total Seed).
                                 </p>
                             </div>
                         </div>
