@@ -516,17 +516,28 @@ export async function disputeOutcomeOnChain(predictionId: string, waitForReceipt
 }
 
 // V3: Admin force-resolve (emergency)
-export async function adminResolveOnChain(predictionId: string, result: boolean, waitForReceipt: boolean = true) {
+export async function adminResolveOnChain(predictionId: string, result: boolean, slashCreator: boolean = false, waitForReceipt: boolean = true) {
     const client = getOperatorClient();
 
-    console.log(`[OPERATOR] Admin resolving market ${predictionId} with result: ${result}...`);
+    // Convert boolean result to outcome enum (Assuming YES/NO for simplicity in this helper, 
+    // but typically adminResolve takes uint8 outcome. 
+    // Helper signature is `result: boolean`. 
+    // V9 adminResolve takes (string _marketId, uint8 _outcome, bool _slashCreator)
+    // We need to map `result` boolean to outcome.
+    // true = YES (1), false = NO (2). 
+    // Wait, what about Draw or Void? This helper seems simplistic. 
+    // Let's assume this helper is for YES/NO resolution. 
+    // MarketOutcome: YES=1, NO=2.
+    const outcome = result ? 1 : 2;
+
+    console.log(`[OPERATOR] Admin resolving market ${predictionId} with outcome: ${outcome} (Slash: ${slashCreator})...`);
 
     try {
         const hash = await client.writeContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
             abi: PredictionBattleABI.abi,
             functionName: 'adminResolve',
-            args: [predictionId, result],
+            args: [predictionId, outcome, slashCreator],
         });
 
         console.log(`[OPERATOR] Admin Resolve Tx Hash: ${hash}`);

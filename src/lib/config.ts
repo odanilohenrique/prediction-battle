@@ -1,7 +1,7 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
 // New deployed contract: V9 with ECR-002 Fixes (Recoverable Seed, Fee Distribution, Gas Optimization)
-const TESTNET_CONTRACT_ADDRESS = '0x9e03B2660aB25FA7A11bCB90326337A405cb7D94'; // V9 (Deployed 09/Feb/2026)
+const TESTNET_CONTRACT_ADDRESS = '0x02ebCbd5F97a8c2C984eA01C2e0BaD49E801c8d5'; // V9.4 (Final Deploy)
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
@@ -14,7 +14,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: '0x9e03B2660aB25FA7A11bCB90326337A405cb7D94', // Base Sepolia (V9 - Audit Remediation & Gas Opt)
+    contractAddress: '0x02ebCbd5F97a8c2C984eA01C2e0BaD49E801c8d5', // Base Sepolia (Final)
 };
 
 export const MAINNET_CONFIG = {

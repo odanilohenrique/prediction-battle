@@ -359,7 +359,6 @@ export default function CreateCommunityBet() {
                             type: 'function',
                             stateMutability: 'nonpayable',
                             inputs: [
-                                { name: '_id', type: 'string' },
                                 { name: '_question', type: 'string' },
                                 { name: '_usdcSeedAmount', type: 'uint256' },
                                 { name: '_duration', type: 'uint256' },
@@ -370,7 +369,6 @@ export default function CreateCommunityBet() {
                     ],
                     functionName: 'createMarket',
                     args: [
-                        data.predictionId,
                         finalQuestion,
                         totalSeedWei,
                         BigInt(durationSeconds),
