@@ -308,13 +308,13 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // 3. Calculate Actual Payout
     let calculatedPayout = BigInt(0);
     if (marketStruct && userShares > BigInt(0)) {
-        // V2 Struct Indices based on ABI file read:
-        // 18: totalYes, 19: totalNo, 20: seedYes, 21: seedNo
+        // V9 Struct Indices:
+        // 19: totalYes, 20: totalNo, 8: seedAmount, 9: seedWithdrawn
 
-        const totalYes = BigInt(marketStruct[18] || 0);
-        const totalNo = BigInt(marketStruct[19] || 0);
-        const seedYes = BigInt(marketStruct[20] || 0);
-        const seedNo = BigInt(marketStruct[21] || 0);
+        const totalYes = BigInt(marketStruct[19] || 0);
+        const totalNo = BigInt(marketStruct[20] || 0);
+        const seedYes = BigInt(marketStruct[8] || 0); // V9: seedAmount (total, not per-side)
+        const seedNo = BigInt(0); // V9: no separate seedNo
 
         // Fee Calculation (20% + 5% = 25%)
         const feeBps = BigInt(2500);
@@ -398,21 +398,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     }) as { data: any[] | undefined };
 
     const requiredBond = marketForBond
-        ? calculateRequiredBond(BigInt(marketForBond[18] || 0) + BigInt(marketForBond[19] || 0))
+        ? calculateRequiredBond(BigInt(marketForBond[19] || 0) + BigInt(marketForBond[20] || 0))
         : BigInt(5000000);
 
-    // V8: Parse proposal info from markets struct (timestamp-based)
-    // Struct indices: 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
-    const DISPUTE_WINDOW_SECONDS = 43200; // V8: 12 hours in seconds
+    // V9: Parse proposal info from markets struct (timestamp-based)
+    // V9 Struct indices: 10:proposer, 11:proposedResult, 12:proposalTime, 13:bondAmount, 14:evidenceUrl
+    const DISPUTE_WINDOW_SECONDS = 43200; // 12 hours in seconds
 
     const parsedProposalInfo = activeMarketData && isMarketProposed ? {
-        proposer: activeMarketData[9] as string,
-        proposedResult: activeMarketData[10] as boolean,
-        proposalTime: BigInt(activeMarketData[11] || 0), // V8: timestamp
-        bondAmount: BigInt(activeMarketData[12] || 0),
-        disputeDeadlineTimestamp: Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_SECONDS, // V8: timestamp
-        canFinalize: Math.floor(Date.now() / 1000) > Number(activeMarketData[11] || 0) + DISPUTE_WINDOW_SECONDS,
-        evidenceUrl: activeMarketData[13] as string,
+        proposer: activeMarketData[10] as string,
+        proposedResult: activeMarketData[11] as boolean,
+        proposalTime: BigInt(activeMarketData[12] || 0),
+        bondAmount: BigInt(activeMarketData[13] || 0),
+        disputeDeadlineTimestamp: Number(activeMarketData[12] || 0) + DISPUTE_WINDOW_SECONDS,
+        canFinalize: Math.floor(Date.now() / 1000) > Number(activeMarketData[12] || 0) + DISPUTE_WINDOW_SECONDS,
+        evidenceUrl: activeMarketData[14] as string,
     } : null;
 
     // Refetch function for verification modal success
@@ -440,7 +440,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             return;
         }
 
-        const propTime = Number(activeMarketData[11] || 0);
+        const propTime = Number(activeMarketData[12] || 0); // V9: proposalTime at index 12
         if (!propTime) return;
 
         const DISPUTE_WINDOW_SECONDS = 43200; // 12h
@@ -587,8 +587,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 // V7 Secure Indices: 
                 // totalYes = 18
                 // totalNo = 19
-                const totalYes = BigInt(activeMarketData[18] || 0);
-                const totalNo = BigInt(activeMarketData[19] || 0);
+                const totalYes = BigInt(activeMarketData[19] || 0); // V9: totalYes at index 19
+                const totalNo = BigInt(activeMarketData[20] || 0); // V9: totalNo at index 20
 
                 const SHARE_PRECISION = BigInt(10 ** 18);
 
@@ -954,9 +954,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
 
 
-    // V8 Logic: Is current user the proposer?
-    // activeMarketData[9] is proposer address
-    const isProposer = activeMarketData && address && (activeMarketData[9] as string).toLowerCase() === address.toLowerCase();
+    // V9 Logic: Is current user the proposer?
+    // V9: activeMarketData[10] is proposer address
+    const isProposer = activeMarketData && address && activeMarketData[10] && (activeMarketData[10] as string).toLowerCase() === address.toLowerCase();
     const canClaimReward = isMarketResolved && isProposer && !isRewardClaimed;
 
     return (
