@@ -173,9 +173,9 @@ export default function VerificationModal({
                 args: [marketId]
             }) as any[];
 
-            // V8 Indices: 18=TotalYes, 19=TotalNo
-            const totalYes = BigInt(marketData[18] || 0);
-            const totalNo = BigInt(marketData[19] || 0);
+            // V9 Indices: 19=TotalYes, 20=TotalNo
+            const totalYes = BigInt(marketData[19] || 0);
+            const totalNo = BigInt(marketData[20] || 0);
             const activeBond = calculateRequiredBond(totalYes + totalNo);
 
             console.log('Fresh bond required:', formatUnits(activeBond, 6));
@@ -329,8 +329,8 @@ export default function VerificationModal({
                 args: [marketId]
             }) as any[];
 
-            // V8 Indices: 12=BondAmount
-            const activeBond = BigInt(marketData[12] || 0);
+            // V9 Indices: 13=BondAmount
+            const activeBond = BigInt(marketData[13] || 0);
 
             if (activeBond === BigInt(0)) throw new Error("No bond to challenge. Market might not be proposed.");
 
