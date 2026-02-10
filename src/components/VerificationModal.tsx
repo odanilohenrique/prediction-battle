@@ -512,6 +512,8 @@ export default function VerificationModal({
     };
 
     // Admin: Force resolve with specific result
+    // V9.4: adminResolve(string _marketId, MarketOutcome _outcome, bool _slashCreator)
+    // MarketOutcome: 0=PENDING, 1=YES, 2=NO, 3=DRAW, 4=CANCELLED
     const handleAdminResolve = async (result: boolean) => {
         if (!address || !publicClient || !isAdminUser) return;
 
@@ -519,11 +521,12 @@ export default function VerificationModal({
         setError(null);
 
         try {
+            const outcome = result ? 1 : 2; // YES=1, NO=2
             const resolveTx = await writeContractAsync({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
                 functionName: 'adminResolve',
-                args: [marketId, result]
+                args: [marketId, outcome, false] // [V9.4] slashCreator=false by default
             });
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash: resolveTx });
