@@ -49,10 +49,13 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
 
     const { writeContractAsync } = useWriteContract();
 
-    // Parse V5 Struct (Handle Array or Object return from Viem)
-    // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadline, 6:state
-    // 7:result, 8:isVoid, 9:proposer, 10:proposedResult, 11:proposalTime, 12:bondAmount, 13:evidenceUrl
-    // 14:challenger, 15:challengeBondAmount, 16:challengeEvidenceUrl, 17:challengeTime
+    // Parse V9 Market Struct (Handle Array or Object return from Viem)
+    // V9 Struct Indices:
+    // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadlineTime, 6:state,
+    // 7:outcome, 8:seedAmount, 9:seedWithdrawn, 10:proposer, 11:proposedResult, 12:proposalTime,
+    // 13:bondAmount, 14:evidenceUrl, 15:challenger, 16:challengeBondAmount, 17:challengeEvidenceUrl,
+    // 18:challengeTime, 19:totalYes, 20:totalNo, 21:totalSharesYes, 22:totalSharesNo,
+    // 23:yesBettorsCount, 24:noBettorsCount
 
     // Helper to get field by name or index
     const getField = (data: any, name: string, index: number, type: 'string' | 'number' | 'bool' | 'bigint') => {
@@ -74,15 +77,15 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
     };
 
     const marketState = getField(marketData, 'state', 6, 'number');
-    const proposer = getField(marketData, 'proposer', 9, 'string');
-    const proposedResult = getField(marketData, 'proposedResult', 10, 'bool');
-    const evidenceUrl = getField(marketData, 'evidenceUrl', 13, 'string');
-    const bondAmount = getField(marketData, 'bondAmount', 12, 'bigint');
+    const proposer = getField(marketData, 'proposer', 10, 'string');      // V9: index 10
+    const proposedResult = getField(marketData, 'proposedResult', 11, 'bool'); // V9: index 11
+    const evidenceUrl = getField(marketData, 'evidenceUrl', 14, 'string');   // V9: index 14
+    const bondAmount = getField(marketData, 'bondAmount', 13, 'bigint');    // V9: index 13
 
     // Challenger Info
-    const challenger = getField(marketData, 'challenger', 14, 'string');
-    const challengeBondAmount = getField(marketData, 'challengeBondAmount', 15, 'bigint');
-    const challengeEvidenceUrl = getField(marketData, 'challengeEvidenceUrl', 16, 'string');
+    const challenger = getField(marketData, 'challenger', 15, 'string');             // V9: index 15
+    const challengeBondAmount = getField(marketData, 'challengeBondAmount', 16, 'bigint'); // V9: index 16
+    const challengeEvidenceUrl = getField(marketData, 'challengeEvidenceUrl', 17, 'string'); // V9: index 17
 
     // Use knownOnChainState if provided, otherwise fall back to contract read
     const effectiveState = knownOnChainState !== undefined ? knownOnChainState : marketState;
@@ -108,13 +111,13 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                 });
             } else if (action === 'resolveDispute') {
                 if (!winner) throw new Error("Winner required for dispute resolution");
-                // resolveDispute(string _marketId, address _winnerAddress, bool _finalResult)
-                // [V9.4]: Did resolveDispute change? No, only adminResolve.
+                // V9 resolveDispute(string _marketId, address _winnerAddress) — only 2 args
+                // The contract infers the final result from who the winner is (proposer vs challenger)
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'resolveDispute',
-                    args: [betId, winner, finalResult]
+                    args: [betId, winner]
                 });
             } else if (action === 'void') {
                 hash = await writeContractAsync({
