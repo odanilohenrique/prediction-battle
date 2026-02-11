@@ -154,9 +154,9 @@ export default function CreateCommunityBet() {
     // Clear specific fields when switching modes to prevent state leaks
     useEffect(() => {
         if (creationMode === 'battle') {
-            setFormData(prev => ({ ...prev, castUrl: '', predictionQuestion: '' }));
+            setFormData(prev => ({ ...prev, castUrl: '', predictionQuestion: '', deadlineDateTime: '' }));
         } else {
-            setFormData(prev => ({ ...prev, battleQuestion: '', optionA: { ...prev.optionA, label: '' }, optionB: { ...prev.optionB, label: '' } }));
+            setFormData(prev => ({ ...prev, battleQuestion: '', optionA: { ...prev.optionA, label: '' }, optionB: { ...prev.optionB, label: '' }, deadlineDateTime: '' }));
         }
     }, [creationMode]);
 
@@ -336,17 +336,24 @@ export default function CreateCommunityBet() {
                 console.log('Registering prediction on-chain...');
 
                 // Calculate duration from deadline datetime (V8)
-                let durationSeconds = 86400; // Default 24h
+                const ONE_YEAR_SECONDS = 31536000;
+                let durationSeconds = ONE_YEAR_SECONDS; // Default to 1 Year (as displayed in UI)
+
                 if (formData.deadlineDateTime) {
                     const deadlineMs = new Date(formData.deadlineDateTime).getTime();
                     const nowMs = Date.now();
-                    durationSeconds = Math.floor((deadlineMs - nowMs) / 1000);
+                    durationSeconds = Math.ceil((deadlineMs - nowMs) / 1000);
+
+                    console.log(`[ADMIN CREATE] Using Custom Deadline: ${formData.deadlineDateTime} (${durationSeconds}s)`);
+
                     // Enforce minimum 24 hours
                     if (durationSeconds < 86400) {
                         showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
                         setIsSubmitting(false);
                         return;
                     }
+                } else {
+                    console.log(`[ADMIN CREATE] Using Default Timeframe: 1 Year (${durationSeconds}s)`);
                 }
 
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
