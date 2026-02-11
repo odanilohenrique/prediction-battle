@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Users, Trophy, Skull, Coins, Gavel } from 'lucide-react';
+import { Clock, Users, Trophy, Skull, Coins, Gavel, ScrollText, Info } from 'lucide-react';
 import { Prediction } from '@/lib/types';
 import ResultReveal from './ResultReveal';
 import { useReadContract, useWriteContract, usePublicClient, useBlockNumber, useAccount } from 'wagmi';
@@ -96,6 +96,7 @@ export default function BetCard({
 
     const [showReveal, setShowReveal] = useState(false);
     const [hasViewedResult, setHasViewedResult] = useState(false);
+    const [showRules, setShowRules] = useState(false); // [NEW] Rules toggle
 
     // --- CONTRACT INTEGRATION (Smart Timer) ---
     // --- CONTRACT INTEGRATION (Smart Timer) ---
@@ -364,7 +365,33 @@ export default function BetCard({
                             Time's Up
                         </div>
                     )}
+
+                    {/* [NEW] Rules Toggle */}
+                    {prediction.rules && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowRules(!showRules); }}
+                            className={`p-1.5 rounded-lg transition-colors ${showRules ? 'bg-blue-500 text-white' : 'text-textSecondary hover:text-white hover:bg-white/10'}`}
+                            title="View Rules"
+                        >
+                            <ScrollText className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
+
+                {/* [NEW] Rules Expandable */}
+                {showRules && prediction.rules && (
+                    <div className="mb-4 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 animate-fade-in relative">
+                        <div className="flex items-start gap-3">
+                            <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                            <div>
+                                <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Market Rules</h4>
+                                <p className="text-sm text-white/80 whitespace-pre-wrap leading-relaxed">
+                                    {prediction.rules}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* [NEW] Public Dispute Timer / Finalize Button */}
                 {!isResolved && marketState === 2 && (

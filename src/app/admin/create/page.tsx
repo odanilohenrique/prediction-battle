@@ -319,6 +319,7 @@ export default function CreateCommunityBet() {
                     // Timeframe (CRITICAL - was missing!)
                     timeframe: formData.timeframe,
                     castUrl: formData.castUrl,
+                    rules: formData.rules,
                 }),
             });
 
