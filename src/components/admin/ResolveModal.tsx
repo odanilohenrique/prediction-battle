@@ -93,8 +93,10 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
 
     // [V9.4] Slash Creator Option
     const [slashCreator, setSlashCreator] = useState(false);
+    // [V10] Reopen Extension
+    const [extensionHours, setExtensionHours] = useState(24);
 
-    const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw', winner?: string, finalResult?: boolean) => {
+    const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw' | 'reopen', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
         setIsResolving(true);
 
@@ -110,8 +112,6 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                 });
             } else if (action === 'resolveDispute') {
                 if (!winner) throw new Error("Winner required for dispute resolution");
-                // V9 resolveDispute(string _marketId, address _winnerAddress) — only 2 args
-                // The contract infers the final result from who the winner is (proposer vs challenger)
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
@@ -125,26 +125,35 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                     functionName: 'voidMarket',
                     args: [betId]
                 });
+            } else if (action === 'reopen') {
+                // [V10] Reopen Market - reverts to OPEN, refunds bonds, extends deadline
+                const extensionSeconds = BigInt(extensionHours * 3600);
+                hash = await writeContractAsync({
+                    address: contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'reopenMarket',
+                    args: [betId, extensionSeconds]
+                });
             } else if (action === 'forceYes') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.YES, slashCreator] // [V9.4] Added slashCreator
+                    args: [betId, MarketOutcome.YES, slashCreator]
                 });
             } else if (action === 'forceNo') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.NO, slashCreator] // [V9.4] Added slashCreator
+                    args: [betId, MarketOutcome.NO, slashCreator]
                 });
             } else if (action === 'forceDraw') {
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'adminResolve',
-                    args: [betId, MarketOutcome.DRAW, slashCreator] // [V9.4] Added slashCreator
+                    args: [betId, MarketOutcome.DRAW, slashCreator]
                 });
             }
 
@@ -351,33 +360,24 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                 })()}
 
                                 <div className="grid grid-cols-2 gap-3 mb-3">
-                                    {/* Valid State Check for Admin Resolve */}
-                                    {(!isProposed && !isDisputed) && (
-                                        <div className="col-span-2 bg-yellow-500/10 border border-yellow-500/30 p-2 rounded-lg text-xs text-yellow-200 text-center mb-2">
-                                            ⚠️ Cannot force update: Market must be <strong>Proposed</strong> or <strong>Disputed</strong> first.
-                                            <br />Please propose a result below or via the main UI.
-                                        </div>
-                                    )}
-
                                     <button
                                         onClick={() => handleAction('forceYes')}
-                                        disabled={isResolving || (!isProposed && !isDisputed)}
-                                        className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={isResolving}
+                                        className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-500 font-bold transition-all"
                                     >
                                         Force YES
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceNo')}
-                                        disabled={isResolving || (!isProposed && !isDisputed)}
-                                        className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={isResolving}
+                                        className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all"
                                     >
                                         Force NO
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceDraw')}
-                                        disabled={isResolving || (!isProposed && !isDisputed)}
-                                        className="col-span-2 p-3 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title={!isProposed && !isDisputed ? "Market must be Proposed or Disputed to force draw" : ""}
+                                        disabled={isResolving}
+                                        className="col-span-2 p-3 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 font-bold transition-all"
                                     >
                                         Force DRAW (Refund 80%)
                                     </button>
@@ -385,10 +385,36 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                 <button
                                     onClick={() => handleAction('void')}
                                     disabled={isResolving}
-                                    className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all flex items-center justify-center gap-2"
+                                    className="w-full p-3 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-bold transition-all flex items-center justify-center gap-2 mb-3"
                                 >
                                     ⛔ Void Market (Refund All)
                                 </button>
+
+                                {/* [V10] REOPEN MARKET */}
+                                {(isProposed || isDisputed) && (
+                                    <div className="border-t border-white/10 pt-4 mt-2">
+                                        <h4 className="text-xs text-blue-400 uppercase mb-2 font-bold flex items-center gap-1">🔄 Reopen Market</h4>
+                                        <p className="text-xs text-white/60 mb-3">Cancels the dispute, refunds all bonds, and reopens the market for betting.</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <label className="text-xs text-textSecondary whitespace-nowrap">Extend by:</label>
+                                            <input
+                                                type="number"
+                                                value={extensionHours}
+                                                onChange={(e) => setExtensionHours(Math.max(0, Number(e.target.value)))}
+                                                className="w-20 px-2 py-1 bg-black border border-white/20 rounded-lg text-white text-sm text-center"
+                                                min={0}
+                                            />
+                                            <span className="text-xs text-textSecondary">hours</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleAction('reopen')}
+                                            disabled={isResolving}
+                                            className="w-full p-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/50 text-blue-400 font-bold transition-all flex items-center justify-center gap-2"
+                                        >
+                                            🔄 Reopen Market (+{extensionHours}h)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </>
