@@ -33,7 +33,6 @@ enum MarketOutcome {
 
 export default function ResolveModal({ isOpen, onClose, betId, username, knownOnChainState }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
-    const [shouldReopen, setShouldReopen] = useState(false);
     const contractAddress = getContractAddress();
 
     // 1. Read Market Data from V5 Contract (markets mapping)
@@ -219,16 +218,6 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                     ) : <span className="text-white/30 text-xs">None</span>}
 
                                     <div className="mt-4 pt-4 border-t border-white/10">
-                                        <label className="flex items-center gap-2 cursor-pointer mb-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={shouldReopen}
-                                                onChange={(e) => setShouldReopen(e.target.checked)}
-                                                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary focus:ring-primary"
-                                            />
-                                            <span className="text-sm text-white">Reopen Market (Extends 1 Year)</span>
-                                        </label>
-
                                         <button
                                             onClick={() => handleAction('resolveDispute', proposer, proposedResult)}
                                             className="w-full py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm"
@@ -256,16 +245,6 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                     ) : <span className="text-white/30 text-xs">None</span>}
 
                                     <div className="mt-4 pt-4 border-t border-white/10">
-                                        <label className="flex items-center gap-2 cursor-pointer mb-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={shouldReopen}
-                                                onChange={(e) => setShouldReopen(e.target.checked)}
-                                                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary focus:ring-primary"
-                                            />
-                                            <span className="text-sm text-white">Reopen Market (Extends 1 Year)</span>
-                                        </label>
-
                                         <button
                                             onClick={() => handleAction('resolveDispute', challenger, !proposedResult)}
                                             className="w-full py-2 bg-red-500 hover:bg-red-400 text-black font-bold rounded-lg text-sm"
@@ -372,24 +351,33 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                 })()}
 
                                 <div className="grid grid-cols-2 gap-3 mb-3">
+                                    {/* Valid State Check for Admin Resolve */}
+                                    {(!isProposed && !isDisputed) && (
+                                        <div className="col-span-2 bg-yellow-500/10 border border-yellow-500/30 p-2 rounded-lg text-xs text-yellow-200 text-center mb-2">
+                                            ⚠️ Cannot force update: Market must be <strong>Proposed</strong> or <strong>Disputed</strong> first.
+                                            <br />Please propose a result below or via the main UI.
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={() => handleAction('forceYes')}
-                                        disabled={isResolving}
-                                        className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-500 font-bold transition-all"
+                                        disabled={isResolving || (!isProposed && !isDisputed)}
+                                        className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Force YES
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceNo')}
-                                        disabled={isResolving}
-                                        className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all"
+                                        disabled={isResolving || (!isProposed && !isDisputed)}
+                                        className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Force NO
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceDraw')}
-                                        disabled={isResolving}
-                                        className="col-span-2 p-3 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 font-bold transition-all"
+                                        disabled={isResolving || (!isProposed && !isDisputed)}
+                                        className="col-span-2 p-3 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={!isProposed && !isDisputed ? "Market must be Proposed or Disputed to force draw" : ""}
                                     >
                                         Force DRAW (Refund 80%)
                                     </button>
