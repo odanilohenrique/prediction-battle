@@ -32,8 +32,9 @@ interface BetCardProps {
     prediction: Prediction;
     userChoice: 'yes' | 'no';
     userAmount: number;
-    status: 'pending' | 'won' | 'lost' | 'void';
+    status: 'pending' | 'won' | 'lost' | 'void' | 'draw';
     payout?: number;
+    paid?: boolean; // [NEW] Track if user has claimed
 }
 
 // Human-readable labels for bet types
@@ -62,6 +63,7 @@ export default function BetCard({
     userAmount,
     status,
     payout,
+    paid,
 }: BetCardProps) {
     // --- TIMER LOGIC ---
     const { data: blockNumber } = useBlockNumber({ watch: true });
@@ -235,6 +237,46 @@ export default function BetCard({
         }
     };
 
+    // [NEW] User Claim Winnings
+    const [isClaimingWinnings, setIsClaimingWinnings] = useState(false);
+
+    const handleClaimWinnings = async () => {
+        setIsClaimingWinnings(true);
+        try {
+            const hash = await writeContractAsync({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'claimWinnings',
+                args: [prediction.id],
+            });
+            console.log('Claim tx sent:', hash);
+
+            if (publicClient) {
+                const receipt = await publicClient.waitForTransactionReceipt({ hash });
+                console.log('Claim confirmed');
+
+                // SYNC DB to mark as paid
+                await fetch('/api/predictions/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        betId: prediction.id,
+                        userId: address,
+                        action: 'mark_paid'
+                    })
+                });
+
+                // Force page refresh to update UI state
+                if (typeof window !== 'undefined') window.location.reload();
+            }
+        } catch (error) {
+            console.error("Claim Winnings Failed", error);
+            alert("Claim failed: " + (error as Error).message);
+        } finally {
+            setIsClaimingWinnings(false);
+        }
+    };
+
 
     // -------------------------------------------
 
@@ -285,6 +327,9 @@ export default function BetCard({
         }
         if (status === 'void') {
             return { label: 'REFUNDED', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50', icon: '↩️' };
+        }
+        if (status === 'draw') {
+            return { label: 'DRAW', color: 'bg-gray-500/20 text-gray-400 border-gray-500/50', icon: '🤝' };
         }
         return { label: 'PENDING', color: 'bg-gray-500/10 text-gray-400 border-gray-500/30', icon: '⏳' };
     };
@@ -431,8 +476,27 @@ export default function BetCard({
                     </div>
 
                     {/* Finalize / Claim Actions (V8/V9) */}
-                    {(canFinalize || (isResolvedState && isProposer && isRewardClaimed === false) || (isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn)) && (
+                    {(canFinalize || (isResolvedState && isProposer && isRewardClaimed === false) || (isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn) || ((status === 'won' || status === 'void' || status === 'draw') && !paid)) && (
                         <div className="mt-4 space-y-2 pb-4 border-b border-white/10">
+
+                            {/* [NEW] User Claim Button */}
+                            {/* [NEW] User Claim Button */}
+                            {((status === 'won' || status === 'void' || status === 'draw') && !paid && address) && (
+                                <button
+                                    onClick={handleClaimWinnings}
+                                    disabled={isClaimingWinnings}
+                                    className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-500/20 animate-pulse"
+                                >
+                                    {isClaimingWinnings ? (
+                                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white" />
+                                    ) : (
+                                        <>
+                                            <span>💰</span>
+                                            CLAIM {payout ? `$${payout.toFixed(2)}` : 'WINNINGS'}
+                                        </>
+                                    )}
+                                </button>
+                            )}
                             {canFinalize && (
                                 <button
                                     onClick={handleFinalize}

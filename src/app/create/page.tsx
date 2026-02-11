@@ -379,7 +379,27 @@ export default function CreateCommunityBet() {
                         '1y': 365 * 24 * 60 * 60,
                         'none': 100 * 365 * 24 * 60 * 60,
                     };
-                    const duration = TIMEFRAME_SECONDS[formData.timeframe] || TIMEFRAME_SECONDS['24h'];
+                    // Calculate duration
+                    let duration: number;
+
+                    // V8 Fix: Use custom deadline if set
+                    if (formData.deadlineDateTime) {
+                        const deadline = new Date(formData.deadlineDateTime).getTime();
+                        const now = Date.now();
+                        const diffSeconds = Math.ceil((deadline - now) / 1000);
+
+                        if (diffSeconds < 86400) {
+                            // Should be caught by input min, but double check
+                            console.warn('[CREATE PAGE] Deadline too short, defaulting to 24h');
+                            duration = 86400;
+                        } else {
+                            duration = diffSeconds;
+                            console.log(`[CREATE PAGE] Using Custom Deadline: ${formData.deadlineDateTime} (${duration}s)`);
+                        }
+                    } else {
+                        duration = TIMEFRAME_SECONDS[formData.timeframe] || TIMEFRAME_SECONDS['24h'];
+                        console.log(`[CREATE PAGE] Using Timeframe: ${formData.timeframe} (${duration}s)`);
+                    }
                     console.log(`[CREATE PAGE] Duration: ${duration}s from timeframe: ${formData.timeframe}`);
 
                     // Check again if already exists to avoid the call
