@@ -41,6 +41,7 @@ export interface Prediction {
     optionB?: { label: string; imageUrl?: string };
     creatorAddress?: string;
     wordToMatch?: string;
+    rules?: string;
 }
 
 export interface Cast {

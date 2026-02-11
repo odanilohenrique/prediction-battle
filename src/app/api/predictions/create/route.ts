@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
             autoVerify, // [NEW] Admin switch for auto-verification
             platform, // [NEW] Social platform preference
             profileUrl, // [NEW] Explicit profile link
+            rules, // [NEW] Custom Rules
         } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
                 optionA: optionA || undefined,
                 optionB: optionB || undefined,
                 predictionImage: predictionImage || undefined,
+                rules: rules || undefined,
 
                 // [NEW] Automated Verification
                 verification: autoVerify ? {
