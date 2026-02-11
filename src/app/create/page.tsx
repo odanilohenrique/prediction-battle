@@ -369,19 +369,18 @@ export default function CreateCommunityBet() {
                         }
                     }
 
-                    // Calculate duration from deadline datetime (V8)
-                    let duration = 86400; // Default 24h
-                    if (formData.deadlineDateTime) {
-                        const deadlineMs = new Date(formData.deadlineDateTime).getTime();
-                        const nowMs = Date.now();
-                        duration = Math.floor((deadlineMs - nowMs) / 1000);
-                        // Enforce minimum 24 hours
-                        if (duration < 86400) {
-                            showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
-                            setIsSubmitting(false);
-                            return;
-                        }
-                    }
+                    // Calculate duration from formData.timeframe (same as API)
+                    const TIMEFRAME_SECONDS: Record<string, number> = {
+                        '30m': 30 * 60,
+                        '6h': 6 * 60 * 60,
+                        '12h': 12 * 60 * 60,
+                        '24h': 24 * 60 * 60,
+                        '7d': 7 * 24 * 60 * 60,
+                        '1y': 365 * 24 * 60 * 60,
+                        'none': 100 * 365 * 24 * 60 * 60,
+                    };
+                    const duration = TIMEFRAME_SECONDS[formData.timeframe] || TIMEFRAME_SECONDS['24h'];
+                    console.log(`[CREATE PAGE] Duration: ${duration}s from timeframe: ${formData.timeframe}`);
 
                     // Check again if already exists to avoid the call
                     let skipCreation = false;
