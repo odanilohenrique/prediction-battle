@@ -47,8 +47,13 @@ export default function Home() {
     // Helper to determine if a bet is truly active (status active AND time remaining)
     const isTrulyActive = (b: any) => b.status === 'active' && Date.now() < new Date(b.expiresAt).getTime();
 
-    const officialBattles = battles.filter(b => isTrulyActive(b) && (!b.creatorAddress || isAdmin(b.creatorAddress)));
-    const communityBattles = battles.filter(b => isTrulyActive(b) && b.creatorAddress && !isAdmin(b.creatorAddress));
+    const officialBattles = battles
+        .filter(b => isTrulyActive(b) && (!b.creatorAddress || isAdmin(b.creatorAddress)))
+        .sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+
+    const communityBattles = battles
+        .filter(b => isTrulyActive(b) && b.creatorAddress && !isAdmin(b.creatorAddress))
+        .sort((a, b) => (b.id || '').localeCompare(a.id || ''));
 
     // Expired: Everything else (Resolved, Completed, Expired Time, or Status !== active)
     const expiredBattles = battles

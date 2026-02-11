@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
             const choice = yesBet ? 'yes' : 'no';
 
             // Determine status
-            let betStatus: 'pending' | 'won' | 'lost' | 'void' = 'pending';
+            let betStatus: 'pending' | 'won' | 'lost' | 'void' | 'draw' = 'pending';
             let payout: number | undefined;
 
             if (bet.status === 'completed' && bet.result) {
@@ -37,13 +37,16 @@ export async function GET(request: NextRequest) {
                 if (normalizedResult === 'void') {
                     betStatus = 'void';
                     payout = userBet.amount;
+                } else if (normalizedResult === 'draw') {
+                    betStatus = 'draw'; // Make sure frontend handles 'draw'
+                    payout = userBet.amount; // Draw usually implies refund or partial. Assuming refund for safe display.
                 } else if (normalizedResult === choice) { // choice is already lowercase 'yes'/'no'
                     betStatus = 'won';
                     // Calculate Payout
                     const totalPot = bet.totalPot;
                     const winnerPool = choice === 'yes'
-                        ? bet.participants.yes.reduce((a, b) => a + b.amount, 0)
-                        : bet.participants.no.reduce((a, b) => a + b.amount, 0);
+                        ? bet.participants.yes.reduce((a: any, b: any) => a + b.amount, 0)
+                        : bet.participants.no.reduce((a: any, b: any) => a + b.amount, 0);
 
                     if (winnerPool > 0) {
                         // Simple proportional share + house fee taken from losers
@@ -91,7 +94,7 @@ export async function GET(request: NextRequest) {
                 choice: choice as 'yes' | 'no',
                 amount: userBet.amount,
                 timestamp: userBet.timestamp,
-                status: betStatus,
+                status: betStatus as any,
                 payout,
                 paid: userBet.paid,
                 txHash: userBet.txHash

@@ -2,7 +2,7 @@
 
 export type MetricType = 'likes' | 'recasts' | 'replies' | 'ratio';
 
-export type PredictionChoice = 'yes' | 'no';
+export type PredictionChoice = 'yes' | 'no' | 'draw' | 'void';
 
 export type PredictionStatus = 'active' | 'completed' | 'expired';
 
@@ -68,7 +68,7 @@ export interface UserBet {
     choice: PredictionChoice;
     amount: number;
     timestamp: number;
-    status: 'pending' | 'won' | 'lost' | 'void';
+    status: 'pending' | 'won' | 'lost' | 'void' | 'draw';
     payout?: number;
     paid?: boolean;
     txHash?: string;
