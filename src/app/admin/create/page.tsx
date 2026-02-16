@@ -320,6 +320,8 @@ export default function CreateCommunityBet() {
                     timeframe: formData.timeframe,
                     castUrl: formData.castUrl,
                     rules: formData.rules,
+                    // [NEW] Send explicit timestamp if custom deadline is set
+                    expiryTimestamp: formData.deadlineDateTime ? new Date(formData.deadlineDateTime).getTime() : undefined,
                 }),
             });
 

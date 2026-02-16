@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
             platform, // [NEW] Social platform preference
             profileUrl, // [NEW] Explicit profile link
             rules, // [NEW] Custom Rules
+            expiryTimestamp, // [NEW] Explicit expiration timestamp (overrides timeframe)
         } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback
@@ -88,18 +89,29 @@ export async function POST(request: NextRequest) {
             const now = Date.now();
 
             // Calculate Expiration
-            const TIMEFRAME_MS: Record<string, number> = {
-                '30m': 30 * 60 * 1000,
-                '6h': 6 * 60 * 60 * 1000,
-                '12h': 12 * 60 * 60 * 1000,
-                '24h': 24 * 60 * 60 * 1000,
-                '7d': 7 * 24 * 60 * 60 * 1000,
-                '1y': 365 * 24 * 60 * 60 * 1000, // 1 year
-                'none': 100 * 365 * 24 * 60 * 60 * 1000, // 100 years
-            };
-            const selectedTimeframe = timeframe || '24h';
-            const duration = TIMEFRAME_MS[selectedTimeframe] || TIMEFRAME_MS['24h'];
-            const expiresAt = now + duration;
+            let expiresAt = 0;
+            let duration = 0;
+
+            if (expiryTimestamp) {
+                // Custom Deadline Logic
+                expiresAt = Number(expiryTimestamp);
+                duration = expiresAt - now;
+                console.log(`[API CREATE] Using Custom Deadline: ${new Date(expiresAt).toISOString()} (Duration: ${duration}ms)`);
+            } else {
+                // Timeframe Logic (Fallback)
+                const TIMEFRAME_MS: Record<string, number> = {
+                    '30m': 30 * 60 * 1000,
+                    '6h': 6 * 60 * 60 * 1000,
+                    '12h': 12 * 60 * 60 * 1000,
+                    '24h': 24 * 60 * 60 * 1000,
+                    '7d': 7 * 24 * 60 * 60 * 1000,
+                    '1y': 365 * 24 * 60 * 60 * 1000, // 1 year
+                    'none': 100 * 365 * 24 * 60 * 60 * 1000, // 100 years
+                };
+                const selectedTimeframe = timeframe || '24h';
+                duration = TIMEFRAME_MS[selectedTimeframe] || TIMEFRAME_MS['24h'];
+                expiresAt = now + duration;
+            }
 
             // [NEW] Calculate Deadline Block
             let deadlineBlock = undefined;
