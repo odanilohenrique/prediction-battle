@@ -66,7 +66,6 @@ interface AdminBetCardProps {
 
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
-import { useModal } from '@/providers/ModalProvider';
 // Remove import Modal from ... (will handle in next edit if strictly separate)
 
 const getProfileLink = (bet: AdminBet) => {
@@ -79,6 +78,7 @@ const getProfileLink = (bet: AdminBet) => {
 export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const { showModal, showConfirm, showAlert, closeModal } = useModal();
     const router = useRouter();
+    const [showRules, setShowRules] = useState(false); // [NEW] Rules toggle
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
@@ -1026,7 +1026,38 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </span>
                         </div>
                     )}
+
+                    {/* [NEW] Rules Toggle Button */}
+                    {bet.rules && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowRules(!showRules); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all ml-2 ${showRules ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'}`}
+                            title="View Rules"
+                        >
+                            <ScrollText className="w-3 h-3" />
+                            <span className="text-xs font-bold uppercase hidden sm:inline">Rules</span>
+                        </button>
+                    )}
                 </div>
+
+                {/* [NEW] Rules Content Section */}
+                {showRules && bet.rules && (
+                    <div className="bg-blue-900/20 border-y border-blue-500/20 px-6 py-4 animate-fade-in relative">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-blue-500/10">
+                                <Shield className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-black text-blue-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                    Official Market Rules
+                                </h4>
+                                <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed font-medium">
+                                    {bet.rules}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="p-6">
                     {/* BATTLE MODE: Two Fighters Layout */}
