@@ -91,11 +91,13 @@ export async function POST(request: NextRequest) {
             // Calculate Expiration
             let expiresAt = 0;
             let duration = 0;
+            let selectedTimeframe = timeframe || '24h'; // Default fallback
 
             if (expiryTimestamp) {
                 // Custom Deadline Logic
                 expiresAt = Number(expiryTimestamp);
                 duration = expiresAt - now;
+                selectedTimeframe = 'custom'; // Mark as custom
                 console.log(`[API CREATE] Using Custom Deadline: ${new Date(expiresAt).toISOString()} (Duration: ${duration}ms)`);
             } else {
                 // Timeframe Logic (Fallback)
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
                     '1y': 365 * 24 * 60 * 60 * 1000, // 1 year
                     'none': 100 * 365 * 24 * 60 * 60 * 1000, // 100 years
                 };
-                const selectedTimeframe = timeframe || '24h';
+
                 duration = TIMEFRAME_MS[selectedTimeframe] || TIMEFRAME_MS['24h'];
                 expiresAt = now + duration;
             }
