@@ -66,7 +66,7 @@ interface AdminBetCardProps {
 
 const BET_AMOUNTS = [0.05, 0.1, 0.5, 1];
 
-// Remove import Modal from ... (will handle in next edit if strictly separate)
+import { useModal } from '@/providers/ModalProvider';
 
 const getProfileLink = (bet: AdminBet) => {
     if (bet.profileUrl) return bet.profileUrl;
