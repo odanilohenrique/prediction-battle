@@ -284,6 +284,15 @@ export default function CreateCommunityBet() {
             const maxBetNum = parseFloat(formData.maxBet) || 0;
             const targetValueNum = parseFloat(formData.targetValue) || 0;
 
+            const targetValueNum = parseFloat(formData.targetValue) || 0;
+
+            console.log('[DEBUG] Submitting FormData:', {
+                timeframe: formData.timeframe,
+                deadlineDateTime: formData.deadlineDateTime,
+                expiryTimestamp: formData.deadlineDateTime ? new Date(formData.deadlineDateTime).getTime() : undefined,
+                creationMode
+            });
+
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
