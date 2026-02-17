@@ -321,18 +321,21 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         }
         
         UserBet storage userBet = _side ? yesBets[_marketId][msg.sender] : noBets[_marketId][msg.sender];
+        
+        // [AUDIT-FIX] Beta-01 M-01: Only count UNIQUE bettors to prevent DoS via counter inflation
+        if (userBet.amount == 0) {
+            if (_side) {
+                require(m.yesBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
+                m.yesBettorsCount++;
+            } else {
+                require(m.noBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
+                m.noBettorsCount++;
+            }
+        }
+        
         userBet.amount += netAmount;
         userBet.shares += shares;
         userBet.referrer = _referrer;
-        
-        // [GAS-OPT] Use simple counters instead of EnumerableSet
-        if (_side) {
-            require(m.yesBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
-            m.yesBettorsCount++;
-        } else {
-            require(m.noBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
-            m.noBettorsCount++;
-        }
         
         // [AUDIT-FIX] V9.3: Emit actual weight used (MAX or MIN), not the 50 placeholder
         uint256 weight = isEarlyBird ? MAX_WEIGHT : MIN_WEIGHT;
@@ -508,8 +511,13 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                  }
             }
             
-            if (winnerAddress != address(0) && totalBond > 0) {
-                claimableBonds[winnerAddress] += totalBond;
+            // [AUDIT-FIX] Beta-01 H-01: Transfer proposer role to the dispute winner
+            // so claimReporterReward (1%) goes to the honest party, not the liar
+            if (winnerAddress != address(0)) {
+                m.proposer = winnerAddress;
+                if (totalBond > 0) {
+                    claimableBonds[winnerAddress] += totalBond;
+                }
             }
         }
 
