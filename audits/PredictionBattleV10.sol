@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title PredictionBattleV9
- * @notice Version 9: Audit Remediation (ECR-002) - Recoverable Seed & Solvency Fixes
- * @dev Fixes: C-01 (Seed Tracking), H-01 (Fee Distribution), M-01 (Smart Wallet Referrers)
+ * @title PredictionBattleV10
+ * @notice Version 10: Admin UX - Reopen Market & Flexible Admin Resolution
+ * @dev Changes from V9: adminResolve accepts any active state, new reopenMarket function
  */
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 // [GAS-OPT] Removed EnumerableSet - replaced with simple counters
 
-contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
+contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     using SafeERC20 for IERC20;
 
     // ============ ROLES ============
@@ -154,6 +154,7 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
     event OutcomeFinalized(string indexed id, address indexed proposer, uint256 reward);
     event MarketResolved(string indexed id, bool result, uint256 winnerPool);
     event MarketVoided(string indexed id);
+    event MarketReopened(string indexed id, uint256 newDeadline);
     event PayoutClaimed(string indexed id, address indexed user, uint256 amount);
     event SeedWithdrawn(string indexed id, address indexed creator, uint256 amount);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -229,13 +230,15 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
      *      Seed is fully refundable to the Creator after resolution.
      */
     function createMarket(
-        string calldata _id,
         string calldata _question,
         uint256 _usdcSeedAmount,
         uint256 _durationSeconds,
         uint256 _bonusDurationSeconds
-    ) external whenNotPaused nonReentrant {
-        require(bytes(_id).length > 0 && bytes(_id).length <= 64, "Invalid ID length");
+    ) external whenNotPaused nonReentrant returns (string memory) {
+        // [AUDIT-FIX] Griefing: ID is now deterministic to prevent front-running
+        bytes32 rawId = keccak256(abi.encodePacked(msg.sender, _question, block.timestamp));
+        string memory _id = _bytes32ToString(rawId);
+
         require(bytes(_question).length >= 10 && bytes(_question).length <= 500, "Invalid question length");
         require(!marketExists[_id], "Market exists");
         require(_usdcSeedAmount >= 1e6, "Min seed: 1 USDC");
@@ -261,12 +264,11 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
         
         // [ECR-002] Seed is Recoverable, NOT Pool Liquidity
         m.seedAmount = _usdcSeedAmount;
-        // m.totalYes = 0; // Pools start empty
-        // m.totalNo = 0;
         
         marketExists[_id] = true;
         
         emit MarketCreated(_id, msg.sender, m.deadlineTime, _usdcSeedAmount);
+        return _id;
     }
     
     // ============ BETTING ============
@@ -332,11 +334,8 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
             m.noBettorsCount++;
         }
         
-        uint256 weight = _calculateWeight(
-            _side ? m.totalNo : m.totalYes,
-            _side ? m.totalYes : m.totalNo
-        );
-        
+        // [AUDIT-FIX] V9.3: Emit actual weight used (MAX or MIN), not the 50 placeholder
+        uint256 weight = isEarlyBird ? MAX_WEIGHT : MIN_WEIGHT;
         emit BetPlaced(_marketId, msg.sender, _side, netAmount, shares, _referrer, weight);
     }
     
@@ -448,26 +447,74 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
      * @notice Allows Admin to force resolve a dispute to a specific result (YES/NO/DRAW).
      * @dev Used for arbitration if the automated dispute process is stuck or requires human intervention.
      */
-    function adminResolve(string calldata _marketId, MarketOutcome _outcome) external nonReentrant {
+    function adminResolve(string calldata _marketId, MarketOutcome _outcome, bool _slashCreator) external nonReentrant {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not admin");
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
-        require(m.state == MarketState.DISPUTED || m.state == MarketState.PROPOSED, "Invalid state");
+        // [V10] Admin can resolve from ANY active state (OPEN, LOCKED, PROPOSED, DISPUTED)
+        require(m.state != MarketState.RESOLVED, "Already resolved");
         
-        // Return bonds to their owners (no slashing in force resolve, simplified for now)
-        // Or should we slash? Usually Admin Resolve implies the Proposer was wrong?
-        // Let's keep it neutral: Return bonds to everyone to avoid complexity, OR
-        // If it's a clear ruling, we might want to slash. 
-        // For simplicity and safety in V9: Return all bonds.
+        // [AUDIT-FIX] V9.4 H-02: Slashing Logic
+        // If _slashCreator is true (e.g. fraudulent market), the seed is confiscated to Treasury.
+        if (_slashCreator && m.seedAmount > 0) {
+            uint256 seed = m.seedAmount;
+            m.seedAmount = 0; // Remove claim rights
+            totalLockedAmount -= seed; // Remove from liabilities
+            usdcToken.safeTransfer(treasury, seed);
+            emit SeedWithdrawn(_marketId, treasury, seed); // Re-using event or we can emit nothing/custom
+        }
+
+        // [AUDIT-FIX] Incentive Alignment via "Skin in the Game"
+        // If Admin confirms the Proposal -> Proposer wins Bond + Challenge Bond
+        // If Admin rejects the Proposal -> Challenger wins Bond + Challenge Bond
+        // If DRAW/CANCEL -> Refund both (Neutral)
+
+        uint256 totalBond = m.bondAmount + m.challengeBondAmount;
+        address winnerAddress = address(0);
+
+        bool isProposalCorrect = false;
         
-        if (m.bondAmount > 0) {
-            claimableBonds[m.proposer] += m.bondAmount;
-            m.bondAmount = 0;
+        if (_outcome == MarketOutcome.YES && m.proposedResult == true) isProposalCorrect = true;
+        if (_outcome == MarketOutcome.NO && m.proposedResult == false) isProposalCorrect = true;
+        
+        // Determine Winner
+        if (_outcome == MarketOutcome.CANCELLED || _outcome == MarketOutcome.DRAW) {
+            // Neutral Outcome: Refund everyone
+            if (m.bondAmount > 0) claimableBonds[m.proposer] += m.bondAmount;
+            if (m.challengeBondAmount > 0) claimableBonds[m.challenger] += m.challengeBondAmount;
+        } else {
+            // Binary Outcome
+            if (isProposalCorrect) {
+                 winnerAddress = m.proposer;
+            } else {
+                 // Proposal was WRONG. If challenged, Challenger wins. 
+                 if (m.challenger != address(0)) {
+                     winnerAddress = m.challenger;
+                 } else {
+                     // [AUDIT-FIX] V9.4 H-01: Direct Transfer
+                     // If no challenger, bond is confiscated to Treasury DIRECTLY (not claimableBonds)
+                     if (m.state == MarketState.PROPOSED) {
+                         // Liar Proposer, Admin caught them. 
+                         // Burn/Confiscate bond to Treasury directly to avoid "Locked Funds in Smart Wallet" issue.
+                         totalLockedAmount -= m.bondAmount; // Remove from liabilities logic if we consider bond part of it? 
+                         // Wait, bond is in totalLockedAmount? Yes, line 372.
+                         // So we must decrement totalLockedAmount if we transfer out.
+                         usdcToken.safeTransfer(treasury, m.bondAmount);
+                         
+                         // winnerAddress remains 0.
+                     } else {
+                         winnerAddress = m.challenger;
+                     }
+                 }
+            }
+            
+            if (winnerAddress != address(0) && totalBond > 0) {
+                claimableBonds[winnerAddress] += totalBond;
+            }
         }
-        if (m.challengeBondAmount > 0) {
-            claimableBonds[m.challenger] += m.challengeBondAmount;
-            m.challengeBondAmount = 0;
-        }
+
+        m.bondAmount = 0;
+        m.challengeBondAmount = 0;
 
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = _outcome;
@@ -654,6 +701,63 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
         emit MarketVoided(_marketId);
     }
 
+    /**
+     * @notice [V10] Reopen a market that was prematurely proposed/disputed.
+     * @dev Reverts market state to OPEN, refunds all bonds, and extends deadline.
+     *      Use case: A user proposed too early (e.g., market hasn't reached its deadline yet)
+     *      and another user challenged it. Instead of closing the market unfairly,
+     *      the admin can reopen it so betting continues until the original deadline.
+     * @param _marketId The market to reopen
+     * @param _extensionSeconds Additional seconds to add to the deadline (0 = keep original)
+     */
+    function reopenMarket(
+        string calldata _marketId,
+        uint256 _extensionSeconds
+    ) external nonReentrant {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not admin");
+        require(marketExists[_marketId], "No market");
+        
+        Market storage m = markets[_marketId];
+        require(
+            m.state == MarketState.PROPOSED || m.state == MarketState.DISPUTED,
+            "Can only reopen proposed/disputed markets"
+        );
+        
+        // Refund proposer bond
+        if (m.bondAmount > 0) {
+            claimableBonds[m.proposer] += m.bondAmount;
+            m.bondAmount = 0;
+        }
+        
+        // Refund challenger bond
+        if (m.challengeBondAmount > 0) {
+            claimableBonds[m.challenger] += m.challengeBondAmount;
+            m.challengeBondAmount = 0;
+        }
+        
+        // Reset proposal/dispute data
+        m.proposer = address(0);
+        m.proposedResult = false;
+        m.proposalTime = 0;
+        m.evidenceUrl = "";
+        m.challenger = address(0);
+        m.challengeEvidenceUrl = "";
+        m.challengeTime = 0;
+        
+        // Extend deadline if requested
+        if (_extensionSeconds > 0) {
+            m.deadlineTime = block.timestamp + _extensionSeconds;
+        } else if (m.deadlineTime < block.timestamp) {
+            // If deadline already passed, extend by 24h minimum
+            m.deadlineTime = block.timestamp + 24 hours;
+        }
+        
+        // Revert state to OPEN
+        _updateMarketState(m, MarketState.OPEN);
+        
+        emit MarketReopened(_marketId, m.deadlineTime);
+    }
+
     function voidAbandonedMarket(string calldata _marketId) external nonReentrant {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
@@ -768,16 +872,20 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
 
     // ============ INTERNAL ============
     
-    function _calculateShares(uint256 yesPool, uint256 noPool, uint256 betAmount, bool isEarlyBird) internal pure returns (uint256) {
-        if (yesPool == 0) return betAmount * SHARE_PRECISION;
+    function _calculateShares(uint256 /*yesPool*/, uint256 /*noPool*/, uint256 betAmount, bool isEarlyBird) internal pure returns (uint256) {
+        // [AUDIT-FIX] Critical: Removed static odds calculation. 
+        // Shares are now strictly proportional to the amount wagered (Parimutuel Standard).
+        
         uint256 weight = isEarlyBird ? MAX_WEIGHT : MIN_WEIGHT;
-        uint256 odds = ((yesPool + noPool) * SHARE_PRECISION) / yesPool;
-        return (betAmount * odds * weight) / (100 * SHARE_PRECISION);
+        
+        // Shares = Amount * Weight
+        // Example: 100 USDC * 1.2 (Early Bird) = 120 Shares
+        return (betAmount * weight * SHARE_PRECISION) / 100;
     }
 
-    function _calculateWeight(uint256 yesPool, uint256 noPool) internal pure returns (uint256) {
-        if (yesPool == 0 || noPool == 0) return 50;
-        return (yesPool * 100) / (yesPool + noPool);
+    function _calculateWeight(uint256 /*yesPool*/, uint256 /*noPool*/) internal pure returns (uint256) {
+        // [AUDIT-FIX] Weight is now static based on Early Bird, no dynamic pool weight needed for display
+        return 50; // Placeholder for UI compatibility
     }
     
     function _getRequiredBond(uint256 poolSize) internal pure returns (uint256) {
@@ -805,4 +913,20 @@ contract PredictionBattleV9 is ReentrancyGuard, Pausable, AccessControl {
         uint256 dust = contractBalance - totalLockedAmount;
         usdcToken.safeTransfer(treasury, dust);
     }
+
+    function _bytes32ToString(bytes32 _bytes32) internal pure returns (string memory) {
+        return string(abi.encodePacked("0x", _toHexString(uint256(_bytes32), 32)));
+    }
+
+    function _toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(2 * length);
+        for (uint256 i = 2 * length; i > 0; --i) {
+            buffer[i - 1] = _HEX_SYMBOLS[value & 0xf];
+            value >>= 4;
+        }
+        require(value == 0, "Strings: hex length insufficient");
+        return string(buffer);
+    }
+    
+    bytes16 private constant _HEX_SYMBOLS = "0123456789abcdef";
 }
