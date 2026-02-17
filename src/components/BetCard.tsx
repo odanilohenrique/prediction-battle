@@ -65,41 +65,9 @@ export default function BetCard({
     payout,
     paid,
 }: BetCardProps) {
-    // --- TIMER LOGIC ---
+    // --- CONTRACT INTEGRATION (Hooks first) ---
     const { data: blockNumber } = useBlockNumber({ watch: true });
     const currentBlock = blockNumber ? Number(blockNumber) : 0;
-
-    const timeRemainingMs = prediction.expiresAt - Date.now();
-    let isExpired = timeRemainingMs <= 0;
-    let timeDisplay = '';
-
-    if (prediction.deadlineBlock && currentBlock > 0) {
-        // Block-based logic (More accurate)
-        isExpired = currentBlock >= prediction.deadlineBlock;
-        timeDisplay = formatBlockDuration(prediction.deadlineBlock, currentBlock);
-    } else {
-        // Fallback to timestamp
-        const hours = Math.max(0, Math.floor(timeRemainingMs / (1000 * 60 * 60)));
-        const minutes = Math.max(0, Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60)));
-        timeDisplay = `${hours}h ${minutes}m`;
-
-        const isNoLimit = timeRemainingMs > 365 * 24 * 60 * 60 * 1000 * 50;
-        if (isNoLimit) {
-            timeDisplay = 'Unlimited';
-            isExpired = false;
-        }
-    }
-
-    const totalPot =
-        prediction.pot.yes.reduce((sum, bet) => sum + bet.amount, 0) +
-        prediction.pot.no.reduce((sum, bet) => sum + bet.amount, 0);
-
-    const [showReveal, setShowReveal] = useState(false);
-    const [hasViewedResult, setHasViewedResult] = useState(false);
-    const [showRules, setShowRules] = useState(false); // [NEW] Rules toggle
-
-    // --- CONTRACT INTEGRATION (Smart Timer) ---
-    // --- CONTRACT INTEGRATION (Smart Timer) ---
     const { address } = useAccount();
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
@@ -107,18 +75,48 @@ export default function BetCard({
     const [isClaiming, setIsClaiming] = useState(false); // V8 Claim
     const [disputeTimer, setDisputeTimer] = useState<string>('');
     const [canFinalize, setCanFinalize] = useState(false);
+    const [showReveal, setShowReveal] = useState(false);
+    const [hasViewedResult, setHasViewedResult] = useState(false);
+    const [showRules, setShowRules] = useState(false); // [NEW] Rules toggle
 
-    // Fetch live market state if pending & expired (to check for Proposed/Dispute phase)
+    // Fetch live market state (for deadline + verification phase)
     const { data: marketData, refetch } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
         args: [prediction.id],
         query: {
-            enabled: status === 'pending' && isExpired,
+            enabled: status === 'pending',
             refetchInterval: 10000, // Check periodically
         }
     }) as { data: any[] | undefined, refetch: () => void };
+
+    // --- TIMER LOGIC ---
+    // Use on-chain deadlineTime (index 5, Unix seconds) as authoritative source
+    const onChainDeadlineSec = marketData ? Number(marketData[5]) : 0;
+    const effectiveDeadlineMs = onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : prediction.expiresAt;
+    const effectiveRemainingMs = effectiveDeadlineMs - Date.now();
+
+    let isExpired = effectiveRemainingMs <= 0;
+    let timeDisplay = '';
+
+    if (effectiveRemainingMs > 365 * 24 * 60 * 60 * 1000 * 50) {
+        timeDisplay = 'Unlimited';
+        isExpired = false;
+    } else if (effectiveRemainingMs <= 0) {
+        timeDisplay = 'Expired';
+    } else {
+        const days = Math.floor(effectiveRemainingMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((effectiveRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((effectiveRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+        if (days > 0) timeDisplay = `${days}d ${hours}h`;
+        else if (hours > 0) timeDisplay = `${hours}h ${minutes}m`;
+        else timeDisplay = `${minutes}m`;
+    }
+
+    const totalPot =
+        prediction.pot.yes.reduce((sum, bet) => sum + bet.amount, 0) +
+        prediction.pot.no.reduce((sum, bet) => sum + bet.amount, 0);
 
     // Extract State info
     const marketState = marketData ? Number(marketData[6]) : 0; // Index 6 is State
