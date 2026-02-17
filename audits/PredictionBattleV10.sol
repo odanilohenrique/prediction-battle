@@ -68,6 +68,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     // [ECR-002] Global Liability Tracking
     uint256 public totalLockedAmount;
     
+    // [AUDIT-FIX] Beta-01 M-02: Nonce for ID generation
+    uint256 public marketCount;
+    
     // ============ STRUCTS ============
     
     struct Market {
@@ -236,7 +239,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         uint256 _bonusDurationSeconds
     ) external whenNotPaused nonReentrant returns (string memory) {
         // [AUDIT-FIX] Griefing: ID is now deterministic to prevent front-running
-        bytes32 rawId = keccak256(abi.encodePacked(msg.sender, _question, block.timestamp));
+        // [AUDIT-FIX] Beta-01 M-02: Added marketCount nonce to prevent collision
+        bytes32 rawId = keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount++));
         string memory _id = _bytes32ToString(rawId);
 
         require(bytes(_question).length >= 10 && bytes(_question).length <= 500, "Invalid question length");
@@ -325,10 +329,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // [AUDIT-FIX] Beta-01 M-01: Only count UNIQUE bettors to prevent DoS via counter inflation
         if (userBet.amount == 0) {
             if (_side) {
-                require(m.yesBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
+                // [AUDIT-FIX] Beta-01 L-01: Removed MAX_BETTORS limit (gas inefficient & DoS vector)
                 m.yesBettorsCount++;
             } else {
-                require(m.noBettorsCount < MAX_BETTORS_PER_SIDE, "Max bettors reached");
                 m.noBettorsCount++;
             }
         }
@@ -360,7 +363,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             require(block.timestamp >= m.creationTime + 24 hours, "Creator: wait 24h");
         }
 
-        require(block.timestamp >= lastBetTime[_marketId] + 30 minutes, "Cool-down: wait 30min after last bet");
+        // [AUDIT-FIX] Beta-01 C-01: Prevent Zombie Markets (DoS)
+        // Logic: If deadline passed, ANYONE can propose immediately.
+        // If active, must wait 30min after last bet.
+        require(
+            block.timestamp >= m.deadlineTime || 
+            block.timestamp >= lastBetTime[_marketId] + 30 minutes, 
+            "Cool-down: wait 30min after last bet"
+        );
 
         uint256 requiredBond = _getRequiredBond(m.totalYes + m.totalNo);
         require(_bondAmount >= requiredBond, "Insufficient bond");
@@ -629,9 +639,20 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 
                 // [ECR-002] H-01 FIX: Distribute this user's fee portion to balances
                 // Note: Reporter reward is claimed separately, so we only distribute House + Creator + Referrer here
-                uint256 houseFee = (grossPayout * houseFeeBps) / FEE_DENOMINATOR;
+                
+                // [AUDIT-FIX] Beta-01 H-03: Dust Locking Fix
+                // Calculate House Fee as the REMAINDER to ensure total deduction matches total allocation.
+                // totalFeesBps = house(10) + creator(5) + ref(5) + reporter(1) = 21%
+                // userFees = floor(gross * 0.21)
+                
                 uint256 creatorFee = (grossPayout * creatorFeeBps) / FEE_DENOMINATOR;
                 uint256 referrerFee = (grossPayout * referrerFeeBps) / FEE_DENOMINATOR;
+                uint256 reporterFeePart = (grossPayout * REPORTER_REWARD_BPS) / FEE_DENOMINATOR; // Tracked logically only
+                
+                // House gets the rest (including dust from other roundings)
+                // house = userFees - creator - referrer - reporterPart
+                // This ensures: house + creator + referrer + reporterPart == userFees exactly.
+                uint256 houseFee = userFees - creatorFee - referrerFee - reporterFeePart;
                 
                 houseBalance += houseFee;
                 creatorBalance[m.creator] += creatorFee;
