@@ -334,11 +334,15 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             } else {
                 m.noBettorsCount++;
             }
+            
+            // [AUDIT-FIX] Beta-01 M-03: Referrer Hijacking Fix
+            // Only set referrer on first bet. Prevents overwriting with self/other referrer later.
+            userBet.referrer = _referrer;
         }
         
         userBet.amount += netAmount;
         userBet.shares += shares;
-        userBet.referrer = _referrer;
+        // userBet.referrer = _referrer; // MOVED INSIDE CHECK
         
         // [AUDIT-FIX] V9.3: Emit actual weight used (MAX or MIN), not the 50 placeholder
         uint256 weight = isEarlyBird ? MAX_WEIGHT : MIN_WEIGHT;
@@ -529,6 +533,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                     claimableBonds[winnerAddress] += totalBond;
                 }
             }
+        }
+        
+        // [AUDIT-FIX] Beta-01 H-02: Reporter Reward Trap Fix
+        // If Admin resolves a market that has NO proposer (e.g. directly from OPEN/LOCKED),
+        // the 1% reporter fee is deducted but locked forever (since m.proposer is 0x0).
+        // Fix: Set treasury as proposer in this case so fees can be swept/claimed.
+        if (m.proposer == address(0)) {
+            m.proposer = treasury;
         }
 
         m.bondAmount = 0;

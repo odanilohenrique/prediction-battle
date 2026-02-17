@@ -111,6 +111,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // [GAS-OPT] Bettor Counters (replaced EnumerableSet)
         uint256 yesBettorsCount;
         uint256 noBettorsCount;
+        
+        // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking for Reporter
+        uint256 reporterFeeCollected; // Tracks actual fees deducted from users
     }
     
     struct UserBet {
@@ -625,7 +628,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 payout = totalUserBet - fee;
                 
                 // Distribute fees for THIS user's bet (Reporter reward stays in contract for claimReporterReward)
-                _distributeUserFees(totalUserBet, m.creator, yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer);
+                _distributeUserFees(_marketId, totalUserBet, m.creator, yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer);
             }
         }
         else {
@@ -659,7 +662,11 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 
                 uint256 creatorFee = (grossPayout * creatorFeeBps) / FEE_DENOMINATOR;
                 uint256 referrerFee = (grossPayout * referrerFeeBps) / FEE_DENOMINATOR;
-                uint256 reporterFeePart = (grossPayout * REPORTER_REWARD_BPS) / FEE_DENOMINATOR; // Tracked logically only
+                
+                // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking
+                // Track actual reporter fee deducted from THIS user to pay explicitly later.
+                uint256 reporterFeePart = (grossPayout * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+                m.reporterFeeCollected += reporterFeePart; 
                 
                 // House gets the rest (including dust from other roundings)
                 // house = userFees - creator - referrer - reporterPart
@@ -689,11 +696,15 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     /**
      * @notice [ECR-002] Distributes fees for a single user's bet (used in DRAW scenario)
      */
-    function _distributeUserFees(uint256 betAmount, address creator, address referrer) internal {
+    function _distributeUserFees(string calldata _marketId, uint256 betAmount, address creator, address referrer) internal {
         uint256 houseFee = (betAmount * houseFeeBps) / FEE_DENOMINATOR;
         uint256 creatorFee = (betAmount * creatorFeeBps) / FEE_DENOMINATOR;
         uint256 referrerFee = (betAmount * referrerFeeBps) / FEE_DENOMINATOR;
         
+        // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking for Draw
+        uint256 reporterFeePart = (betAmount * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        markets[_marketId].reporterFeeCollected += reporterFeePart;
+
         houseBalance += houseFee;
         creatorBalance[creator] += creatorFee;
         
@@ -712,8 +723,12 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(msg.sender == m.proposer, "Not proposer");
         require(!reporterRewardClaimed[_marketId], "Already claimed");
         
-        uint256 totalPool = m.totalYes + m.totalNo;
-        uint256 reward = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        
+        // [AUDIT-FIX] Beta-01 M-04: Pay ACTUAL collected fees to ensure solvency
+        // Instead of calculating % of pool (which might be higher than collected due to rounding),
+        // we pay exactly what was deducted from users.
+        uint256 reward = m.reporterFeeCollected;
+        require(reward > 0, "No reward collected");
         
         reporterRewardClaimed[_marketId] = true;
         totalLockedAmount -= reward;
