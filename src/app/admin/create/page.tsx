@@ -284,7 +284,7 @@ export default function CreateCommunityBet() {
             const maxBetNum = parseFloat(formData.maxBet) || 0;
             const targetValueNum = parseFloat(formData.targetValue) || 0;
 
-            const targetValueNum = parseFloat(formData.targetValue) || 0;
+
 
             console.log('[DEBUG] Submitting FormData:', {
                 timeframe: formData.timeframe,
