@@ -286,12 +286,7 @@ export default function CreateCommunityBet() {
 
 
 
-            console.log('[DEBUG] Submitting FormData:', {
-                timeframe: formData.timeframe,
-                deadlineDateTime: formData.deadlineDateTime,
-                expiryTimestamp: formData.deadlineDateTime ? new Date(formData.deadlineDateTime).getTime() : undefined,
-                creationMode
-            });
+
 
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
@@ -307,7 +302,7 @@ export default function CreateCommunityBet() {
                     minBet: minBetNum,
 
                     // Metadata
-                    castHash: 'manual_creation',
+                    castHash: `manual_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                     castAuthor: username,
                     castText: finalQuestion,
                     initialValue: 0,
