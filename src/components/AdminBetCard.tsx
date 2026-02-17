@@ -223,6 +223,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
     const isMarketResolved = marketStateV5 === 4; // RESOLVED
 
+    // On-chain deadlineTime (index 5) is the authoritative deadline (Unix seconds)
+    const onChainDeadlineSec = activeMarketData ? Number(activeMarketData[5]) : 0;
+    const effectiveDeadlineMs = onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : bet.expiresAt;
+
     // Determine Result (Chain > DB)
     let resultString = (bet.result || '').toLowerCase();
 
@@ -507,24 +511,21 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
     const formatTimeRemaining = () => {
-        if (bet.deadlineBlock && currentBlock > 0) {
-            return formatBlockDuration(bet.deadlineBlock, currentBlock);
-        }
-
-        if (!bet.expiresAt) return 'Invalid Date';
-        const remaining = bet.expiresAt - Date.now();
+        // Use on-chain deadline as authoritative source
+        if (!effectiveDeadlineMs) return 'Invalid Date';
+        const remaining = effectiveDeadlineMs - Date.now();
         if (isNaN(remaining)) return 'Invalid Date';
 
         if (remaining > 50 * 365 * 24 * 60 * 60 * 1000) return 'Indefinite ♾️';
-        const hours = Math.floor(remaining / (1000 * 60 * 60));
+        if (remaining <= 0) return 'Expired';
+
+        const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 
-        if (remaining <= 0) return 'Expired';
-        if (hours > 24) {
-            const days = Math.floor(hours / 24);
-            return `${days}d ${hours % 24}h`;
-        }
-        return `${hours}h ${minutes}m`;
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
     };
 
     const getBetTypeLabel = () => {
@@ -965,9 +966,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 {/* Header Ticket Stub */}
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < effectiveDeadlineMs ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                         <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= bet.expiresAt ? 'EXPIRED' : 'LIVE BATTLE'}
+                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= effectiveDeadlineMs ? 'EXPIRED' : 'LIVE BATTLE'}
                         </span>
                         {/* Creator Badge */}
                         {bet.creatorAddress && (
@@ -1007,22 +1008,11 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         )}
                     </div>
                     {/* Deadline Timer - Top Right Corner */}
-                    {bet.status === 'active' && !isMarketResolved && Date.now() < bet.expiresAt && (
+                    {bet.status === 'active' && !isMarketResolved && Date.now() < effectiveDeadlineMs && (
                         <div className="flex items-center gap-1.5 text-xs font-mono text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
                             <Clock className="w-3 h-3 text-primary" />
                             <span suppressHydrationWarning>
-                                {(() => {
-                                    if (bet.deadlineBlock && currentBlock > 0) {
-                                        return formatBlockDuration(bet.deadlineBlock, currentBlock);
-                                    }
-                                    const timeRemainingMs = bet.expiresAt - Date.now();
-                                    const days = Math.floor(timeRemainingMs / (1000 * 60 * 60 * 24));
-                                    const hours = Math.floor((timeRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                                    const minutes = Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                                    if (days > 0) return `${days}d ${hours}h`;
-                                    if (hours > 0) return `${hours}h ${minutes}m`;
-                                    return `${minutes}m`;
-                                })()}
+                                {formatTimeRemaining()}
                             </span>
                         </div>
                     )}
@@ -1310,7 +1300,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                         {/* ... existing render ... */}
                         {/* Seed button only for admin on empty pools */}
-                        {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < bet.expiresAt && (
+                        {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < effectiveDeadlineMs && (
                             <button
                                 onClick={handleSeedPool}
                                 disabled={isSubmitting}
@@ -1375,7 +1365,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 label={normalizedResult === 'void' ? 'CLAIM REFUND' : 'CLAIM WINNINGS'}
                                 subtext={normalizedResult === 'void' ? 'FULL RETURN' : 'GET PAID'}
                             />
-                        ) : (bet.status !== 'active' || Date.now() >= bet.expiresAt ? (
+                        ) : (bet.status !== 'active' || Date.now() >= effectiveDeadlineMs ? (
                             <div className="flex flex-col gap-2 w-full">
                                 <ClaimButton
                                     amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
