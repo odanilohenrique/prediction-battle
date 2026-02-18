@@ -648,9 +648,17 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             uint256 totalMarketShares = m.totalSharesYes + m.totalSharesNo;
             
             if (userTotalShares > 0 && totalMarketShares > 0) {
-                payout = (userTotalShares * m.netDistributable) / totalMarketShares;
+                uint256 refReward;
                 
-                uint256 refReward = (userTotalShares * m.referrerPool) / totalMarketShares;
+                // [AUDIT-FIX] Refinement: Explicit check for last user to clear ALL dust
+                if (userTotalShares == totalMarketShares) {
+                    payout = m.netDistributable;
+                    refReward = m.referrerPool;
+                } else {
+                    payout = (userTotalShares * m.netDistributable) / totalMarketShares;
+                    refReward = (userTotalShares * m.referrerPool) / totalMarketShares;
+                }
+                
                 address ref = yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer;
                 if (ref != address(0)) {
                     rewardsBalance[ref] += refReward;
@@ -674,9 +682,17 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 uint256 totalWinningShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
                 require(totalWinningShares > 0, "No winning shares");
                 
-                payout = (winningBet.shares * m.netDistributable) / totalWinningShares;
+                uint256 refReward;
+
+                // [AUDIT-FIX] Refinement: Explicit check for last user to clear ALL dust
+                if (winningBet.shares == totalWinningShares) {
+                    payout = m.netDistributable;
+                    refReward = m.referrerPool;
+                } else {
+                    payout = (winningBet.shares * m.netDistributable) / totalWinningShares;
+                    refReward = (winningBet.shares * m.referrerPool) / totalWinningShares;
+                }
                 
-                uint256 refReward = (winningBet.shares * m.referrerPool) / totalWinningShares;
                 if (winningBet.referrer != address(0)) {
                     rewardsBalance[winningBet.referrer] += refReward;
                 } else {
@@ -815,9 +831,10 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // Extend deadline if requested
         if (_extensionSeconds > 0) {
             m.deadlineTime = block.timestamp + _extensionSeconds;
-        } else if (m.deadlineTime < block.timestamp) {
-            m.deadlineTime = block.timestamp + 24 hours;
         }
+        
+        // [AUDIT-FIX] Reset lastBetTime to prevent immediate proposal via "Zombie check"
+        lastBetTime[_marketId] = block.timestamp;
         
         // Revert state to OPEN
         _updateMarketState(m, MarketState.OPEN);
