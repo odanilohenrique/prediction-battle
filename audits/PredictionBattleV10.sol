@@ -48,7 +48,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     // Circuit breakers
     uint256 public maxBetAmount = 100_000 * 1e6; // 100k USDC
     uint256 public maxMarketPool = 1_000_000 * 1e6; // 1M USDC
-    uint256 public constant MAX_BETTORS_PER_SIDE = 10000;
+    // [AUDIT-FIX] Removed MAX_BETTORS_PER_SIDE (unused)
     
     // Rate limiting
     mapping(address => uint256) public lastMarketCreation;
@@ -112,8 +112,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         uint256 yesBettorsCount;
         uint256 noBettorsCount;
         
-        // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking for Reporter
-        uint256 reporterFeeCollected; // Tracks actual fees deducted from users
+        // [AUDIT-FIX] Refactor: Pre-Deduction Fee Logic
+        uint256 netDistributable; // Pool after ALL fees (21%) are deducted
+        uint256 referrerPool;     // 5% of Total Pool reserved for Referrers
     }
     
     struct UserBet {
@@ -145,7 +146,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     mapping(string => mapping(address => UserBet)) public yesBets;
     mapping(string => mapping(address => UserBet)) public noBets;
     mapping(string => mapping(address => bool)) public hasClaimed;
-    mapping(string => bool) public reporterRewardClaimed;
+    // [AUDIT-FIX] Removed reporterRewardClaimed (deprecated by Pre-Deduction logic)
     
     // [GAS-OPT] Removed EnumerableSet mappings - using counters in Market struct instead
     
@@ -443,20 +444,26 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         uint256 totalBond = m.bondAmount + m.challengeBondAmount;
         claimableBonds[_winnerAddress] += totalBond;
         
+        // [AUDIT-FIX] CRITICAL: Determine outcome BEFORE reassigning m.proposer
+        // Otherwise _winnerAddress == m.proposer is always true (dead else branch)
+        if (_winnerAddress == m.proposer) {
+            // Proposer was correct
+            m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
+        } else {
+            // Challenger was correct -> flip the proposed result
+            m.outcome = !m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
+        }
+        
+        // Now transfer proposer role to winner (for reporter reward)
         m.proposer = _winnerAddress;
         
         _updateMarketState(m, MarketState.RESOLVED);
         
-        if (_winnerAddress == m.proposer) {
-            m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
-        } else {
-            m.outcome = !m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
-        }
-        
         m.bondAmount = 0;
         m.challengeBondAmount = 0;
         
-        // Note: Fees are distributed at claim time (per-user) for gas efficiency
+        // [AUDIT-FIX] Process fees at resolution
+        _processMarketFees(_marketId);
         
         bool finalResultBool = m.outcome == MarketOutcome.YES;
         emit DisputeResolved(_marketId, _winnerAddress, totalBond, finalResultBool);
@@ -538,10 +545,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             }
         }
         
-        // [AUDIT-FIX] Beta-01 H-02: Reporter Reward Trap Fix
-        // If Admin resolves a market that has NO proposer (e.g. directly from OPEN/LOCKED),
-        // the 1% reporter fee is deducted but locked forever (since m.proposer is 0x0).
-        // Fix: Set treasury as proposer in this case so fees can be swept/claimed.
+        // [AUDIT-FIX] Reporter Reward Trap Fix
         if (m.proposer == address(0)) {
             m.proposer = treasury;
         }
@@ -551,6 +555,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
 
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = _outcome;
+        
+        // [AUDIT-FIX] Fee Refactor: Process fees immediately upon resolution
+        _processMarketFees(_marketId);
         
         bool finalResultBool = m.outcome == MarketOutcome.YES;
         emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
@@ -590,13 +597,18 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         claimableBonds[proposer] += bondAmount;
         
-        _updateMarketState(m, MarketState.RESOLVED);
-        m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
         m.bondAmount = 0;
         
-        // Note: Fees are distributed at claim time (per-user) for gas efficiency
+        _updateMarketState(m, MarketState.RESOLVED);
+        m.outcome = m.proposedResult ? MarketOutcome.YES : MarketOutcome.NO;
+        
+        // [AUDIT-FIX] Fee Refactor: Process fees immediately upon resolution
+        _processMarketFees(_marketId);
         
         bool finalResultBool = m.outcome == MarketOutcome.YES;
+        // emit OutcomeFinalized(_marketId, proposer, 0); // Original code had this? Wait, original had OutcomeFinalized?
+        // Let's check original code or just keep what I see in view.
+        // View shows: emit OutcomeFinalized(_marketId, proposer, 0);
         emit OutcomeFinalized(_marketId, proposer, 0);
         emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
     }
@@ -614,73 +626,48 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         UserBet storage noBet = noBets[_marketId][msg.sender];
 
         if (m.outcome == MarketOutcome.CANCELLED) {
-            // Refund 100% - No fees
+            // CANCELLED: Full Refund (no fees)
             payout = yesBet.amount + noBet.amount;
         } 
         else if (m.outcome == MarketOutcome.DRAW) {
-            // [ECR-002] DRAW: Refund - 20% Fee + 1% Reporter, distributed proportionally
-            uint256 totalUserBet = yesBet.amount + noBet.amount;
-            if (totalUserBet > 0) {
-                // FIXED (C-01): Include REPORTER_REWARD_BPS in the fee deduction
-                uint256 totalFeesBps = houseFeeBps + creatorFeeBps + referrerFeeBps + REPORTER_REWARD_BPS;
-                uint256 fee = (totalUserBet * totalFeesBps) / FEE_DENOMINATOR;
+            // DRAW: Proportional refund from netDistributable (fees already deducted)
+            uint256 userTotalShares = yesBet.shares + noBet.shares;
+            uint256 totalMarketShares = m.totalSharesYes + m.totalSharesNo;
+            
+            if (userTotalShares > 0 && totalMarketShares > 0) {
+                payout = (userTotalShares * m.netDistributable) / totalMarketShares;
                 
-                payout = totalUserBet - fee;
-                
-                // Distribute fees for THIS user's bet (Reporter reward stays in contract for claimReporterReward)
-                _distributeUserFees(_marketId, totalUserBet, m.creator, yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer);
+                // Distribute referrer reward from referrerPool
+                uint256 refReward = (userTotalShares * m.referrerPool) / totalMarketShares;
+                address ref = yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer;
+                if (ref != address(0)) {
+                    rewardsBalance[ref] += refReward;
+                } else {
+                    houseBalance += refReward;
+                }
+                // Note: refReward stays in totalLockedAmount as it moves to another liability bucket
+                // It will be decremented when withdrawReferrerFees/withdrawHouseFees is called
             }
         }
         else {
-            // YES or NO outcome
+            // YES or NO outcome: Parimutuel payout from netDistributable
             bool isYesWinner = m.outcome == MarketOutcome.YES;
             UserBet storage winningBet = isYesWinner ? yesBet : noBet;
             
             if (winningBet.amount > 0 && winningBet.shares > 0) {
-                uint256 totalPool = m.totalYes + m.totalNo;
                 uint256 totalWinningShares = isYesWinner ? m.totalSharesYes : m.totalSharesNo;
                 require(totalWinningShares > 0, "No winning shares");
-
-                // [ECR-002] H-01 FIX: Calculate user's proportional share of the pool
-                // Then deduct their proportional fees and credit balances
                 
-                // User's share of gross pool (before fees)
-                uint256 grossPayout = (winningBet.shares * totalPool) / totalWinningShares;
+                payout = (winningBet.shares * m.netDistributable) / totalWinningShares;
                 
-                // Calculate fees on user's gross payout
-                uint256 totalFeesBps = houseFeeBps + creatorFeeBps + referrerFeeBps + REPORTER_REWARD_BPS;
-                uint256 userFees = (grossPayout * totalFeesBps) / FEE_DENOMINATOR;
-                payout = grossPayout - userFees;
-                
-                // [ECR-002] H-01 FIX: Distribute this user's fee portion to balances
-                // Note: Reporter reward is claimed separately, so we only distribute House + Creator + Referrer here
-                
-                // [AUDIT-FIX] Beta-01 H-03: Dust Locking Fix
-                // Calculate House Fee as the REMAINDER to ensure total deduction matches total allocation.
-                // totalFeesBps = house(10) + creator(5) + ref(5) + reporter(1) = 21%
-                // userFees = floor(gross * 0.21)
-                
-                uint256 creatorFee = (grossPayout * creatorFeeBps) / FEE_DENOMINATOR;
-                uint256 referrerFee = (grossPayout * referrerFeeBps) / FEE_DENOMINATOR;
-                
-                // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking
-                // Track actual reporter fee deducted from THIS user to pay explicitly later.
-                uint256 reporterFeePart = (grossPayout * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
-                m.reporterFeeCollected += reporterFeePart; 
-                
-                // House gets the rest (including dust from other roundings)
-                // house = userFees - creator - referrer - reporterPart
-                // This ensures: house + creator + referrer + reporterPart == userFees exactly.
-                uint256 houseFee = userFees - creatorFee - referrerFee - reporterFeePart;
-                
-                houseBalance += houseFee;
-                creatorBalance[m.creator] += creatorFee;
+                // Distribute referrer reward from referrerPool
+                uint256 refReward = (winningBet.shares * m.referrerPool) / totalWinningShares;
                 if (winningBet.referrer != address(0)) {
-                    rewardsBalance[winningBet.referrer] += referrerFee;
+                    rewardsBalance[winningBet.referrer] += refReward;
                 } else {
-                    // No referrer - fee goes to house
-                    houseBalance += referrerFee;
+                    houseBalance += refReward;
                 }
+                // Note: refReward stays in totalLockedAmount (moves to another liability bucket)
             }
         }
         
@@ -693,49 +680,58 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         emit PayoutClaimed(_marketId, msg.sender, payout);
     }
     
-    /**
-     * @notice [ECR-002] Distributes fees for a single user's bet (used in DRAW scenario)
-     */
-    function _distributeUserFees(string calldata _marketId, uint256 betAmount, address creator, address referrer) internal {
-        uint256 houseFee = (betAmount * houseFeeBps) / FEE_DENOMINATOR;
-        uint256 creatorFee = (betAmount * creatorFeeBps) / FEE_DENOMINATOR;
-        uint256 referrerFee = (betAmount * referrerFeeBps) / FEE_DENOMINATOR;
-        
-        // [AUDIT-FIX] Beta-01 M-04: Solvency Tracking for Draw
-        uint256 reporterFeePart = (betAmount * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
-        markets[_marketId].reporterFeeCollected += reporterFeePart;
-
-        houseBalance += houseFee;
-        creatorBalance[creator] += creatorFee;
-        
-        if (referrer != address(0)) {
-            rewardsBalance[referrer] += referrerFee;
-        } else {
-            houseBalance += referrerFee; // No referrer = house gets it
-        }
-    }
-
-    function claimReporterReward(string calldata _marketId) external nonReentrant {
-        require(marketExists[_marketId], "No market");
+    function _processMarketFees(string calldata _marketId) internal {
         Market storage m = markets[_marketId];
-        require(m.state == MarketState.RESOLVED, "Not resolved");
-        require(m.outcome != MarketOutcome.CANCELLED, "Market cancelled");
-        require(msg.sender == m.proposer, "Not proposer");
-        require(!reporterRewardClaimed[_marketId], "Already claimed");
+        uint256 totalPool = m.totalYes + m.totalNo;
         
+        if (m.outcome == MarketOutcome.CANCELLED) {
+            m.netDistributable = totalPool;
+            return;
+        }
         
-        // [AUDIT-FIX] Beta-01 M-04: Pay ACTUAL collected fees to ensure solvency
-        // Instead of calculating % of pool (which might be higher than collected due to rounding),
-        // we pay exactly what was deducted from users.
-        uint256 reward = m.reporterFeeCollected;
-        require(reward > 0, "No reward collected");
+        // Fees: House 10% + Creator 5% + Referrer 5% + Reporter 1% = 21%
+        uint256 houseFee = (totalPool * houseFeeBps) / FEE_DENOMINATOR;
+        uint256 creatorFee = (totalPool * creatorFeeBps) / FEE_DENOMINATOR;
+        uint256 repFee = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        uint256 refPool = (totalPool * referrerFeeBps) / FEE_DENOMINATOR;
         
-        reporterRewardClaimed[_marketId] = true;
-        totalLockedAmount -= reward;
+        // Credit balances immediately
+        houseBalance += houseFee;
+        creatorBalance[m.creator] += creatorFee;
         
-        usdcToken.safeTransfer(msg.sender, reward);
-        emit ReporterRewardClaimed(_marketId, msg.sender, reward);
+        // Reporter reward -> rewardsBalance (claimable via withdrawReferrerFees)
+        if (m.proposer != address(0)) {
+            rewardsBalance[m.proposer] += repFee;
+        } else {
+            houseBalance += repFee;
+        }
+        
+        // Referrer pool held until user claims (distributed per-user in claimWinnings)
+        m.referrerPool = refPool;
+        
+        // Net pool for winners/drawers
+        m.netDistributable = totalPool - houseFee - creatorFee - repFee - refPool;
+        
+        // Decrement totalLockedAmount for fees that moved to balance buckets.
+        // houseBalance, creatorBalance, rewardsBalance are all internal liabilities
+        // that will decrement totalLockedAmount again when withdrawn.
+        // So we must NOT decrement here for those.
+        // 
+        // WAIT - current withdraw functions (withdrawHouseFees, withdrawCreatorFees, 
+        // withdrawReferrerFees) ALL do `totalLockedAmount -= amount`.
+        // So if we ALSO decrement here, it's DOUBLE DEDUCTION.
+        // 
+        // The correct approach: Do NOT decrement totalLockedAmount here at all.
+        // The funds stay in the contract. They just moved from "market pool" to
+        // "fee balance". totalLockedAmount tracks ALL liabilities.
+        // It only decreases when funds LEAVE the contract (transfer/safeTransfer).
+        //
+        // netDistributable + referrerPool + fees = totalPool (unchanged)
+        // totalLockedAmount remains the same until actual withdrawals.
     }
+
+    // Reporter rewards are now credited automatically via _processMarketFees -> rewardsBalance
+    // Reporters withdraw using withdrawReferrerFees()
 
     function voidMarket(string calldata _marketId) external nonReentrant {
         require(hasRole(OPERATOR_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not authorized");
@@ -768,7 +764,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
      */
     function reopenMarket(
         string calldata _marketId,
-        uint256 _extensionSeconds
+        uint256 _extensionSeconds,
+        bool _slashProposer
     ) external nonReentrant {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not admin");
         require(marketExists[_marketId], "No market");
@@ -779,13 +776,19 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             "Can only reopen proposed/disputed markets"
         );
         
-        // Refund proposer bond
-        if (m.bondAmount > 0) {
+        // [AUDIT-FIX] Griefing Penalty: Slash proposer bond if malicious
+        if (_slashProposer && m.bondAmount > 0) {
+            // Confiscate proposer bond to Treasury
+            totalLockedAmount -= m.bondAmount;
+            usdcToken.safeTransfer(treasury, m.bondAmount);
+            m.bondAmount = 0;
+        } else if (m.bondAmount > 0) {
+            // Refund proposer bond (good faith proposal)
             claimableBonds[m.proposer] += m.bondAmount;
             m.bondAmount = 0;
         }
         
-        // Refund challenger bond
+        // Refund challenger bond (challenger acted in good faith by challenging)
         if (m.challengeBondAmount > 0) {
             claimableBonds[m.challenger] += m.challengeBondAmount;
             m.challengeBondAmount = 0;
@@ -804,7 +807,6 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         if (_extensionSeconds > 0) {
             m.deadlineTime = block.timestamp + _extensionSeconds;
         } else if (m.deadlineTime < block.timestamp) {
-            // If deadline already passed, extend by 24h minimum
             m.deadlineTime = block.timestamp + 24 hours;
         }
         
@@ -904,20 +906,21 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(msg.sender == m.creator, "Only creator");
         require(!hasClaimed[_marketId][msg.sender], "Already claimed");
         
-        uint256 totalPool = m.totalYes + m.totalNo;
+        // Fees were already processed in _processMarketFees.
+        // Creator gets the Net Pool (what would have gone to users).
+        uint256 payout = m.netDistributable;
         
-        // Calculate and distribute fees
-        uint256 totalFeesBps = houseFeeBps + creatorFeeBps + referrerFeeBps + REPORTER_REWARD_BPS;
-        uint256 totalFeeAmount = (totalPool * totalFeesBps) / FEE_DENOMINATOR;
-        uint256 payout = totalPool - totalFeeAmount;
+        // No winners -> no referrers to reward. Referrer Pool goes to House.
+        uint256 unusedReferrerPool = m.referrerPool;
+        if (unusedReferrerPool > 0) {
+            houseBalance += unusedReferrerPool;
+            m.referrerPool = 0;
+            // [AUDIT-FIX] Do NOT decrement totalLockedAmount here.
+            // The funds moved from referrerPool to houseBalance (both internal liabilities).
+            // totalLockedAmount will be decremented when withdrawHouseFees transfers funds out.
+        }
         
-        // Distribute fees to balances (no referrer in fallback, goes to house)
-        uint256 houseFee = (totalPool * (houseFeeBps + referrerFeeBps)) / FEE_DENOMINATOR; // House gets referrer portion
-        uint256 creatorFee = (totalPool * creatorFeeBps) / FEE_DENOMINATOR;
-        // Reporter reward is claimed separately via claimReporterReward
-        
-        houseBalance += houseFee;
-        creatorBalance[m.creator] += creatorFee;
+        require(payout > 0, "Nothing to claim");
         
         hasClaimed[_marketId][msg.sender] = true;
         totalLockedAmount -= payout;
