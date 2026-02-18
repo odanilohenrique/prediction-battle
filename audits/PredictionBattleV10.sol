@@ -518,15 +518,12 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                  if (m.challenger != address(0)) {
                      winnerAddress = m.challenger;
                  } else {
-                     // [AUDIT-FIX] V9.4 H-01: Direct Transfer
-                     // If no challenger, bond is confiscated to Treasury DIRECTLY (not claimableBonds)
                      if (m.state == MarketState.PROPOSED) {
-                         // Liar Proposer, Admin caught them. 
-                         // Burn/Confiscate bond to Treasury directly to avoid "Locked Funds in Smart Wallet" issue.
-                         totalLockedAmount -= m.bondAmount; // Remove from liabilities logic if we consider bond part of it? 
-                         // Wait, bond is in totalLockedAmount? Yes, line 372.
-                         // So we must decrement totalLockedAmount if we transfer out.
+                         // [AUDIT-FIX] Confiscate liar's bond to Treasury
+                         totalLockedAmount -= m.bondAmount;
                          usdcToken.safeTransfer(treasury, m.bondAmount);
+                         // [AUDIT-FIX] Clear malicious proposer so reporter reward goes to treasury
+                         m.proposer = address(0);
                          
                          // winnerAddress remains 0.
                      } else {
@@ -637,7 +634,6 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             if (userTotalShares > 0 && totalMarketShares > 0) {
                 payout = (userTotalShares * m.netDistributable) / totalMarketShares;
                 
-                // Distribute referrer reward from referrerPool
                 uint256 refReward = (userTotalShares * m.referrerPool) / totalMarketShares;
                 address ref = yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer;
                 if (ref != address(0)) {
@@ -645,8 +641,12 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 } else {
                     houseBalance += refReward;
                 }
-                // Note: refReward stays in totalLockedAmount as it moves to another liability bucket
-                // It will be decremented when withdrawReferrerFees/withdrawHouseFees is called
+                
+                // [AUDIT-FIX] Decremental pool: deduct claimed amounts to eliminate dust
+                m.netDistributable -= payout;
+                m.referrerPool -= refReward;
+                m.totalSharesYes -= yesBet.shares;
+                m.totalSharesNo -= noBet.shares;
             }
         }
         else {
@@ -660,14 +660,21 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                 
                 payout = (winningBet.shares * m.netDistributable) / totalWinningShares;
                 
-                // Distribute referrer reward from referrerPool
                 uint256 refReward = (winningBet.shares * m.referrerPool) / totalWinningShares;
                 if (winningBet.referrer != address(0)) {
                     rewardsBalance[winningBet.referrer] += refReward;
                 } else {
                     houseBalance += refReward;
                 }
-                // Note: refReward stays in totalLockedAmount (moves to another liability bucket)
+                
+                // [AUDIT-FIX] Decremental pool: deduct claimed amounts to eliminate dust
+                m.netDistributable -= payout;
+                m.referrerPool -= refReward;
+                if (isYesWinner) {
+                    m.totalSharesYes -= winningBet.shares;
+                } else {
+                    m.totalSharesNo -= winningBet.shares;
+                }
             }
         }
         
@@ -712,22 +719,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // Net pool for winners/drawers
         m.netDistributable = totalPool - houseFee - creatorFee - repFee - refPool;
         
-        // Decrement totalLockedAmount for fees that moved to balance buckets.
-        // houseBalance, creatorBalance, rewardsBalance are all internal liabilities
-        // that will decrement totalLockedAmount again when withdrawn.
-        // So we must NOT decrement here for those.
-        // 
-        // WAIT - current withdraw functions (withdrawHouseFees, withdrawCreatorFees, 
-        // withdrawReferrerFees) ALL do `totalLockedAmount -= amount`.
-        // So if we ALSO decrement here, it's DOUBLE DEDUCTION.
-        // 
-        // The correct approach: Do NOT decrement totalLockedAmount here at all.
-        // The funds stay in the contract. They just moved from "market pool" to
-        // "fee balance". totalLockedAmount tracks ALL liabilities.
-        // It only decreases when funds LEAVE the contract (transfer/safeTransfer).
-        //
-        // netDistributable + referrerPool + fees = totalPool (unchanged)
-        // totalLockedAmount remains the same until actual withdrawals.
+        // No totalLockedAmount changes here: fees moved between internal liability
+        // buckets. Decrements happen only in withdraw* functions (actual outflows).
     }
 
     // Reporter rewards are now credited automatically via _processMarketFees -> rewardsBalance
