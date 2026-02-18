@@ -376,8 +376,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // If active, must wait 30min after last bet.
         require(
             block.timestamp >= m.deadlineTime || 
-            block.timestamp >= lastBetTime[_marketId] + 30 minutes, 
-            "Cool-down: wait 30min after last bet"
+            block.timestamp >= lastBetTime[_marketId] + 12 hours, 
+            "Cool-down: wait 12h after last bet"
         );
 
         uint256 requiredBond = _getRequiredBond(m.totalYes + m.totalNo);
@@ -442,7 +442,16 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(_winnerAddress == m.proposer || _winnerAddress == m.challenger, "Invalid winner");
         
         uint256 totalBond = m.bondAmount + m.challengeBondAmount;
-        claimableBonds[_winnerAddress] += totalBond;
+        
+        // [AUDIT-FIX] Anti-self-challenging: Split bonds 50/50
+        // Winner gets 50%, Treasury gets 50% (slash). Self-challenging = guaranteed loss.
+        uint256 winnerShare = totalBond / 2;
+        uint256 slashedShare = totalBond - winnerShare;
+        claimableBonds[_winnerAddress] += winnerShare;
+        if (slashedShare > 0) {
+            totalLockedAmount -= slashedShare;
+            usdcToken.safeTransfer(treasury, slashedShare);
+        }
         
         // [AUDIT-FIX] CRITICAL: Determine outcome BEFORE reassigning m.proposer
         // Otherwise _winnerAddress == m.proposer is always true (dead else branch)
@@ -537,7 +546,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             if (winnerAddress != address(0)) {
                 m.proposer = winnerAddress;
                 if (totalBond > 0) {
-                    claimableBonds[winnerAddress] += totalBond;
+                    // [AUDIT-FIX] Anti-self-challenging: Split bonds 50/50
+                    uint256 winnerShare = totalBond / 2;
+                    uint256 slashedShare = totalBond - winnerShare;
+                    claimableBonds[winnerAddress] += winnerShare;
+                    if (slashedShare > 0) {
+                        totalLockedAmount -= slashedShare;
+                        usdcToken.safeTransfer(treasury, slashedShare);
+                    }
                 }
             }
         }
@@ -888,6 +904,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     }
 
     function claimFallback(string calldata _marketId) external nonReentrant {
+        // [AUDIT-FIX] Admin-only to prevent creator rug pull
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not admin");
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.RESOLVED, "Not resolved");
@@ -895,31 +913,19 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         uint256 totalWinningShares = (m.outcome == MarketOutcome.YES) ? m.totalSharesYes : m.totalSharesNo;
         require(totalWinningShares == 0, "Winners exist");
-
-        require(msg.sender == m.creator, "Only creator");
-        require(!hasClaimed[_marketId][msg.sender], "Already claimed");
         
-        // Fees were already processed in _processMarketFees.
-        // Creator gets the Net Pool (what would have gone to users).
-        uint256 payout = m.netDistributable;
+        // [AUDIT-FIX] No winners = convert to DRAW for proportional refund
+        // Users claim their share via claimWinnings (DRAW path)
+        m.outcome = MarketOutcome.DRAW;
         
-        // No winners -> no referrers to reward. Referrer Pool goes to House.
+        // Move unused referrer pool to house
         uint256 unusedReferrerPool = m.referrerPool;
         if (unusedReferrerPool > 0) {
             houseBalance += unusedReferrerPool;
             m.referrerPool = 0;
-            // [AUDIT-FIX] Do NOT decrement totalLockedAmount here.
-            // The funds moved from referrerPool to houseBalance (both internal liabilities).
-            // totalLockedAmount will be decremented when withdrawHouseFees transfers funds out.
         }
         
-        require(payout > 0, "Nothing to claim");
-        
-        hasClaimed[_marketId][msg.sender] = true;
-        totalLockedAmount -= payout;
-        
-        usdcToken.safeTransfer(msg.sender, payout);
-        emit PayoutClaimed(_marketId, msg.sender, payout);
+        emit MarketVoided(_marketId);
     }
 
     // ============ INTERNAL ============
