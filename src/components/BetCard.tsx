@@ -5,28 +5,13 @@ import { Clock, Users, Trophy, Skull, Coins, Gavel, ScrollText, Info } from 'luc
 import { Prediction } from '@/lib/types';
 import ResultReveal from './ResultReveal';
 import { useReadContract, useWriteContract, usePublicClient, useBlockNumber, useAccount } from 'wagmi';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { CURRENT_CONFIG } from '@/lib/config';
 import { formatBlockDuration } from '@/lib/blockTime';
 import { parseEther } from 'viem';
 
-// V8 ABI Extra (In case JSON is outdated)
-const EXTRA_ABI = [
-    {
-        inputs: [{ internalType: "string", name: "", type: "string" }],
-        name: "reporterRewardClaimed",
-        outputs: [{ internalType: "bool", name: "", type: "bool" }],
-        stateMutability: "view",
-        type: "function"
-    },
-    {
-        inputs: [{ internalType: "string", name: "_marketId", type: "string" }],
-        name: "claimReporterReward",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function"
-    }
-] as const;
+// V10: Reporter rewards are auto-credited to rewardsBalance via _processMarketFees.
+// No separate claimReporterReward function. Proposers claim via withdrawReferrerFees().
 
 interface BetCardProps {
     prediction: Prediction;
@@ -206,35 +191,8 @@ export default function BetCard({
         }
     };
 
-    // Check if reward already claimed
-    const { data: isRewardClaimed, refetch: refetchReward } = useReadContract({
-        address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-        abi: EXTRA_ABI,
-        functionName: 'reporterRewardClaimed',
-        args: [prediction.id],
-        query: { enabled: !!(isResolvedState && isProposer) }
-    });
-
-    const handleClaimReward = async () => {
-        if (!isProposer) return;
-        setIsClaiming(true);
-        try {
-            const hash = await writeContractAsync({
-                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                abi: EXTRA_ABI,
-                functionName: 'claimReporterReward',
-                args: [prediction.id],
-            });
-            if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash });
-                refetchReward();
-            }
-        } catch (error) {
-            console.error("Claim Failed", error);
-        } finally {
-            setIsClaiming(false);
-        }
-    };
+    // [V10 REMOVED] Reporter reward claimed check + handleClaimReward
+    // Reporter rewards are now auto-credited to rewardsBalance -> withdraw via Earnings page
 
     // [NEW] User Claim Winnings
     const [isClaimingWinnings, setIsClaimingWinnings] = useState(false);
@@ -501,7 +459,7 @@ export default function BetCard({
                     </div>
 
                     {/* Finalize / Claim Actions (V8/V9) */}
-                    {(canFinalize || (isResolvedState && isProposer && isRewardClaimed === false) || (isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn) || ((status === 'won' || status === 'void' || status === 'draw') && !paid)) && (
+                    {(canFinalize || (isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn) || ((status === 'won' || status === 'void' || status === 'draw') && !paid)) && (
                         <div className="mt-4 space-y-2 pb-4 border-b border-white/10">
 
                             {/* [NEW] User Claim Button */}
@@ -532,15 +490,7 @@ export default function BetCard({
                                 </button>
                             )}
 
-                            {isResolvedState && isProposer && isRewardClaimed === false && (
-                                <button
-                                    onClick={handleClaimReward}
-                                    disabled={isClaiming}
-                                    className="w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg flex items-center justify-center gap-2 transition-all animate-pulse"
-                                >
-                                    {isClaiming ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-black" /> : '💰 Claim Reporter Reward (1%)'}
-                                </button>
-                            )}
+
 
                             {isResolvedState && isCreator && seedAmount > 0 && !seedWithdrawn && (
                                 <button

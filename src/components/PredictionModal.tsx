@@ -6,7 +6,7 @@ import { useModal } from '@/providers/ModalProvider';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
 import { parseUnits } from 'viem';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import ViralReceipt from './ViralReceipt';
 
 interface PredictionModalProps {

@@ -28,6 +28,7 @@ Abaixo estão listadas características do design que **NÃO são vulnerabilidad
 ### 2.2. Poder do Admin (Centralização Temporária)
 *   **Comportamento:** O `DEFAULT_ADMIN_ROLE` pode forçar a resolução de qualquer mercado (`adminResolve`), reabrir mercados (`reopenMarket`) e pausar o contrato.
 *   **Por que não é bug:** Durante a fase Beta, o Admin serve como "rede de segurança" contra impasses, bugs de UI ou ataques coordenados. A descentralização total virá em versões futuras (V11+).
+*   **Limitação de Poder:** O Admin **NÃO POSSUI** funções para sacar fundos de usuários (rug pull). `withdrawHouseBalance` saca apenas taxas acumuladas, e `sweepDust` saca apenas o excedente de arredondamento (`balance > totalLockedAmount`).
 *   **Foco da Auditoria:** Garantir que o Admin **não possa drenar fundos de usuários** arbitrariamente (apenas resolver mercados conforme as regras de payout) ou bloquear saques de mercados já resolvidos.
 
 ### 2.3. "Dead Liquidity" (Seed Recuperável)
@@ -39,6 +40,28 @@ Abaixo estão listadas características do design que **NÃO são vulnerabilidad
 *   **Comportamento:** Apostas feitas no início (`bonusDuration`) recebem **1.2x** mais shares (`MAX_WEIGHT`) que apostas tardias (`MIN_WEIGHT` 1.0x).
 *   **Por que não é bug:** Mecânica de incentivo ("Ponzi-nomics" leve) para atrair volume cedo. Isso dilui os apostadores tardios intencionalmente.
 *   **Foco da Auditoria:** Verificar a matemática de `_calculateShares` e garantir que não haja underflow/overflow ou divisões por zero que travem o payout.
+
+### 2.5. Risco Aceito: Griefing vs MEV em Mercados Open-Ended
+*   **Comportamento:** Mercados sem prazo (open-ended) possuem um cooldown de 5 minutos **apenas para o próprio apostador** (per-user check) antes de propor um resultado. Não há verificação global (`lastBetTime`) para impedir propostas no mesmo bloco se feitas por carteiras diferentes.
+*   **Por que não é bug:** Foi uma decisão consciente de design remover a trava global que permitia ataques baratos de Negação de Serviço (Griefing) onde um atacante travava o mercado indefinidamente com baixo custo.
+*   **Risco Residual:** Existe um risco teórico de ataque Sybil/MEV onde um atacante usa duas carteiras (A aposta, B propõe) no mesmo bloco para capturar valor. Aceitamos esse risco pois o ataque é economicamente inviável na maioria dos casos devido ao custo do Bond, risco de disputa (perda de 80% do Bond) e taxas de gás. A proteção principal é a janela de disputa (12h).
+
+### 2.6. Modelo de Contabilidade: `totalLockedAmount` e Fees (NÃO é dessincronização)
+*   **Comportamento:** `_processMarketFees()` credita fees em buckets internos (`houseBalance`, `creatorBalance`, `rewardsBalance`, `referrerPool`) mas **NÃO decrementa** `totalLockedAmount`. O decremento ocorre apenas nas funções `withdraw*()`.
+*   **Por que não é bug:** As fees são movimentações **contábeis internas** — nenhum USDC sai do contrato durante `_processMarketFees`. O USDC permanece dentro do contrato até que alguém chame `withdrawHouseFees()`, `withdrawCreatorFees()`, etc. Cada função `withdraw*` decrementa `totalLockedAmount` no momento em que o USDC **realmente sai**.
+*   **Prova matemática:** Para um mercado de 100 USDC: `claimWinnings(79) + withdrawHouse(10) + withdrawCreator(5) + withdrawReporter(1) + withdrawReferrer(5) = 100`. A soma de TODOS os decrementos = soma de TODOS os incrementos, **independente da ordem de saque**. Isso é válido para qualquer número de mercados simultâneos.
+*   **Invariante:** `usdcToken.balanceOf(address(this)) >= totalLockedAmount` é mantido em TODAS as etapas, em qualquer ordem de saque.
+*   **Foco da Auditoria:** Verificar se existe algum caminho onde USDC sai **sem** decremento de `totalLockedAmount`, ou entra **sem** incremento. Não reportar a ausência de decremento em `_processMarketFees` como bug — é o design correto.
+
+### 2.7. Transferências Internas entre Buckets (`claimFallback`, etc.)
+*   **Comportamento:** `claimFallback()` move `referrerPool` para `houseBalance` sem alterar `totalLockedAmount`. Outras funções internas também movem valores entre `houseBalance`, `creatorBalance`, `rewardsBalance` sem alterar `totalLockedAmount`.
+*   **Por que não é bug:** Mover USDC de um bucket interno para outro NÃO é uma saída de fundos. O USDC permanece no contrato. Alterar `totalLockedAmount` aqui causaria duplo-decremento (uma vez na transferência interna, outra no `withdraw*`), levando a **insolvência real**.
+*   **Foco da Auditoria:** Garantir que cada unidade de USDC siga exatamente UM caminho de decremento: `entrada → bucket interno → withdraw* (decremento) → saída`.
+
+### 2.8. `CANCELLED` e `_processMarketFees`
+*   **Comportamento:** As funções `emergencyResolve()`, `voidMarket()` e `voidAbandonedMarket()` chamam `_processMarketFees()` após definir o outcome como `CANCELLED`.
+*   **Design:** Para `CANCELLED`, `_processMarketFees` apenas faz `m.netDistributable = totalPool` e retorna — **nenhuma fee é cobrada**. O branch `CANCELLED` em `claimWinnings` usa `yesBet.amount + noBet.amount` diretamente (refund completo).
+*   **Foco da Auditoria:** Verificar que o branch `CANCELLED` em `claimWinnings` **NUNCA** dependa de `netDistributable`. Se algum refator futuro mudar isso, a chamada a `_processMarketFees` já garante que `netDistributable` estará corretamente preenchido.
 
 ## 3. Escopo Crítico para Auditoria
 

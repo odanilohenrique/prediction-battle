@@ -2,7 +2,7 @@ import { createWalletClient, http, publicActions, custom, parseUnits } from 'vie
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia, base } from 'viem/chains';
 import { CURRENT_CONFIG } from './config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
 // Use MAINNET or TESTNET chain object from viem based on config
 const chain = process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia;
@@ -94,14 +94,14 @@ export async function getMarketState(predictionId: string): Promise<MarketState>
     }
 }
 
-// V9: Get Full Market Data
-// V9 Struct Indices:
+// V10: Get Full Market Data
+// V10 Struct Indices:
 // 0: id, 1: creator, 2: question, 3: creationTime, 4: bonusDuration, 5: deadlineTime
 // 6: state, 7: outcome, 8: seedAmount, 9: seedWithdrawn
 // 10: proposer, 11: proposedResult, 12: proposalTime, 13: bondAmount, 14: evidenceUrl
 // 15: challenger, 16: challengeBondAmount, 17: challengeEvidenceUrl, 18: challengeTime
 // 19: totalYes, 20: totalNo, 21: totalSharesYes, 22: totalSharesNo
-// 23: yesBettorsCount, 24: noBettorsCount
+// 23: netDistributable, 24: referrerPool, 25: roundId
 export async function getOnChainMarketData(predictionId: string) {
     const client = getOperatorClient();
     try {
@@ -123,13 +123,18 @@ export async function getOnChainMarketData(predictionId: string) {
             result: outcome === MarketOutcome.YES,
             isVoid: outcome === MarketOutcome.CANCELLED,
             isDraw: outcome === MarketOutcome.DRAW,
-            // V9 fields
+            // V10 fields
             deadlineTime: Number(data[5]),
             seedAmount: BigInt(data[8] || 0),
             seedWithdrawn: Boolean(data[9]),
             totalYes: BigInt(data[19] || 0),
             totalNo: BigInt(data[20] || 0),
             creator: data[1] as string,
+            // V10 new fields
+            roundId: Number(data[25] || 0),
+            netDistributable: BigInt(data[23] || 0),
+            proposer: data[10] as string,
+            bondAmount: BigInt(data[13] || 0),
         };
     } catch (error) {
         console.error("Failed to get market data:", error);
@@ -264,36 +269,8 @@ export async function placeBet(marketId: string, side: boolean, amountUSDC: stri
 
     return await walletClient.writeContract(request);
 }
-export async function resolvePredictionOnChain(predictionId: string, result: boolean, waitForReceipt: boolean = true) {
-    const client = getOperatorClient();
-
-    console.log(`[OPERATOR] Resolving market ${predictionId} on-chain with result: ${result}`);
-
-    try {
-        const hash = await client.writeContract({
-            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-            abi: PredictionBattleABI.abi,
-            functionName: 'adminResolve',
-            args: [predictionId, result],
-        });
-
-        console.log(`[OPERATOR] Resolve Tx Hash: ${hash}`);
-
-        if (waitForReceipt) {
-            // Wait for receipt
-            const receipt = await client.waitForTransactionReceipt({ hash });
-
-            if (receipt.status !== 'success') {
-                throw new Error(`Transaction reverted: ${hash}`);
-            }
-        }
-
-        return hash;
-    } catch (error) {
-        console.error("[OPERATOR] Failed to resolve on-chain:", error);
-        throw error;
-    }
-}
+// [V10] REMOVED: resolvePredictionOnChain — was broken (passed boolean instead of MarketOutcome enum)
+// Use adminResolveOnChain instead.
 
 // V2 function: voidMarket
 export async function resolveVoidOnChain(predictionId: string, waitForReceipt: boolean = true) {
@@ -334,35 +311,8 @@ export async function distributeWinningsOnChain(predictionId: string, batchSize:
     return '0x0' as `0x${string}`;
 }
 
-export async function claimReferralRewardsOnChain(waitForReceipt: boolean = true) {
-    const client = getOperatorClient();
-
-    console.log(`[OPERATOR] Claiming referral rewards...`);
-
-    try {
-        const hash = await client.writeContract({
-            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-            abi: PredictionBattleABI.abi,
-            functionName: 'claimReferralRewards',
-            args: [],
-        });
-
-        console.log(`[OPERATOR] Claim Tx Hash: ${hash}`);
-
-        if (waitForReceipt) {
-            const receipt = await client.waitForTransactionReceipt({ hash });
-
-            if (receipt.status !== 'success') {
-                throw new Error(`Transaction reverted: ${hash}`);
-            }
-        }
-
-        return hash;
-    } catch (error) {
-        console.error("[OPERATOR] Failed to claim referral rewards:", error);
-        throw error;
-    }
-}
+// [V10] REMOVED: claimReferralRewardsOnChain — function does not exist in V10.
+// Referral rewards are now credited via rewardsBalance and claimed via withdrawReferrerFees.
 
 // ============ V6: Pull Payment Functions ============
 
@@ -437,28 +387,9 @@ export async function withdrawSeedOnChain(predictionId: string, waitForReceipt: 
     }
 }
 
-// V8: Proposer claims reporter reward (1% of pool)
-export async function claimReporterRewardOnChain(predictionId: string, waitForReceipt: boolean = true) {
-    const client = getOperatorClient();
-    console.log(`[OPERATOR] Claiming reporter reward for market ${predictionId}...`);
-    try {
-        const hash = await client.writeContract({
-            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-            abi: PredictionBattleABI.abi,
-            functionName: 'claimReporterReward',
-            args: [predictionId],
-        });
-        console.log(`[OPERATOR] Claim Reporter Reward Tx Hash: ${hash}`);
-        if (waitForReceipt) {
-            const receipt = await client.waitForTransactionReceipt({ hash });
-            if (receipt.status !== 'success') throw new Error(`Transaction reverted: ${hash}`);
-        }
-        return hash;
-    } catch (error) {
-        console.error("[OPERATOR] Failed to claim reporter reward:", error);
-        throw error;
-    }
-}
+// [V10] REMOVED: claimReporterRewardOnChain — function does not exist in V10.
+// Reporter rewards are auto-credited via _processMarketFees -> rewardsBalance.
+// Proposers claim via withdrawReferrerFees().
 
 // V8: Void abandoned market (anyone can call after 30 days post-deadline)
 export async function voidAbandonedMarketOnChain(predictionId: string, waitForReceipt: boolean = true) {

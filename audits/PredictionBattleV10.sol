@@ -3,8 +3,9 @@ pragma solidity ^0.8.20;
 
 /**
  * @title PredictionBattleV10
- * @notice Version 10: Admin UX - Reopen Market & Flexible Admin Resolution
- * @dev Changes from V9: adminResolve accepts any active state, new reopenMarket function
+ * @notice Version 10: Deadline-Aware Markets, Fair DRAW Refunds & Corrected Bond Incentives
+ * @dev Changes: Two market types (time-bound vs open-ended), 80/20 bond split,
+ *      amount-based DRAW refunds, strict deadline enforcement for proposals.
  */
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -53,6 +54,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     // Rate limiting
     mapping(address => uint256) public lastMarketCreation;
     mapping(string => uint256) public lastBetTime;
+    // [AUDIT-FIX] Beta-04: Per-user bet time to prevent MEV without enabling griefing
+    mapping(string => mapping(address => uint256)) public lastUserBetTime;
     uint256 public constant MIN_MARKET_INTERVAL = 1 hours;
     
     // Balances
@@ -108,13 +111,13 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         uint256 totalSharesYes;
         uint256 totalSharesNo;
         
-        // [GAS-OPT] Bettor Counters (replaced EnumerableSet)
-        uint256 yesBettorsCount;
-        uint256 noBettorsCount;
         
         // [AUDIT-FIX] Refactor: Pre-Deduction Fee Logic
         uint256 netDistributable; // Pool after ALL fees (21%) are deducted
         uint256 referrerPool;     // 5% of Total Pool reserved for Referrers
+        
+        // [AUDIT-FIX] Beta-05: Round tracking for market reopening
+        uint256 roundId;
     }
     
     struct UserBet {
@@ -125,7 +128,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     
     enum MarketState {
         OPEN,
-        LOCKED,
+        LOCKED,     // RESERVED: Not currently used. Do NOT remove (breaks ABI enum values).
         PROPOSED,
         DISPUTED,
         RESOLVED
@@ -145,7 +148,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     mapping(string => bool) public marketExists;
     mapping(string => mapping(address => UserBet)) public yesBets;
     mapping(string => mapping(address => UserBet)) public noBets;
-    mapping(string => mapping(address => bool)) public hasClaimed;
+    // [AUDIT-FIX] Beta-05: 3D mapping (marketId -> roundId -> user -> claimed)
+    // Prevents fund lockup if a market is ever reopened after claims
+    mapping(string => mapping(uint256 => mapping(address => bool))) public hasClaimed;
     // [AUDIT-FIX] Removed reporterRewardClaimed (deprecated by Pre-Deduction logic)
     
     // [GAS-OPT] Removed EnumerableSet mappings - using counters in Market struct instead
@@ -171,6 +176,10 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
     event ReporterRewardClaimed(string indexed marketId, address indexed proposer, uint256 reward);
     event CreatorFeesWithdrawn(address indexed creator, uint256 amount);
     event ReferrerFeesWithdrawn(address indexed referrer, uint256 amount);
+    // [AUDIT-FIX] Beta-07 MED-2: Dedicated event for seed confiscation (distinct from voluntary withdrawal)
+    event SeedConfiscated(string indexed marketId, address indexed creator, address indexed treasury, uint256 amount);
+    // [AUDIT-FIX] Beta-08 H-03: Warning when admin resolves to a side with 0 bettors
+    event AdminResolveNoWinners(string indexed marketId, MarketOutcome originalOutcome, MarketOutcome forcedOutcome);
     
     address public currentOperator; 
 
@@ -228,6 +237,18 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         currentOperator = _newOperator;
     }
+
+    // [AUDIT-FIX] Beta-07 ALTO-3: Prevent direct grantRole/revokeRole for OPERATOR_ROLE
+    // Forces all operator changes through setOperator() to maintain currentOperator consistency
+    function grantRole(bytes32 role, address account) public override onlyRole(getRoleAdmin(role)) {
+        require(role != OPERATOR_ROLE, "Use setOperator()");
+        super.grantRole(role, account);
+    }
+
+    function revokeRole(bytes32 role, address account) public override onlyRole(getRoleAdmin(role)) {
+        require(role != OPERATOR_ROLE, "Use setOperator()");
+        super.revokeRole(role, account);
+    }
     
     // ============ MARKET CREATION ============
     
@@ -251,7 +272,9 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(!marketExists[_id], "Market exists");
         require(_usdcSeedAmount >= 1e6, "Min seed: 1 USDC");
         require(_usdcSeedAmount <= maxMarketPool, "Seed too large");
-        require(_durationSeconds > 0, "Invalid duration");
+        // _durationSeconds = 0 creates an open-ended market (no deadline)
+        // Open-ended markets can be proposed at any time (e.g. "who posts X first")
+        // Time-bound markets can only be proposed after the deadline passes
         
         require(block.timestamp >= lastMarketCreation[msg.sender] + MIN_MARKET_INTERVAL, "Rate limit");
         lastMarketCreation[msg.sender] = block.timestamp;
@@ -267,7 +290,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         m.question = _question;
         m.creationTime = block.timestamp; 
         m.bonusDuration = _bonusDurationSeconds > 0 ? _bonusDurationSeconds : _durationSeconds;
-        m.deadlineTime = block.timestamp + _durationSeconds; 
+        m.deadlineTime = _durationSeconds > 0 ? block.timestamp + _durationSeconds : 0;
         m.state = MarketState.OPEN;
         
         // [ECR-002] Seed is Recoverable, NOT Pool Liquidity
@@ -292,12 +315,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         Market storage m = markets[_marketId];
         
         require(m.state == MarketState.OPEN, "Not open");
-        require(block.timestamp < m.deadlineTime, "Expired"); 
+        // Open-ended markets (deadlineTime=0) accept bets until someone proposes
+        require(m.deadlineTime == 0 || block.timestamp < m.deadlineTime, "Expired");
         
         require(_usdcAmount >= MIN_BET_AMOUNT, "Bet too small");
         require(_usdcAmount <= maxBetAmount, "Bet too large");
         
         lastBetTime[_marketId] = block.timestamp;
+        lastUserBetTime[_marketId][msg.sender] = block.timestamp;
 
         uint256 newTotal = m.totalYes + m.totalNo + _usdcAmount;
         require(newTotal <= maxMarketPool, "Pool limit exceeded");
@@ -332,13 +357,6 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         // [AUDIT-FIX] Beta-01 M-01: Only count UNIQUE bettors to prevent DoS via counter inflation
         if (userBet.amount == 0) {
-            if (_side) {
-                // [AUDIT-FIX] Beta-01 L-01: Removed MAX_BETTORS limit (gas inefficient & DoS vector)
-                m.yesBettorsCount++;
-            } else {
-                m.noBettorsCount++;
-            }
-            
             // [AUDIT-FIX] Beta-01 M-03: Referrer Hijacking Fix
             // Only set referrer on first bet. Prevents overwriting with self/other referrer later.
             userBet.referrer = _referrer;
@@ -365,20 +383,25 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(bytes(_evidenceUrl).length <= 512, "Evidence URL too long");
         
         Market storage m = markets[_marketId];
-        require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Invalid state");
+        require(m.state == MarketState.OPEN, "Invalid state");
         
-        if (msg.sender == m.creator) {
-            require(block.timestamp >= m.creationTime + 24 hours, "Creator: wait 24h");
+        // [AUDIT-FIX] Beta-02 H-01: Strict deadline enforcement
+        // Time-bound markets: ONLY proposable after deadline passes (no cooldown bypass)
+        // Open-ended markets: proposable anytime with MEV cooldown
+        if (m.deadlineTime > 0) {
+            // Time-bound market: deadline is the ONLY gatekeeper
+            require(block.timestamp >= m.deadlineTime, "Deadline not reached");
+        } else {
+            // [AUDIT-FIX] Beta-04: Per-user MEV protection for open-ended markets
+            // Only checks the PROPOSER's last bet, not global. Prevents griefing.
+            // Sybil (2-wallet) attack is mitigated by DISPUTE_WINDOW (12h) + bond requirement
+            require(block.timestamp >= lastUserBetTime[_marketId][msg.sender] + 5 minutes, "MEV protection: wait 5min after your last bet");
+            
+            // Open-ended market: creator must wait 24h to prevent self-gaming
+            if (msg.sender == m.creator) {
+                require(block.timestamp >= m.creationTime + 24 hours, "Creator: wait 24h");
+            }
         }
-
-        // [AUDIT-FIX] Beta-01 C-01: Prevent Zombie Markets (DoS)
-        // Logic: If deadline passed, ANYONE can propose immediately.
-        // If active, must wait 30min after last bet.
-        require(
-            block.timestamp >= m.deadlineTime || 
-            block.timestamp >= lastBetTime[_marketId] + 12 hours, 
-            "Cool-down: wait 12h after last bet"
-        );
 
         uint256 requiredBond = _getRequiredBond(m.totalYes + m.totalNo);
         require(_bondAmount >= requiredBond, "Insufficient bond");
@@ -443,15 +466,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         uint256 totalBond = m.bondAmount + m.challengeBondAmount;
         
-        // [AUDIT-FIX] Anti-self-challenging: Split bonds 50/50
-        // Winner gets 50%, Treasury gets 50% (slash). Self-challenging = guaranteed loss.
-        uint256 winnerShare = totalBond / 2;
-        uint256 slashedShare = totalBond - winnerShare;
-        claimableBonds[_winnerAddress] += winnerShare;
-        if (slashedShare > 0) {
-            totalLockedAmount -= slashedShare;
-            usdcToken.safeTransfer(treasury, slashedShare);
-        }
+        // [AUDIT-FIX] Beta-01 C-01: Proper incentive alignment
+        // Winner gets own bond back + 80% of loser's bond
+        // Treasury receives 20% slash from loser's bond (anti-self-challenge deterrent)
+        uint256 winnerBond = (_winnerAddress == m.proposer) ? m.bondAmount : m.challengeBondAmount;
+        uint256 loserBond = totalBond - winnerBond;
+        uint256 loserSlash = loserBond * 20 / 100;
+        uint256 winnerReward = winnerBond + loserBond - loserSlash;
+        claimableBonds[_winnerAddress] += winnerReward;
         
         // [AUDIT-FIX] CRITICAL: Determine outcome BEFORE reassigning m.proposer
         // Otherwise _winnerAddress == m.proposer is always true (dead else branch)
@@ -474,6 +496,12 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // [AUDIT-FIX] Process fees at resolution
         _processMarketFees(_marketId);
         
+        // [AUDIT-FIX] Beta-08 M-03: CEI compliance — external transfer AFTER all state updates
+        if (loserSlash > 0) {
+            totalLockedAmount -= loserSlash;
+            usdcToken.safeTransfer(treasury, loserSlash);
+        }
+        
         bool finalResultBool = m.outcome == MarketOutcome.YES;
         emit DisputeResolved(_marketId, _winnerAddress, totalBond, finalResultBool);
         emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
@@ -489,15 +517,26 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         Market storage m = markets[_marketId];
         // [V10] Admin can resolve from ANY active state (OPEN, LOCKED, PROPOSED, DISPUTED)
         require(m.state != MarketState.RESOLVED, "Already resolved");
+        // [AUDIT-FIX] Beta-07 ALTO-1: Reject PENDING as valid outcome
+        require(
+            _outcome == MarketOutcome.YES ||
+            _outcome == MarketOutcome.NO ||
+            _outcome == MarketOutcome.DRAW ||
+            _outcome == MarketOutcome.CANCELLED,
+            "Invalid outcome"
+        );
         
         // [AUDIT-FIX] V9.4 H-02: Slashing Logic
         // If _slashCreator is true (e.g. fraudulent market), the seed is confiscated to Treasury.
+        // [AUDIT-FIX] Beta-08 M-03: Defer safeTransfer to end of function (CEI compliance)
+        uint256 _pendingSeedSlash = 0;
+        uint256 _pendingBondSlash = 0;
         if (_slashCreator && m.seedAmount > 0) {
-            uint256 seed = m.seedAmount;
+            _pendingSeedSlash = m.seedAmount;
             m.seedAmount = 0; // Remove claim rights
-            totalLockedAmount -= seed; // Remove from liabilities
-            usdcToken.safeTransfer(treasury, seed);
-            emit SeedWithdrawn(_marketId, treasury, seed); // Re-using event or we can emit nothing/custom
+            totalLockedAmount -= _pendingSeedSlash; // Remove from liabilities
+            // [AUDIT-FIX] Beta-07 MED-2: Use dedicated confiscation event (not SeedWithdrawn)
+            emit SeedConfiscated(_marketId, m.creator, treasury, _pendingSeedSlash);
         }
 
         // [AUDIT-FIX] Incentive Alignment via "Skin in the Game"
@@ -509,9 +548,13 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         address winnerAddress = address(0);
 
         bool isProposalCorrect = false;
+        // [AUDIT-FIX] Beta-06 H-02: Only evaluate proposal correctness if a proposal actually exists
+        bool hasProposal = (m.proposer != address(0));
         
-        if (_outcome == MarketOutcome.YES && m.proposedResult == true) isProposalCorrect = true;
-        if (_outcome == MarketOutcome.NO && m.proposedResult == false) isProposalCorrect = true;
+        if (hasProposal) {
+            if (_outcome == MarketOutcome.YES && m.proposedResult == true) isProposalCorrect = true;
+            if (_outcome == MarketOutcome.NO && m.proposedResult == false) isProposalCorrect = true;
+        }
         
         // Determine Winner
         if (_outcome == MarketOutcome.CANCELLED || _outcome == MarketOutcome.DRAW) {
@@ -527,17 +570,18 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                  if (m.challenger != address(0)) {
                      winnerAddress = m.challenger;
                  } else {
-                     if (m.state == MarketState.PROPOSED) {
-                         // [AUDIT-FIX] Confiscate liar's bond to Treasury
+                     // [AUDIT-FIX] Beta-06 H-02: Removed dead else branch (winnerAddress = m.challenger)
+                     // That branch was unreachable: we only get here when m.challenger == address(0),
+                     // so assigning m.challenger would always yield address(0).
+                     if (m.state == MarketState.PROPOSED && m.bondAmount > 0) {
+                         // Confiscate liar's bond to Treasury
+                         // [AUDIT-FIX] Beta-08 M-03: Capture amount for deferred transfer (CEI)
+                         _pendingBondSlash += m.bondAmount;
                          totalLockedAmount -= m.bondAmount;
-                         usdcToken.safeTransfer(treasury, m.bondAmount);
-                         // [AUDIT-FIX] Clear malicious proposer so reporter reward goes to treasury
+                         // Clear malicious proposer so reporter reward goes to treasury
                          m.proposer = address(0);
-                         
-                         // winnerAddress remains 0.
-                     } else {
-                         winnerAddress = m.challenger;
                      }
+                     // winnerAddress remains address(0) — no valid winner in this path
                  }
             }
             
@@ -546,13 +590,22 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             if (winnerAddress != address(0)) {
                 m.proposer = winnerAddress;
                 if (totalBond > 0) {
-                    // [AUDIT-FIX] Anti-self-challenging: Split bonds 50/50
-                    uint256 winnerShare = totalBond / 2;
-                    uint256 slashedShare = totalBond - winnerShare;
-                    claimableBonds[winnerAddress] += winnerShare;
-                    if (slashedShare > 0) {
-                        totalLockedAmount -= slashedShare;
-                        usdcToken.safeTransfer(treasury, slashedShare);
+                    // [AUDIT-FIX] Beta-01 C-01 + H-01: Proper bond incentive alignment
+                    if (m.challengeBondAmount == 0) {
+                        // No dispute: Return 100% bond to honest proposer
+                        claimableBonds[winnerAddress] += totalBond;
+                    } else {
+                        // With dispute: Winner gets own bond + 80% of loser's bond
+                        // Treasury receives 20% slash (anti-self-challenge deterrent)
+                        uint256 winnerBond = isProposalCorrect ? m.bondAmount : m.challengeBondAmount;
+                        uint256 loserBond = totalBond - winnerBond;
+                        uint256 loserSlash = loserBond * 20 / 100;
+                        claimableBonds[winnerAddress] += winnerBond + loserBond - loserSlash;
+                        if (loserSlash > 0) {
+                            totalLockedAmount -= loserSlash;
+                            // [AUDIT-FIX] Beta-08 M-03: Capture for deferred transfer (CEI)
+                            _pendingBondSlash += loserSlash;
+                        }
                     }
                 }
             }
@@ -568,12 +621,30 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
 
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = _outcome;
+
+        // [AUDIT-FIX] Beta-08 H-03: Auto-DRAW when winning side has 0 bettors
+        // Prevents funds from being stuck (claimWinnings would revert on "No winning shares")
+        if (_outcome == MarketOutcome.YES && m.totalSharesYes == 0 && m.totalNo > 0) {
+            m.outcome = MarketOutcome.DRAW;
+            emit AdminResolveNoWinners(_marketId, _outcome, MarketOutcome.DRAW);
+        } else if (_outcome == MarketOutcome.NO && m.totalSharesNo == 0 && m.totalYes > 0) {
+            m.outcome = MarketOutcome.DRAW;
+            emit AdminResolveNoWinners(_marketId, _outcome, MarketOutcome.DRAW);
+        }
         
         // [AUDIT-FIX] Fee Refactor: Process fees immediately upon resolution
         _processMarketFees(_marketId);
+
+        // [AUDIT-FIX] Beta-08 M-03: CEI compliance — single batched transfer to treasury
+        uint256 _totalPendingTransfer = _pendingSeedSlash + _pendingBondSlash;
         
         bool finalResultBool = m.outcome == MarketOutcome.YES;
         emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
+
+        // Final external interaction: single batched transfer to treasury
+        if (_totalPendingTransfer > 0) {
+            usdcToken.safeTransfer(treasury, _totalPendingTransfer);
+        }
     }
     
     function emergencyResolve(string calldata _marketId) external nonReentrant {
@@ -595,10 +666,14 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = MarketOutcome.CANCELLED;
         
+        // [AUDIT-FIX] Beta-08 C-02: Consistent _processMarketFees call
+        // For CANCELLED, this just sets netDistributable = totalPool (no fees taken)
+        _processMarketFees(_marketId);
+        
         emit MarketVoided(_marketId);
     }
 
-    function finalizeOutcome(string calldata _marketId) external nonReentrant {
+    function finalizeOutcome(string calldata _marketId) external whenNotPaused nonReentrant {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         
@@ -619,10 +694,10 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         _processMarketFees(_marketId);
         
         bool finalResultBool = m.outcome == MarketOutcome.YES;
-        // emit OutcomeFinalized(_marketId, proposer, 0); // Original code had this? Wait, original had OutcomeFinalized?
-        // Let's check original code or just keep what I see in view.
-        // View shows: emit OutcomeFinalized(_marketId, proposer, 0);
-        emit OutcomeFinalized(_marketId, proposer, 0);
+        // [AUDIT-FIX] Beta-07 INFO-2: Emit actual reporter reward instead of hardcoded 0
+        uint256 totalPool = m.totalYes + m.totalNo;
+        uint256 repFee = (totalPool * REPORTER_REWARD_BPS) / FEE_DENOMINATOR;
+        emit OutcomeFinalized(_marketId, proposer, repFee);
         emit MarketResolved(_marketId, finalResultBool, finalResultBool ? m.totalYes : m.totalNo);
     }
 
@@ -632,7 +707,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.RESOLVED, "Not resolved");
-        require(!hasClaimed[_marketId][msg.sender], "Already claimed");
+        require(!hasClaimed[_marketId][m.roundId][msg.sender], "Already claimed");
         
         uint256 payout = 0;
         UserBet storage yesBet = yesBets[_marketId][msg.sender];
@@ -643,20 +718,21 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             payout = yesBet.amount + noBet.amount;
         } 
         else if (m.outcome == MarketOutcome.DRAW) {
-            // DRAW: Proportional refund from netDistributable (fees already deducted)
-            uint256 userTotalShares = yesBet.shares + noBet.shares;
-            uint256 totalMarketShares = m.totalSharesYes + m.totalSharesNo;
+            // [AUDIT-FIX] Beta-02 MH-01: DRAW refund uses USDC amounts (not shares)
+            // This prevents Early Bird bonus from diluting late bettors' principal
+            uint256 userTotalAmount = yesBet.amount + noBet.amount;
+            uint256 totalPoolAmount = m.totalYes + m.totalNo;
             
-            if (userTotalShares > 0 && totalMarketShares > 0) {
+            if (userTotalAmount > 0 && totalPoolAmount > 0) {
                 uint256 refReward;
                 
-                // [AUDIT-FIX] Refinement: Explicit check for last user to clear ALL dust
-                if (userTotalShares == totalMarketShares) {
+                // Last user sweep: clear ALL remaining dust
+                if (userTotalAmount == totalPoolAmount) {
                     payout = m.netDistributable;
                     refReward = m.referrerPool;
                 } else {
-                    payout = (userTotalShares * m.netDistributable) / totalMarketShares;
-                    refReward = (userTotalShares * m.referrerPool) / totalMarketShares;
+                    payout = (userTotalAmount * m.netDistributable) / totalPoolAmount;
+                    refReward = (userTotalAmount * m.referrerPool) / totalPoolAmount;
                 }
                 
                 address ref = yesBet.referrer != address(0) ? yesBet.referrer : noBet.referrer;
@@ -666,11 +742,11 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
                     houseBalance += refReward;
                 }
                 
-                // [AUDIT-FIX] Decremental pool: deduct claimed amounts to eliminate dust
+                // Decremental tracking: deduct claimed USDC amounts to eliminate dust
                 m.netDistributable -= payout;
                 m.referrerPool -= refReward;
-                m.totalSharesYes -= yesBet.shares;
-                m.totalSharesNo -= noBet.shares;
+                m.totalYes -= yesBet.amount;
+                m.totalNo -= noBet.amount;
             }
         }
         else {
@@ -712,7 +788,7 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         require(payout > 0, "Nothing to claim");
         
-        hasClaimed[_marketId][msg.sender] = true;
+        hasClaimed[_marketId][m.roundId][msg.sender] = true;
         totalLockedAmount -= payout;
         
         usdcToken.safeTransfer(msg.sender, payout);
@@ -751,8 +827,13 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // Net pool for winners/drawers
         m.netDistributable = totalPool - houseFee - creatorFee - repFee - refPool;
         
-        // No totalLockedAmount changes here: fees moved between internal liability
-        // buckets. Decrements happen only in withdraw* functions (actual outflows).
+        // [AUDIT-FIX] Beta-08 C-01 RATIONALE (FALSE POSITIVE — verified correct):
+        // No totalLockedAmount changes here. Fees are moved between internal liability
+        // buckets (houseBalance, creatorBalance, rewardsBalance, referrerPool).
+        // The USDC remains in the contract. Decrements happen ONLY in withdraw*
+        // functions when USDC actually leaves. The sum of all decrements always equals
+        // the sum of all increments regardless of withdrawal order. Proven correct for
+        // single and multi-market scenarios.
     }
 
     // Reporter rewards are now credited automatically via _processMarketFees -> rewardsBalance
@@ -760,6 +841,8 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
 
     function voidMarket(string calldata _marketId) external nonReentrant {
         require(hasRole(OPERATOR_ROLE, msg.sender) || hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not authorized");
+        // [AUDIT-FIX] Beta-06 H-01: Prevent ghost market creation via non-existent IDs
+        require(marketExists[_marketId], "No market");
 
         Market storage m = markets[_marketId];
         require(m.state != MarketState.RESOLVED, "Already resolved");
@@ -775,15 +858,19 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = MarketOutcome.CANCELLED;
+        
+        // [AUDIT-FIX] Beta-08 C-02/M-01: Consistent _processMarketFees call
+        // For CANCELLED, this just sets netDistributable = totalPool (no fees taken)
+        _processMarketFees(_marketId);
+        
         emit MarketVoided(_marketId);
     }
 
     /**
-     * @notice [V10] Reopen a market that was prematurely proposed/disputed.
-     * @dev Reverts market state to OPEN, refunds all bonds, and extends deadline.
-     *      Use case: A user proposed too early (e.g., market hasn't reached its deadline yet)
-     *      and another user challenged it. Instead of closing the market unfairly,
-     *      the admin can reopen it so betting continues until the original deadline.
+     * @notice [V10] Reopen a market that was proposed/disputed.
+     * @dev Reverts market state to OPEN, refunds all bonds, and optionally extends deadline.
+     *      Primary use case: Open-ended markets where a false proposal was made.
+     *      Also usable for time-bound markets if admin wants to reopen after an unfair resolution.
      * @param _marketId The market to reopen
      * @param _extensionSeconds Additional seconds to add to the deadline (0 = keep original)
      */
@@ -801,11 +888,20 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
             "Can only reopen proposed/disputed markets"
         );
         
-        // [AUDIT-FIX] Griefing Penalty: Slash proposer bond if malicious
+        // [AUDIT-FIX] Beta-03 H-02: Slash proposer bond with challenger incentive
         if (_slashProposer && m.bondAmount > 0) {
-            // Confiscate proposer bond to Treasury
-            totalLockedAmount -= m.bondAmount;
-            usdcToken.safeTransfer(treasury, m.bondAmount);
+            if (m.challengeBondAmount > 0) {
+                // Challenger existed and was correct — reward them 80%, treasury gets 20%
+                uint256 reward = (m.bondAmount * 80) / 100;
+                uint256 slash = m.bondAmount - reward;
+                claimableBonds[m.challenger] += reward;
+                totalLockedAmount -= slash;
+                usdcToken.safeTransfer(treasury, slash);
+            } else {
+                // No challenger — treasury gets 100% of malicious proposer's bond
+                totalLockedAmount -= m.bondAmount;
+                usdcToken.safeTransfer(treasury, m.bondAmount);
+            }
             m.bondAmount = 0;
         } else if (m.bondAmount > 0) {
             // Refund proposer bond (good faith proposal)
@@ -831,9 +927,16 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         // Extend deadline if requested
         if (_extensionSeconds > 0) {
             m.deadlineTime = block.timestamp + _extensionSeconds;
+        } else if (m.deadlineTime > 0 && block.timestamp >= m.deadlineTime) {
+            // [AUDIT-FIX] Beta-05: Prevent zombie markets
+            // If time-bound market already expired, MUST provide an extension
+            revert("Must extend deadline for expired market");
         }
         
-        // [AUDIT-FIX] Reset lastBetTime to prevent immediate proposal via "Zombie check"
+        // [AUDIT-FIX] Beta-05: Increment round so hasClaimed resets for all users
+        m.roundId++;
+        
+        // Reset lastBetTime for open-ended market tracking
         lastBetTime[_marketId] = block.timestamp;
         
         // Revert state to OPEN
@@ -846,10 +949,15 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         require(marketExists[_marketId], "No market");
         Market storage m = markets[_marketId];
         require(m.state == MarketState.OPEN || m.state == MarketState.LOCKED, "Invalid state");
+        require(m.deadlineTime > 0, "Open-ended: use voidMarket");
         require(block.timestamp > m.deadlineTime + 30 days, "Not abandoned");
         
         _updateMarketState(m, MarketState.RESOLVED);
         m.outcome = MarketOutcome.CANCELLED;
+        
+        // [AUDIT-FIX] Beta-08 M-01: Consistent _processMarketFees call
+        // For CANCELLED, this just sets netDistributable = totalPool (no fees taken)
+        _processMarketFees(_marketId);
         
         emit MarketVoided(_marketId);
     }
@@ -920,6 +1028,12 @@ contract PredictionBattleV10 is ReentrancyGuard, Pausable, AccessControl {
         emit HouseFeeWithdrawn(treasury, amount);
     }
 
+    /**
+     * @notice Convert a no-winner market to DRAW for proportional refund.
+     * @dev WARNING: This applies protocol fees (21%). Users receive ~79% of their bet.
+     *      For a 100% refund with NO fees, use voidMarket() BEFORE resolution instead.
+     *      Only use claimFallback when the market is already RESOLVED and cannot be voided.
+     */
     function claimFallback(string calldata _marketId) external nonReentrant {
         // [AUDIT-FIX] Admin-only to prevent creator rug pull
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Not admin");

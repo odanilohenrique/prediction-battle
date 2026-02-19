@@ -6,7 +6,7 @@ async function main() {
     console.log("Deploying PredictionBattleV10 with account:", deployer.address);
 
     const ADMIN = deployer.address;
-    const OPERATOR = deployer.address;
+    const OPERATOR = "0xFA278965A56a16252ccB850d3bB354f6a6E9fB02"; // User-specified operator
     const TREASURY = deployer.address;
     const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Base Sepolia USDC
 

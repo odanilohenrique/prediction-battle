@@ -1,6 +1,6 @@
 // Configuration for Prediction Battle - TESTNET ONLY (Base Sepolia)
 
-const TESTNET_CONTRACT_ADDRESS = '0x9c17734C266098B084dCe92A22610254eC1b242D'; // V10 (Reopen + Flexible Admin)
+const TESTNET_CONTRACT_ADDRESS = '0xF8623E94364b58246BC6FaBeA10710563d2dB6ae'; // V10 Audited (Reopen + Flexible Admin)
 
 export const TESTNET_CONFIG = {
     chainId: 84532, // Base Sepolia
@@ -13,7 +13,7 @@ export const TESTNET_CONFIG = {
         decimals: 18,
     },
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
-    contractAddress: '0x9c17734C266098B084dCe92A22610254eC1b242D', // Base Sepolia V10
+    contractAddress: '0xF8623E94364b58246BC6FaBeA10710563d2dB6ae', // Base Sepolia V10 Audited
 };
 
 export const MAINNET_CONFIG = {
