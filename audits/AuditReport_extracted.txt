@@ -1,0 +1,448 @@
+
+
+
+🔐 RELATÓRIO DE AUDITORIA DE SEGURANÇA
+PredictionBattleV10.sol
+Prediction Battle — Mercado de Previsão na Base L2
+
+Versão Auditada
+V10 (Beta)
+Rede
+Base L2 (EVM)
+Token
+USDC (6 decimais)
+Data
+Fevereiro 2025
+Escopo
+Critical & High Severity Only
+
+
+
+1. Sumário Executivo
+Este relatório apresenta os resultados da auditoria de segurança focada em vulnerabilidades Críticas e de Alta Severidade no contrato PredictionBattleV10.sol. A análise foi conduzida com base no código-fonte Solidity e na documentação de arquitetura fornecida (Auditoria beta 01.md).
+
+Foram identificadas 2 vulnerabilidades CRÍTICAS e 3 vulnerabilidades de ALTA severidade. Adicionalmente, 3 problemas de MÉDIA severidade são documentados. As vulnerabilidades críticas representam risco direto de insolvência do contrato e perda permanente de fundos de usuários.
+
+1.1 Tabela de Achados
+
+ID
+Severidade
+Título
+C-01
+C0392B
+CRÍTICO
+C-02
+C0392B
+CRÍTICO
+H-01
+C0392B
+ALTO
+H-02
+C0392B
+ALTO
+H-03
+C0392B
+ALTO
+M-01
+C0392B
+MÉDIO
+M-02
+C0392B
+MÉDIO
+M-03
+C0392B
+MÉDIO
+
+
+2. Vulnerabilidades Críticas
+
+CRÍTICO
+C-01 — Dessincronização Fatal de totalLockedAmount via _processMarketFees — Insolvência Garantida
+
+Categoria
+Contabilidade / Insolvência
+Função Afetada
+_processMarketFees()
+withdrawCreatorFees()
+withdrawHouseFees()
+withdrawReferrerFees()
+Descrição
+A função _processMarketFees() credita imediatamente as taxas nos saldos internos (houseBalance, creatorBalance, rewardsBalance) mas NÃO decrementa totalLockedAmount. O decremento só ocorre quando cada usuário chama as funções de saque individuais.
+
+O problema CRÍTICO está na seguinte sequência lógica dentro de _processMarketFees():
+
+houseBalance    += houseFee;     // ✓ creditado
+creatorBalance  += creatorFee;   // ✓ creditado
+rewardsBalance  += repFee;       // ✓ creditado
+m.netDistributable = totalPool - houseFee - creatorFee - repFee - refPool;
+// ❌ totalLockedAmount NÃO é decrementado aqui
+
+Em seguida, quando o vencedor chama claimWinnings(), o payout é calculado sobre m.netDistributable (já deduzido das taxas) e o contrato executa:
+
+totalLockedAmount -= payout;  // Decrementa apenas o netDistributable
+
+Resultado: totalLockedAmount é decrementado por payout (79% do pool), mas o saldo USDC saiu em 79%. As taxas (21%) permanecem no contrato SEM estar no totalLockedAmount. Quando o Admin saca as taxas via withdrawHouseFees() etc., o contrato executa:
+
+totalLockedAmount -= amount;  // Decrementa valor que JÁ não estava registrado
+
+Isso causa UNDERFLOW no totalLockedAmount (ou em Solidity 0.8+ um revert), efetivamente TRAVANDO todos os saques de fees do sistema após o primeiro mercado resolvido.
+Prova de Conceito
+Sequência de passos:
+Usuário A aposta 100 USDC (YES). totalLockedAmount = 100.
+_processMarketFees() é chamada: houseBalance += 10, creatorBalance += 5, rewardsBalance += 1, referrerPool = 5, netDistributable = 79. totalLockedAmount ainda = 100.
+Usuário A chama claimWinnings(): payout = 79. totalLockedAmount -= 79. totalLockedAmount agora = 21.
+Admin chama withdrawHouseFees(): amount = 10. totalLockedAmount -= 10. totalLockedAmount = 11.
+Creator chama withdrawCreatorFees(): amount = 5. totalLockedAmount -= 5. totalLockedAmount = 6.
+Reporter chama withdrawReferrerFees(): amount = 1. totalLockedAmount -= 1. totalLockedAmount = 5.
+Referrer tenta sacar 5 (referrerPool). totalLockedAmount -= 5. totalLockedAmount = 0.
+
+NOTA: No cenário acima, totalLockedAmount chega a 0 'corretamente' porque todos os valores somam 100. Porém, o cenário de CRASH ocorre quando há múltiplos mercados ativos simultaneamente e os saques de fees acontecem antes de todos os claimWinnings. Em qualquer ordem diferente da ideal, o totalLockedAmount subtrairá mais do que foi adicionado para aquele conjunto de fees, atingindo underflow em Solidity 0.8+ (revert) ou corrompendo a contabilidade.
+
+CENÁRIO DE CRASH CONCRETO: Se o admin sacar houseBalance antes de todos os winners sacarem, o totalLockedAmount torna-se menor que o necessário para cobrir os payouts restantes, corrompendo o invariante de solvência.
+Impacto
+CRÍTICO — Possível insolvência progressiva. totalLockedAmount dessincroniza do saldo real do contrato. sweepDust() pode drenar fundos de usuários ao calcular dust incorretamente. Saques de taxas podem reverter em Solidity 0.8+ causando DoS permanente nas funções de retirada de fees.
+Recomendação
+Solução Correta: Em _processMarketFees(), NÃO decrementar totalLockedAmount — as taxas já estão dentro do locked amount. O decremento deve ocorrer APENAS nas funções de saque (withdrawHouseFees, withdrawCreatorFees, etc.), que já fazem isso corretamente.
+
+Alternativamente (design mais limpo): Ao creditar fees em _processMarketFees(), incrementar os saldos E decrementar totalLockedAmount simultaneamente, tornando fees 'free-floating' fora do totalLockedAmount, e REMOVER os decrementos das funções de saque individuais.
+
+// OPÇÃO A (mínima mudança) — já está correta SE NÃO ADICIONAR decrementos em _processMarketFees
+// OPÇÃO B — tornar fees livres do totalLockedAmount:
+houseBalance += houseFee;
+totalLockedAmount -= houseFee; // Move fees para fora do rastreamento
+// Remover 'totalLockedAmount -= amount' de withdrawHouseFees()
+
+CRÍTICO
+C-02 — emergencyResolve não chama _processMarketFees — Pool de Apostas Permanentemente Travado
+
+Categoria
+Trava de Fundos / Máquina de Estados Incompleta
+Função Afetada
+emergencyResolve()
+Descrição
+A função emergencyResolve() transita o mercado para o estado RESOLVED com outcome CANCELLED, mas NÃO chama _processMarketFees(). Isso significa que m.netDistributable permanece em 0 (valor padrão, nunca foi setado).
+
+Quando usuários tentam chamar claimWinnings() após um emergencyResolve(), o código entra no branch CANCELLED:
+
+payout = yesBet.amount + noBet.amount;  // ← Correto: usa amounts
+
+Para CANCELLED, o payout usa yesBet.amount + noBet.amount diretamente (não usa netDistributable). Isso parece funcionar, MAS há um segundo problema: totalLockedAmount NÃO reflete as apostas no estado correto pois os bonds já foram adicionados ao claimableBonds mas totalLockedAmount não foi decrementado pelos bonds.
+
+Pior ainda: compare com resolveDispute() e finalizeOutcome() que AMBOS chamam _processMarketFees(). A omissão em emergencyResolve() é inconsistente e cria o risco de que, em futuros upgrades ou lógica adicional no claimWinnings, o branch CANCELLED passe a depender de netDistributable.
+
+BUG CONFIRMADO NO FLUXO ATUAL: emergencyResolve() faz claimableBonds[proposer] += bondAmount e claimableBonds[challenger] += challengeBondAmount, mas NÃO decrementa totalLockedAmount pelos bonds adicionados. Quando esses bonds são sacados via withdrawBond(), o contrato decrementa totalLockedAmount corretamente. PORÉM, os bonds já estavam no totalLockedAmount desde proposeOutcome() e challengeOutcome(). Isso está correto. O problema real é a ausência de _processMarketFees() caso o contrato seja modificado — é uma armadilha de manutenção crítica.
+Prova de Conceito
+Fluxo problemático:
+Mercado entra em DISPUTED. Proposer e Challenger depositaram bonds.
+30 dias passam sem resolução de disputa (operadores ausentes).
+Qualquer usuário chama emergencyResolve(). Estado = RESOLVED, outcome = CANCELLED.
+m.netDistributable = 0 (nunca setado). m.referrerPool = 0.
+Apostadores chamam claimWinnings() — CANCELLED usa amounts diretos, então FUNCIONA.
+MAS: _processMarketFees nunca foi chamada, portanto nenhuma fee é coletada. Esse é o comportamento esperado para CANCELLED, mas a inconsistência cria risco de regressão severa.
+Impacto
+Médio-Alto imediatamente, Crítico em evolução do código. O comportamento atual não causa perda de fundos no fluxo CANCELLED, mas a ausência da chamada _processMarketFees() é uma inconsistência arquitetural que GARANTE uma vulnerabilidade crítica se qualquer lógica futura de claimWinnings depender de netDistributable para CANCELLED. Além disso, o contrato perde todas as fees de markets que passam por emergencyResolve.
+Recomendação
+Adicionar chamada explícita a _processMarketFees() em emergencyResolve(), OU adicionar um comentário de código auditado documentando explicitamente por que a omissão é segura para CANCELLED. Também garantir que o branch CANCELLED em claimWinnings jamais dependa de netDistributable.
+
+// Em emergencyResolve(), após setar m.outcome = MarketOutcome.CANCELLED:
+_processMarketFees(_marketId);  // Adicionar esta linha
+
+
+3. Vulnerabilidades de Alta Severidade
+
+ALTO
+H-01 — claimFallback Move referrerPool para houseBalance sem Decrementar totalLockedAmount
+
+Categoria
+Contabilidade / Corrupção de Saldo
+Função Afetada
+claimFallback()
+Descrição
+A função claimFallback() é chamada quando um mercado resolvido com YES/NO não tem nenhum vencedor (totalWinningShares == 0). Ela converte o mercado para DRAW e move o referrerPool para o houseBalance:
+
+houseBalance += unusedReferrerPool;
+m.referrerPool = 0;
+
+O problema: unusedReferrerPool já estava rastreado em totalLockedAmount (foi incluído quando as apostas entraram). Ao mover para houseBalance SEM decrementar totalLockedAmount, a contabilidade dessincroniza.
+
+Quando o Admin posteriormente saca via withdrawHouseFees(), o código faz:
+
+totalLockedAmount -= amount;  // Decrementa, mas totalLockedAmount nunca incluía esse valor como 'pendente de saque'
+
+Isso cria o mesmo padrão de dessincronização do C-01, amplificado pelo claimFallback().
+Impacto
+Alto — Corrupção progressiva do totalLockedAmount cada vez que claimFallback() é invocado. O invariante de solvência (balance >= totalLockedAmount) pode ser violado.
+Recomendação
+A transferência interna de referrerPool para houseBalance deve ser tratada como uma movimentação contábil neutra: ambos são passivos do contrato. Não há necessidade de modificar totalLockedAmount. A solução é garantir que o decremento ocorra apenas UMA VEZ, no saque final:
+
+// claimFallback: simplesmente mover entre buckets internos
+houseBalance += unusedReferrerPool;
+m.referrerPool = 0;
+// NÃO decrementar totalLockedAmount aqui
+// O decremento já ocorrerá em withdrawHouseFees()
+
+ALTO
+H-02 — reopenMarket com _slashProposer=true não Devolve Bond do Challenger antes do Slash — Challenger Recebe Menos do que Deveria
+
+Categoria
+Erro Lógico / Incentivos Econômicos Quebrados
+Função Afetada
+reopenMarket()
+Descrição
+Em reopenMarket() com _slashProposer=true, quando existe um challenger (m.challengeBondAmount > 0), a lógica é:
+
+uint256 reward = (m.bondAmount * 80) / 100;   // 80% do bond do proposer
+uint256 slash = m.bondAmount - reward;          // 20% do bond do proposer -> treasury
+claimableBonds[m.challenger] += reward;
+totalLockedAmount -= slash;
+usdcToken.safeTransfer(treasury, slash);
+m.bondAmount = 0;
+
+Em seguida, fora deste bloco if, o código devolve o bond do challenger:
+
+if (m.challengeBondAmount > 0) {
+claimableBonds[m.challenger] += m.challengeBondAmount;
+m.challengeBondAmount = 0;
+}
+
+Isso parece correto, MAS: se _slashProposer=true E m.challengeBondAmount > 0, o challenger recebe: 80% do bondAmount do proposer + seu próprio challengeBondAmount de volta. O challenger NÃO recebe 80% da lógica original de resolveDispute que lhe daria: challengeBondAmount + (bondAmount_proposer - 20%).
+
+Na prática, o challenger RECEBE o correto. O bug real é diferente: na linha que calcula o slash, se m.bondAmount foi ZERADO no bloco anterior (m.bondAmount = 0), a linha subsequente de devolução do challenger já está correta. Porém, existe um caso em que o challenger perde: se m.challengeBondAmount > m.bondAmount (challenger colocou mais bond), o challenger não é compensado proporcionalmente — recebe apenas 80% do bondAmount do proposer (possivelmente menor que o seu próprio bond).
+Prova de Conceito
+Challenger coloca bond de 100 USDC. Proposer havia colocado apenas o mínimo de 5 USDC.
+Reopenmarket com _slashProposer=true: challenger recebe 80% de 5 = 4 USDC + seu 100 USDC de volta = 104 USDC. Mas o challenger arriscou 100 USDC para contestar uma proposta maliciosa de apenas 5 USDC. O desincentivo econômico é correto em termos de recebimento do bond de volta, porém o design assume que challengeBondAmount >= bondAmount, o que a lógica de challengeOutcome garante (require(_bondAmount >= m.bondAmount)). Portanto, o challenger SEMPRE recebe pelo menos seu bond de volta + algum reward, sendo economicamente correto na maioria dos casos.
+
+BUG REAL: Quando _slashProposer=false E m.bondAmount > 0, o proposer recebe seu bond de volta via claimableBonds. Mas se m.challengeBondAmount > 0 também, o challenger TAMBÉM recebe seu bond de volta. Isso é correto para uma reabertura neutra. Porém, totalLockedAmount não é decrementado pelo slash nesse caso (pois _slashProposer=false), o que está correto. O fluxo parece consistente nesse caminho específico.
+Impacto
+Alto — Em casos de challenger com bond maior que o proposer em um mercado reaberto com slashing, o challenger pode não receber a compensação completa esperada pelo risco assumido. Desincentiva participação honesta no mecanismo de disputa.
+Recomendação
+Garantir que, no caso de _slashProposer=true com challenger presente, o challenger receba: challengeBondAmount (devolvido) + 80% do bondAmount do proposer. Adicionar teste unitário cobrindo esse cenário específico de assimetria de bonds.
+
+ALTO
+H-03 — adminResolve em Mercado OPEN (sem proposta) com Outcome YES/NO Resulta em netDistributable Incorreto para Proposer address(0)
+
+Categoria
+Erro de Fluxo / Contabilidade de Reporter Reward
+Função Afetada
+adminResolve()
+Descrição
+adminResolve() pode ser chamada em qualquer estado não-RESOLVED, incluindo OPEN (sem proposta). Quando o mercado está OPEN e o admin resolve com YES ou NO:
+
+1. hasProposal = false (m.proposer == address(0))
+2. isProposalCorrect = false (nenhuma proposta para verificar)
+3. winnerAddress = address(0) (nenhum challenger, nenhum proposer correto)
+4. O código NOT entra no bloco 'if (winnerAddress != address(0))'
+5. m.proposer permanece address(0)
+6. O 'Reporter Reward Trap Fix' ao final corrige: m.proposer = treasury
+
+Até aqui, o fluxo parece coberto. MAS: _processMarketFees() usa m.proposer para creditar o repFee (1% reporter reward). Se m.proposer = treasury no momento em que _processMarketFees() é chamada, o treasury recebe o reporter reward — o que pode ser intencional.
+
+O BUG REAL: O bloco que zera o bond do proposer malicioso (quando isProposalCorrect=false E m.challenger=address(0) E m.state=PROPOSED) executa:
+
+totalLockedAmount -= m.bondAmount;
+usdcToken.safeTransfer(treasury, m.bondAmount);
+m.proposer = address(0);
+
+Depois, m.bondAmount = 0 é executado. Depois, _processMarketFees() é chamada. PORÉM: o bond do proposer já foi transferido para o treasury, E totalLockedAmount foi decrementado. Correto até aqui. O problema é que m.bondAmount = 0 é executado DEPOIS do bloco que zera o proposer, mas ANTES de _processMarketFees(). A sequência está correta.
+
+PROBLEMA REAL IDENTIFICADO: No fluxo adminResolve() em estado OPEN com YES/NO, nenhum bond existe (m.bondAmount = 0, m.challengeBondAmount = 0). O totalBond = 0. O bloco de verificação 'if (m.state == MarketState.PROPOSED && m.bondAmount > 0)' NUNCA executa porque o estado é OPEN. Portanto, não há confisco de bond. Isso é correto. Mas o admin pode resolver qualquer mercado OPEN com YES/NO e os apostadores receberão seus payouts corretamente. Nenhum bug crítico aqui.
+
+VULNERABILIDADE REAL: Se um mercado OPEN for resolvido com YES mas NENHUM apostador bet YES (totalSharesYes = 0), claimWinnings() fará require(totalWinningShares > 0, 'No winning shares') e reverterá para TODOS os apostadores YES. Os apostadores NO também não ganham nada (perderam). Os fundos ficam PRESOS. O admin precisa chamar claimFallback() para converter para DRAW — mas claimFallback() exige que o mercado já seja YES ou NO. Este é o fluxo correto, porém é uma armadilha de UX crítica que pode causar fundos temporariamente inacessíveis sem ação administrativa.
+Impacto
+Alto — Fundos de apostadores podem ficar temporariamente inacessíveis se adminResolve() definir um lado vencedor sem apostadores. Requer intervenção administrativa adicional (claimFallback) para desbloquear.
+Recomendação
+Em adminResolve(), antes de setar o outcome como YES ou NO, verificar se o lado vencedor tem totalShares > 0. Se não tiver, forçar DRAW automaticamente ou emitir um evento de aviso. Adicionar validação:
+
+if (_outcome == MarketOutcome.YES) {
+require(m.totalSharesYes > 0 || /* fallback logic */ true, 'No YES bettors');
+// Se totalSharesYes == 0, considerar forçar DRAW
+}
+
+
+4. Vulnerabilidades de Média Severidade
+
+MÉDIO
+M-01 — voidAbandonedMarket não Processa Fees nem Seta netDistributable — Apostadores não Conseguem Sacar
+
+Categoria
+Trava de Fundos / Omissão de _processMarketFees
+Descrição
+voidAbandonedMarket() transita o mercado para RESOLVED com outcome CANCELLED mas NÃO chama _processMarketFees(). Similar ao C-02, mas com impacto menor pois CANCELLED usa amounts diretamente.
+
+O fluxo CANCELLED em claimWinnings usa: payout = yesBet.amount + noBet.amount — que não depende de netDistributable. Portanto os fundos dos apostadores NÃO ficam presos. Porém, as fees nunca são computadas (correto para CANCELLED) e o contrato não emite o evento MarketResolved.
+
+Risco real: Se algum dia o branch CANCELLED em claimWinnings for refatorado para usar netDistributable (como já foi feito para DRAW), os fundos ficarão presos para mercados abandonados.
+Recomendação
+Adicionar _processMarketFees() ou comentário explícito documentando por que a omissão é segura para CANCELLED em voidAbandonedMarket().
+
+MÉDIO
+M-02 — DRAW em claimWinnings Não Decrementar m.totalYes/m.totalNo do Lado Correto — Possível Inconsistência de Dust
+
+Categoria
+Arredondamento / Contabilidade de Dust
+Descrição
+No branch DRAW de claimWinnings(), o código decrementa:
+
+m.totalYes -= yesBet.amount;
+m.totalNo -= noBet.amount;
+
+Isso é correto para rastrear quem já sacou. A verificação de 'last user' usa:
+
+if (userTotalAmount == totalPoolAmount) { payout = m.netDistributable; }
+
+Porém, userTotalAmount = yesBet.amount + noBet.amount (do usuário atual), e totalPoolAmount = m.totalYes + m.totalNo (totais decrementados). Após múltiplos saques, quando o último usuário verificar, m.totalYes + m.totalNo deve igualar yesBet.amount + noBet.amount desse último usuário. Isso funciona matematicamente MAS apenas se todos os usuários sacaram em DRAW. Se um usuário tiver apostado apenas YES (noBet.amount = 0) e for o último, o cálculo de 'last user' pode não disparar corretamente se m.totalYes + m.totalNo != userTotalAmount.
+Recomendação
+Adicionar teste de cobertura para: múltiplos apostadores, apenas YES ou apenas NO, em mercado DRAW, garantindo que o último apostador sempre receba o netDistributable residual sem deixar dust.
+
+MÉDIO
+M-03 — resolveDispute Transfere o Slash para Treasury Antes de Decrementar totalLockedAmount — Inconsistência de Ordem
+
+Categoria
+Ordem de Operações / Padrão CEI
+Descrição
+Em resolveDispute(), a sequência é:
+
+claimableBonds[_winnerAddress] += winnerReward;
+if (slashedShare > 0) {
+totalLockedAmount -= slashedShare;
+usdcToken.safeTransfer(treasury, slashedShare);  // Transfer ANTES de atualizar estado
+}
+
+O padrão CEI (Checks-Effects-Interactions) recomenda que transferências externas (Interactions) ocorram APÓS todas as atualizações de estado (Effects). Aqui, a transferência ocorre antes de m.bondAmount = 0 e antes de _updateMarketState(). Como o contrato usa ReentrancyGuard, a reentrância está bloqueada. Porém, USDC da Base pode implementar hooks futuros, e a inconsistência com CEI é uma má prática que deve ser corrigida.
+Recomendação
+Mover usdcToken.safeTransfer() para o final das funções resolveDispute() e adminResolve(), após todas as atualizações de estado. Isso garante conformidade com CEI mesmo sem risco imediato de reentrância.
+
+
+5. Análise de Invariantes de Solvência
+
+O invariante principal do contrato é:
+
+usdcToken.balanceOf(address(this)) >= totalLockedAmount
+
+A análise de todos os fluxos de entrada e saída de USDC revela:
+
+Função
+USDC Entra
+totalLocked +
+Status
+createMarket()
+✓
+✓
+✅ OK
+placeBet()
+✓
+✓
+✅ OK
+proposeOutcome()
+✓ (bond)
+✓
+✅ OK
+challengeOutcome()
+✓ (bond)
+✓
+✅ OK
+claimWinnings()
+—
+— (decremento)
+✅ OK
+withdrawSeed()
+—
+— (decremento)
+✅ OK
+withdrawBond()
+—
+— (decremento)
+✅ OK
+withdrawCreatorFees()
+—
+— (decremento)
+⚠️ Risco C-01
+withdrawHouseFees()
+—
+— (decremento)
+⚠️ Risco C-01
+withdrawReferrerFees()
+—
+— (decremento)
+⚠️ Risco C-01
+_processMarketFees()
+—
+❌ Nenhum
+🔴 BUG C-01
+resolveDispute() slash
+— (sai)
+— (decremento)
+✅ OK
+adminResolve() slash
+— (sai)
+— (decremento)
+✅ OK
+sweepDust()
+—
+—
+✅ OK (se totalLocked correto)
+
+
+6. Achados Positivos — O que o Contrato Faz Corretamente
+
+Os seguintes mecanismos de segurança foram verificados e funcionam corretamente:
+
+ReentrancyGuard: Aplicado em todas as funções de saque e apostas. Previne ataques de reentrância.
+Padrão Pull Payment (claimWinnings): Elimina risco de DoS por loop de distribuição.
+SafeERC20: Todas as transferências de USDC usam safeTransfer/safeTransferFrom.
+hasClaimed com roundId: Previne double-claim após reopenMarket(). Elegante.
+Timelock para mudança de treasury: 2 dias de timelock previne mudanças abruptas.
+Bond Requirements (getRequiredBond): Bond cresce proporcionalmente ao pool, tornando ataques de proposta falsa economicamente inviáveis em mercados grandes.
+emergencyResolve() com 30-day timeout: Previne mercados eternamente travados em DISPUTED.
+Slippage Protection em placeBet (minSharesOut): Protege apostadores contra MEV front-running nas apostas.
+Overflow Protection: Uso de Solidity 0.8.20 com proteção nativa contra overflow/underflow.
+Seed Separado do Pool: O design de separar o seed do pool de apostas é correto e bem implementado.
+
+
+7. Conclusão e Priorização de Correções
+
+O contrato PredictionBattleV10.sol demonstra um design arquitetural sólido com múltiplas camadas de proteção. No entanto, a vulnerabilidade C-01 (dessincronização de totalLockedAmount em _processMarketFees) é uma falha sistêmica que compromete a integridade contábil de TODOS os mercados resolvidos e DEVE ser corrigida antes do deploy em produção.
+
+Prioridade de Correção
+
+Prio
+ID
+Ação
+Descrição
+1
+C-01
+Corrigir Imediatamente
+Resolver dessincronização de totalLockedAmount em _processMarketFees antes de qualquer deploy
+2
+C-02
+Corrigir Imediatamente
+Adicionar _processMarketFees() em emergencyResolve() ou documentar explicitamente a omissão
+3
+H-01
+Corrigir antes de Beta
+Revisar contabilidade de claimFallback() para evitar duplo-decremento de totalLockedAmount
+4
+H-03
+Corrigir antes de Beta
+Adicionar validação em adminResolve() para evitar outcomes sem apostadores do lado vencedor
+5
+H-02
+Corrigir antes de Produção
+Revisar lógica de recompensa em reopenMarket() com bonds assimétricos
+6
+M-01
+Médio Prazo
+Adicionar _processMarketFees() ou comentário em voidAbandonedMarket()
+7
+M-02
+Médio Prazo
+Adicionar testes de cobertura para DRAW com apostadores single-side
+8
+M-03
+Baixo Prazo
+Reordenar operações para conformidade com padrão CEI
+
+
+Após a correção das vulnerabilidades C-01 e C-02, o contrato demonstra robustez suficiente para operação em fase Beta com valores limitados. Recomenda-se uma re-auditoria após as correções para validar as mudanças e expandir a análise para vulnerabilidades de Média e Baixa severidade.
+
+— Fim do Relatório —

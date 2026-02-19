@@ -8,7 +8,7 @@ import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle,
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract, useBlockNumber } from 'wagmi';
 import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 import { formatBlockDuration, estimateTimeFromBlocks, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
@@ -159,6 +159,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const winningSide = bet.result === 'yes'; // true for yes, false for no
 
     // 1. Get User Shares (Fetch BOTH sides to handle Void/Result changes)
+    // V10: UserBet struct = { amount, shares, referrer } (3 fields, no claimed)
     const { data: yesBetData, refetch: refetchYesBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
@@ -168,7 +169,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
-    }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
+    }) as { data: [bigint, bigint, string] | undefined, refetch: () => void };
 
     const { data: noBetData, refetch: refetchNoBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
@@ -179,7 +180,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
-    }) as { data: [bigint, bigint, string, boolean] | undefined, refetch: () => void };
+    }) as { data: [bigint, bigint, string] | undefined, refetch: () => void };
 
     const refetchUserBet = () => { refetchYesBet(); refetchNoBet(); };
 
@@ -208,12 +209,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: any[] | undefined, refetch: () => void };
 
-    // V8: Check if Reporter Reward Claimed
-    const { data: isRewardClaimed, refetch: refetchRewardClaimed } = useReadContract({
+    // V10: Check if user has claimed via 3D mapping hasClaimed(marketId, roundId, user)
+    const roundId = activeMarketData ? Number(activeMarketData[25] || 0) : 0;
+    const { data: hasClaimedResult, refetch: refetchHasClaimed } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
-        functionName: 'reporterRewardClaimed',
-        args: [bet.id],
+        functionName: 'hasClaimed',
+        args: [
+            bet.id,
+            BigInt(roundId),
+            address || '0x0000000000000000000000000000000000000000'
+        ],
         query: { enabled: !!address }
     }) as { data: boolean | undefined, refetch: () => void };
 
@@ -245,63 +251,34 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     }
     // ------------------------------------------
 
-    // V5/V6 Struct returns: [amount, shares, referrer, claimed]
-    // The previous code incorrectly treated it as a single bigint.
-    const yesDataArray = (yesBetData as [bigint, bigint, string, boolean]) || [BigInt(0), BigInt(0), '', false];
-    const noDataArray = (noBetData as [bigint, bigint, string, boolean]) || [BigInt(0), BigInt(0), '', false];
+    // V10: UserBet struct = { amount, shares, referrer } (3 fields, NO claimed boolean)
+    const yesDataArray = (yesBetData as [bigint, bigint, string]) || [BigInt(0), BigInt(0), ''];
+    const noDataArray = (noBetData as [bigint, bigint, string]) || [BigInt(0), BigInt(0), ''];
 
     const userYesAmount = yesDataArray[0];
     const userNoAmount = noDataArray[0];
-    const userYesClaimed = yesDataArray[3];
-    const userNoClaimed = noDataArray[3];
 
     // Determine shares based on result
     let userShares = BigInt(0);
-    let hasClaimed = false; // V2 doesn't return claimed status in yesBets mapping... it tracks `paidOut` on the contract via processedIndex for batch, or users call claimWinnings.
-    // But wait, `claimWinnings` function is what users call?
-    // In V2 `distributeWinnings` is batch.
-    // In V2 `claimWinnings` function exists?
-    // ABI has `claimWinnings`.
+    // V10: Claim status tracked via hasClaimed(marketId, roundId, user) 3D mapping
+    const hasClaimed = !!hasClaimedResult;
 
     // Use the robust resultString derived above
     const normalizedResult = resultString;
 
-    if (normalizedResult === 'void' || normalizedResult === 'draw') userShares = userYesAmount + userNoAmount; // Full refund in void, partial in draw (logic handled in contract)
+    if (normalizedResult === 'void' || normalizedResult === 'draw') userShares = userYesAmount + userNoAmount;
     else if (normalizedResult === 'yes') userShares = userYesAmount;
     else if (normalizedResult === 'no') userShares = userNoAmount;
 
-    // DEBUG LOGS (Requested by User)
+    // DEBUG LOGS
     useEffect(() => {
         if (bet.status !== 'active' || isMarketResolved) {
             console.log(`[DEBUG] Bet: ${bet.id}`);
-            console.log(`[DEBUG] DB Result: ${bet.result}`);
-            console.log(`[DEBUG] Chain Result (derived): ${normalizedResult}`);
-            console.log(`[DEBUG] Market Resolved: ${isMarketResolved}`);
-            console.log(`[DEBUG] User Shares (Calc): ${userShares}`);
-            // Recalc canClaim locally to log
-            const _canClaim = (bet.status !== 'active' || isMarketResolved) && userShares > BigInt(0);
-            console.log(`[DEBUG] Can Claim (Pre-check): ${_canClaim}`);
+            console.log(`[DEBUG] Chain Result: ${normalizedResult}`);
+            console.log(`[DEBUG] User Shares: ${userShares}`);
+            console.log(`[DEBUG] Has Claimed: ${hasClaimed}`);
         }
-    }, [bet, isMarketResolved, normalizedResult, userShares]);
-
-    // Check if claimed? V2 doesn't have easy per-user claimed mapping exposed publicly in ABI seen so far.
-    // ABI has `paidOut` on the struct.
-    // We might need to rely on our DB or check logs if we want to know if specific user claimed.
-    // OR we assume if `yesBets[user]` is 0 AND they had a bet, maybe it was deleted (claimed)?
-    // In `distributeWinnings` code: `p.yesBets[winnerAddr] = 0;`
-    // YES! Creating a claim ZEROES out the bet.
-    // So if user HAD a bet (we know via events or DB) but now `yesBets` on chain is 0, they CLAIMED.
-    // But how do we distinguish "Never Bet" vs "Claimed"?
-    // We can rely on `bet.participants` from DB to know if they bet.
-    // For now, let's assume if their on-chain balance is > 0, they HAVEN'T claimed.
-    // If it is 0, they either didn't bet or already claimed.
-    // The `ClaimButton` should be enabled if on-chain balance > 0.
-
-
-
-    // If userShares > 0, they can claim.
-    // If userShares > 0, they can claim.
-    hasClaimed = userYesClaimed || userNoClaimed;
+    }, [bet, isMarketResolved, normalizedResult, userShares, hasClaimed]);
 
     // Original Bet Amount (for display) - We might rely on DB or just use what we have.
     const originalBetAmount = userYesAmount + userNoAmount; // This assumes not claimed yet.
@@ -793,28 +770,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     };
 
 
-    const handleClaimReporterReward = async () => {
-        if (!isConnected || !address) return;
-        setIsSubmitting(true);
-        try {
-            const hash = await writeContractAsync({
-                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                abi: PredictionBattleABI.abi,
-                functionName: 'claimReporterReward',
-                args: [bet.id],
-            });
-            if (publicClient) {
-                await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
-            }
-            showAlert('Success', 'Reporter reward claimed successfully!', 'success');
-            refetchRewardClaimed();
-        } catch (error) {
-            console.error('Claim Reward error:', error);
-            showAlert('Error', (error as Error).message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    // [V10] REMOVED: handleClaimReporterReward — function doesn't exist in V10.
+    // Reporter rewards are auto-credited to rewardsBalance -> withdraw via Earnings page.
 
     const handleSeedPool = async () => {
         // V2 NOTE: seedPrediction does NOT exist in V2!

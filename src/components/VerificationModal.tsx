@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useAccount, useWriteContract, usePublicClient, useBlockNumber } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CURRENT_CONFIG, isAdmin } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { formatBlockDuration } from '@/lib/blockTime';
 import { calculateRequiredBond } from '@/lib/contracts';
 

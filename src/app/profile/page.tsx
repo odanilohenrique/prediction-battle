@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { ArrowLeft, Coins, Crown, Loader2, Gift } from 'lucide-react';
 import Link from 'next/link';
 

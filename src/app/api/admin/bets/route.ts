@@ -3,7 +3,7 @@ import { store } from '@/lib/store';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
 export const dynamic = 'force-dynamic';
 

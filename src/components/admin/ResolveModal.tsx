@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { X, ExternalLink, Check, Loader2, AlertTriangle, ShieldAlert, Gavel, Scale } from 'lucide-react';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { getContractAddress } from '@/lib/config';
 import { formatUnits } from 'viem';
 
@@ -48,13 +48,13 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
 
     const { writeContractAsync } = useWriteContract();
 
-    // Parse V9 Market Struct (Handle Array or Object return from Viem)
-    // V9 Struct Indices:
+    // Parse V10 Market Struct (Handle Array or Object return from Viem)
+    // V10 Struct Indices:
     // 0:id, 1:creator, 2:question, 3:creationTime, 4:bonusDuration, 5:deadlineTime, 6:state,
     // 7:outcome, 8:seedAmount, 9:seedWithdrawn, 10:proposer, 11:proposedResult, 12:proposalTime,
     // 13:bondAmount, 14:evidenceUrl, 15:challenger, 16:challengeBondAmount, 17:challengeEvidenceUrl,
     // 18:challengeTime, 19:totalYes, 20:totalNo, 21:totalSharesYes, 22:totalSharesNo,
-    // 23:yesBettorsCount, 24:noBettorsCount
+    // 23:netDistributable, 24:referrerPool, 25:roundId
 
     // Helper to get field by name or index
     const getField = (data: any, name: string, index: number, type: 'string' | 'number' | 'bool' | 'bigint') => {
@@ -95,6 +95,8 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
     const [slashCreator, setSlashCreator] = useState(false);
     // [V10] Reopen Extension
     const [extensionHours, setExtensionHours] = useState(24);
+    // [V10] Slash Proposer on Reopen
+    const [slashProposer, setSlashProposer] = useState(false);
 
     const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw' | 'reopen', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
@@ -132,7 +134,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
                     functionName: 'reopenMarket',
-                    args: [betId, extensionSeconds]
+                    args: [betId, extensionSeconds, slashProposer]
                 });
             } else if (action === 'forceYes') {
                 hash = await writeContractAsync({
@@ -405,6 +407,20 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                                 min={0}
                                             />
                                             <span className="text-xs text-textSecondary">hours</span>
+                                        </div>
+                                        <div className="mb-3 p-2 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={slashProposer}
+                                                    onChange={(e) => setSlashProposer(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-orange-500/50 bg-black text-orange-500"
+                                                />
+                                                <div>
+                                                    <span className="text-xs font-bold text-orange-400">Slash Proposer Bond</span>
+                                                    <span className="text-[10px] text-white/50 block">Confiscate bond (80% to challenger, 20% treasury)</span>
+                                                </div>
+                                            </label>
                                         </div>
                                         <button
                                             onClick={() => handleAction('reopen')}

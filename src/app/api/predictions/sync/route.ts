@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { store, Bet } from '@/lib/store';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { CURRENT_CONFIG } from '@/lib/config';
 
 const publicClient = createPublicClient({

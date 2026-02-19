@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { store, Bet } from '@/lib/store';
 import { isAdmin } from '@/lib/config';
-import { resolvePredictionOnChain, isPredictionResolved, resolveVoidOnChain } from '@/lib/contracts';
+import { adminResolveOnChain, isPredictionResolved, resolveVoidOnChain } from '@/lib/contracts';
 
 export async function POST(req: NextRequest) {
     try {
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
                     await resolveVoidOnChain(betId);
                 } else {
                     console.log(`[ADMIN] Resolving ${betId} manually via resolveMarket -> ${result}`);
-                    await resolvePredictionOnChain(betId, winBool);
+                    await adminResolveOnChain(betId, winBool);
                 }
             }
 

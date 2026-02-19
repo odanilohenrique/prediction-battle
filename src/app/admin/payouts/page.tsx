@@ -5,7 +5,7 @@ import { useAccount, useReadContract, usePublicClient, useWriteContract } from '
 import { TrendingUp, Wallet, CheckCircle, Clock, Loader2, RefreshCw, AlertTriangle, Coins } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
 import { CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { createPublicClient, http } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 
@@ -65,16 +65,21 @@ export default function PayoutsPage() {
                 transport: http()
             });
 
-            const side = bet.result === 'yes'; // true for Yes
-
-            const data = await client.readContract({
+            // V10: Get roundId from market struct to check 3D hasClaimed mapping
+            const marketData = await client.readContract({
                 address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                 abi: PredictionBattleABI.abi,
-                functionName: 'getUserBet',
-                args: [bet.id, user.userId, side]
-            }) as [bigint, bigint, string, boolean];
+                functionName: 'markets',
+                args: [bet.id]
+            }) as any[];
+            const roundId = BigInt(marketData?.[25] || 0);
 
-            const [amount, shares, referrer, claimed] = data;
+            const claimed = await client.readContract({
+                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                abi: PredictionBattleABI.abi,
+                functionName: 'hasClaimed',
+                args: [bet.id, roundId, user.userId]
+            }) as boolean;
 
             if (claimed) {
                 // Update DB

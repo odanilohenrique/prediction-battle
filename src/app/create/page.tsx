@@ -8,7 +8,7 @@ import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConne
 import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
 // Extended bet types
 type BetType =

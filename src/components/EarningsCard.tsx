@@ -5,7 +5,7 @@ import { DollarSign, Wallet, Loader2, CheckCircle, Gift, Shield, Landmark } from
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { formatUnits } from 'viem';
 import { getContractAddress } from '@/lib/config';
-import PredictionBattleABI from '@/lib/abi/PredictionBattle.json';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
 export default function EarningsCard() {
     const { address, isConnected } = useAccount();
@@ -45,14 +45,16 @@ export default function EarningsCard() {
         query: { enabled: !!address }
     });
 
-    // Read Admin Status & House Fees (V6.1)
-    const { data: adminAddress } = useReadContract({
+    // Read Admin Status via AccessControl (V10)
+    const { data: isAdminResult } = useReadContract({
         address: contractAddress,
         abi: PredictionBattleABI.abi,
-        functionName: 'admin',
+        functionName: 'hasRole',
+        args: ['0x0000000000000000000000000000000000000000000000000000000000000000', address], // DEFAULT_ADMIN_ROLE = bytes32(0)
+        query: { enabled: !!address }
     });
 
-    const isAdmin = !!(address && adminAddress && address.toLowerCase() === (adminAddress as string).toLowerCase());
+    const isAdmin = !!isAdminResult;
 
     const { data: houseBalanceRaw, refetch: refetchHouse } = useReadContract({
         address: contractAddress,
