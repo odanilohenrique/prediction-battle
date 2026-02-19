@@ -57,7 +57,7 @@ export const ADMIN_ADDRESSES = [
 ].filter(Boolean);
 
 // Operator address for resolution
-export const OPERATOR_ADDRESS = '0x8C451adc05eFDDe2B8cB2F0BA9d7A2223212BECb'.toLowerCase();
+export const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'.toLowerCase();
 
 // Check if address is admin
 export function isAdmin(address: string): boolean {
