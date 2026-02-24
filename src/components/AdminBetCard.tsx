@@ -212,6 +212,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         }
     }) as { data: any[] | undefined, refetch: () => void };
 
+    // Derive Active Market Data EARLY so it can be used for roundId
+    const activeMarketData = marketInfo || marketStruct;
+
     // V10: Check if user has claimed via 3D mapping hasClaimed(marketId, roundId, user)
     const roundId = activeMarketData ? Number(activeMarketData[25] || 0) : 0;
     const safeRoundId = !isNaN(roundId) ? BigInt(roundId) : BigInt(0);
@@ -227,9 +230,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         ],
         query: { enabled: !!address && isValidBetId }
     }) as { data: boolean | undefined, refetch: () => void };
-
-    // Derive Active Market Data EARLY
-    const activeMarketData = marketInfo || marketStruct;
     // V9 Indices: 6=State, 7=Outcome (Enum), 8=SeedAmount, 9=SeedWithdrawn
     const marketStateV5 = activeMarketData ? Number(activeMarketData[6]) : 0;
     const isMarketResolved = marketStateV5 === 4; // RESOLVED
