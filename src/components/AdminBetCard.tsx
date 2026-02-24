@@ -159,13 +159,16 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const winningSide = bet.result === 'yes'; // true for yes, false for no
 
     // 1. Get User Shares (Fetch BOTH sides to handle Void/Result changes)
-    // V10: UserBet struct = { amount, shares, referrer } (3 fields, no claimed)
+    // Safe parsing for wagmi args to prevent BigInt casting crashes on non-numeric IDs
+    const isValidBetId = bet?.id && !isNaN(Number(bet.id));
+    const safeBetId = isValidBetId ? BigInt(bet.id) : BigInt(0);
+
     const { data: yesBetData, refetch: refetchYesBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'yesBets',
         args: [
-            bet.id,
+            safeBetId,
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
@@ -176,7 +179,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         abi: PredictionBattleABI.abi,
         functionName: 'noBets',
         args: [
-            bet.id,
+            safeBetId,
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
@@ -191,9 +194,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [bet.id],
+        args: [safeBetId],
         query: {
-            enabled: !!address && bet.status !== 'active',
+            enabled: !!address && bet.status !== 'active' && isValidBetId,
         }
     }) as { data: any[] | undefined, refetch: () => void };
 
@@ -202,25 +205,27 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [bet.id],
+        args: [safeBetId],
         query: {
-            enabled: !!address,
+            enabled: !!address && isValidBetId,
             refetchInterval: 10000,
         }
     }) as { data: any[] | undefined, refetch: () => void };
 
     // V10: Check if user has claimed via 3D mapping hasClaimed(marketId, roundId, user)
     const roundId = activeMarketData ? Number(activeMarketData[25] || 0) : 0;
+    const safeRoundId = !isNaN(roundId) ? BigInt(roundId) : BigInt(0);
+
     const { data: hasClaimedResult, refetch: refetchHasClaimed } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'hasClaimed',
         args: [
-            bet.id,
-            BigInt(roundId),
+            safeBetId,
+            safeRoundId,
             address || '0x0000000000000000000000000000000000000000'
         ],
-        query: { enabled: !!address }
+        query: { enabled: !!address && isValidBetId }
     }) as { data: boolean | undefined, refetch: () => void };
 
     // Derive Active Market Data EARLY
@@ -372,9 +377,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [bet.id],
+        args: [safeBetId],
         query: {
-            enabled: canVerify,
+            enabled: canVerify && isValidBetId,
         }
     }) as { data: any[] | undefined };
 
@@ -1384,7 +1389,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 {parsedProposalInfo.proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
                                             </span>
                                         </div>
-                                        {parsedProposalInfo.evidenceUrl && (
+                                        {typeof parsedProposalInfo.evidenceUrl === 'string' && parsedProposalInfo.evidenceUrl && (
                                             <a
                                                 href={parsedProposalInfo.evidenceUrl.startsWith('http') ? parsedProposalInfo.evidenceUrl : `https://${parsedProposalInfo.evidenceUrl}`}
                                                 target="_blank"
