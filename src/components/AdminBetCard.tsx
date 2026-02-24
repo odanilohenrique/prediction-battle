@@ -915,7 +915,6 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // V9 Logic: Is current user the proposer?
     // V9: activeMarketData[10] is proposer address
     const isProposer = activeMarketData && address && activeMarketData[10] && (activeMarketData[10] as string).toLowerCase() === address.toLowerCase();
-    const canClaimReward = isMarketResolved && isProposer && !isRewardClaimed;
 
     return (
         <>
