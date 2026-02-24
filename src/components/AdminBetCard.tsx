@@ -82,7 +82,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
     const [choice, setChoice] = useState<'yes' | 'no'>('yes');
-    const [amount, setAmount] = useState<string>(bet.minBet.toString());
+    const [amount, setAmount] = useState<string>((bet.minBet || 0).toString());
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -1021,7 +1021,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 <div className="flex items-center gap-4 bg-black/40 rounded-full px-4 py-2 border border-white/5">
                                     <div className="text-xl font-black text-white flex items-center gap-1">
                                         <span className="text-primary">$</span>
-                                        {bet.totalPot.toFixed(2)}
+                                        {(bet.totalPot || 0).toFixed(2)}
                                     </div>
                                     <div className="w-px h-6 bg-white/10"></div>
                                     <div className="text-xs text-white/60 flex items-center gap-1">
@@ -1163,7 +1163,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <div className="text-xs text-white/40 uppercase tracking-widest mb-1">Total Volume</div>
                                     <div className="text-3xl font-black text-white flex items-center gap-1">
                                         <span className="text-primary">$</span>
-                                        {bet.totalPot.toFixed(2)}
+                                        {(bet.totalPot || 0).toFixed(2)}
                                     </div>
                                 </div>
                                 <div className="w-px h-8 bg-white/10 md:hidden mx-4"></div>
@@ -1575,7 +1575,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             </button>
                                         </div>
                                         <p className="text-xs text-white/40 text-center">
-                                            Range: ${bet.minBet.toFixed(2)} - ${bet.maxBet.toFixed(2)}
+                                            Range: ${(bet.minBet || 0).toFixed(2)} - ${(bet.maxBet || 0).toFixed(2)}
                                         </p>
                                     </div>
                                 </div>
