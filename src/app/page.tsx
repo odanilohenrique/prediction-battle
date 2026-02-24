@@ -49,16 +49,16 @@ export default function Home() {
 
     const officialBattles = battles
         .filter(b => isTrulyActive(b) && (!b.creatorAddress || isAdmin(b.creatorAddress)))
-        .sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+        .sort((a, b) => String(b.id || '').localeCompare(String(a.id || '')));
 
     const communityBattles = battles
         .filter(b => isTrulyActive(b) && b.creatorAddress && !isAdmin(b.creatorAddress))
-        .sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+        .sort((a, b) => String(b.id || '').localeCompare(String(a.id || '')));
 
     // Expired: Everything else (Resolved, Completed, Expired Time, or Status !== active)
     const expiredBattles = battles
         .filter(b => !isTrulyActive(b))
-        .sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())
+        .sort((a, b) => new Date(b.expiresAt || 0).getTime() - new Date(a.expiresAt || 0).getTime())
         .slice(0, 50);
 
     const displayedBattles = activeTab === 'official'
