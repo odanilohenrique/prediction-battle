@@ -14,8 +14,7 @@ const publicClient = createPublicClient({
 });
 
 // Helper to fetch on-chain state for a single market
-// Helper to fetch on-chain state for a single market
-async function getOnChainInfo(marketId: string): Promise<{ state: number, outcome: number }> {
+async function getOnChainInfo(marketId: string): Promise<{ state: number, outcome: number, deadlineTime: number }> {
     try {
         const data = await publicClient.readContract({
             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
@@ -24,14 +23,15 @@ async function getOnChainInfo(marketId: string): Promise<{ state: number, outcom
             args: [marketId],
         }) as any[];
 
-        // Index 6 is state, Index 7 is outcome (V9)
+        // V10 Market struct indices: 5=deadlineTime, 6=state, 7=outcome
         return Array.isArray(data) ? {
             state: Number(data[6]),
-            outcome: data[7] !== undefined ? Number(data[7]) : 0
-        } : { state: -1, outcome: 0 };
+            outcome: data[7] !== undefined ? Number(data[7]) : 0,
+            deadlineTime: data[5] !== undefined ? Number(data[5]) : 0,
+        } : { state: -1, outcome: 0, deadlineTime: 0 };
     } catch (error) {
         console.error(`[API BETS] Failed to fetch on-chain info for ${marketId}:`, error);
-        return { state: -1, outcome: 0 };
+        return { state: -1, outcome: 0, deadlineTime: 0 };
     }
 }
 
@@ -43,7 +43,15 @@ export async function GET() {
         const betsWithOnChainState = await Promise.all(
             bets.map(async (bet) => {
                 const info = await getOnChainInfo(bet.id);
-                return { ...bet, onChainState: info.state, onChainOutcome: info.outcome };
+                // Use on-chain deadlineTime as authoritative expiresAt when available
+                const onChainExpiresAt = info.deadlineTime > 0 ? info.deadlineTime * 1000 : 0;
+                return {
+                    ...bet,
+                    // Override DB expiresAt with on-chain deadline if available
+                    expiresAt: onChainExpiresAt > 0 ? onChainExpiresAt : bet.expiresAt,
+                    onChainState: info.state,
+                    onChainOutcome: info.outcome,
+                };
             })
         );
 

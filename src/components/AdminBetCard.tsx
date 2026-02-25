@@ -159,16 +159,15 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const winningSide = bet.result === 'yes'; // true for yes, false for no
 
     // 1. Get User Shares (Fetch BOTH sides to handle Void/Result changes)
-    // Safe parsing for wagmi args to prevent BigInt casting crashes on non-numeric IDs
-    const isValidBetId = bet?.id && !isNaN(Number(bet.id));
-    const safeBetId = isValidBetId ? BigInt(bet.id) : BigInt(0);
+    // V10: Contract uses STRING IDs (not uint256), so pass bet.id directly
+    const isValidBetId = !!bet?.id;
 
     const { data: yesBetData, refetch: refetchYesBet } = useReadContract({
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'yesBets',
         args: [
-            safeBetId,
+            bet.id,
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
@@ -179,7 +178,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         abi: PredictionBattleABI.abi,
         functionName: 'noBets',
         args: [
-            safeBetId,
+            bet.id,
             address || '0x0000000000000000000000000000000000000000'
         ],
         query: { enabled: !!address }
@@ -194,7 +193,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [safeBetId],
+        args: [bet.id],
         query: {
             enabled: !!address && bet.status !== 'active' && isValidBetId,
         }
@@ -205,7 +204,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [safeBetId],
+        args: [bet.id],
         query: {
             enabled: !!address && isValidBetId,
             refetchInterval: 10000,
@@ -224,7 +223,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         abi: PredictionBattleABI.abi,
         functionName: 'hasClaimed',
         args: [
-            safeBetId,
+            bet.id,
             safeRoundId,
             address || '0x0000000000000000000000000000000000000000'
         ],
@@ -377,7 +376,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         address: CURRENT_CONFIG.contractAddress as `0x${string}`,
         abi: PredictionBattleABI.abi,
         functionName: 'markets',
-        args: [safeBetId],
+        args: [bet.id],
         query: {
             enabled: canVerify && isValidBetId,
         }
