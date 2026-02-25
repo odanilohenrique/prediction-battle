@@ -114,7 +114,7 @@ export default function CreateCommunityBet() {
         // Bet config
         betType: 'post_count' as BetType,
         targetValue: 3,
-        timeframe: '24h' as Timeframe,
+        timeframe: '1y' as Timeframe,
         castUrl: '',
 
         // Limits & Econ
