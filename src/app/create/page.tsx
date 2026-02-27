@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256, decodeEventLog } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -442,30 +442,32 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [V9.4] Derive deterministic ID from block timestamp
+                            // [V10] Extract deterministic ID directly from MarketCreated event logs
                             try {
-                                console.log('[CREATE PAGE] Version 2.1: Starting ID sync...');
-                                let block = null;
-                                let retries = 10;
-                                while (retries > 0 && !block) {
+                                console.log('[CREATE PAGE] Version 10: Extracting ID from event log...');
+                                let realId = '';
+
+                                for (const log of receipt.logs) {
                                     try {
-                                        block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                        const decoded = decodeEventLog({
+                                            abi: PredictionBattleABI.abi,
+                                            data: log.data,
+                                            topics: log.topics,
+                                        });
+                                        if (decoded.eventName === 'MarketCreated') {
+                                            realId = (decoded.args as any).id;
+                                            break;
+                                        }
                                     } catch (err) {
-                                        console.warn(`[CREATE PAGE] Block ${receipt.blockNumber} not found, retrying... (${retries})`);
-                                        await new Promise(r => setTimeout(r, 2000));
-                                        retries--;
+                                        // Ignore logs that don't match our ABI
                                     }
                                 }
-                                if (!block) throw new Error(`Failed to fetch block ${receipt.blockNumber} after retries`);
 
-                                const timestamp = block.timestamp;
+                                if (!realId) {
+                                    throw new Error('MarketCreated event not found in tx receipt');
+                                }
 
-                                const realId = keccak256(encodePacked(
-                                    ['address', 'string', 'uint256'],
-                                    [address as `0x${string}`, finalQuestion, BigInt(timestamp)]
-                                ));
-
-                                console.log(`[CREATE PAGE] Derived Real ID: ${realId}`);
+                                console.log(`[CREATE PAGE] Extracted Real ID: ${realId}`);
 
                                 // Sync ID with DB
                                 if (data.predictionId && data.predictionId !== realId) {
@@ -848,7 +850,7 @@ export default function CreateCommunityBet() {
                                 type="datetime-local"
                                 value={formData.deadlineDateTime}
                                 onChange={(e) => setFormData({ ...formData, deadlineDateTime: e.target.value })}
-                                min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                                min={new Date(Date.now() + 24 * 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                                 className="w-full bg-black/30 border border-orange-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                                 required
                             />
