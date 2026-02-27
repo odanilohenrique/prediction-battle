@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther, encodePacked, keccak256, decodeEventLog } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -418,6 +418,22 @@ export default function CreateCommunityBet() {
 
                     if (!skipCreation) {
                         const bonusDuration = Math.floor(duration / 4); // 25% for boost
+
+                        // [V10 FIX] Read marketCount BEFORE the transaction to reconstruct the ID later
+                        let marketCountBefore = BigInt(0);
+                        if (publicClient) {
+                            try {
+                                marketCountBefore = await publicClient.readContract({
+                                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                    abi: PredictionBattleABI.abi,
+                                    functionName: 'marketCount',
+                                }) as bigint;
+                                console.log(`[CREATE PAGE] marketCount before tx: ${marketCountBefore}`);
+                            } catch (err) {
+                                console.warn('[CREATE PAGE] Could not read marketCount:', err);
+                            }
+                        }
+
                         const contractHash = await writeContractAsync({
                             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                             abi: PredictionBattleABI.abi,
@@ -442,46 +458,53 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [V10] Extract deterministic ID directly from MarketCreated event logs
+                            // [V10 FIX] Reconstruct the on-chain market ID
+                            // Contract does: keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount))
+                            // Then converts bytes32 to hex string "0x..." via _bytes32ToString
                             try {
-                                console.log('[CREATE PAGE] Version 10: Extracting ID from event log...');
-                                let realId = '';
+                                const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                const blockTimestamp = block.timestamp;
 
-                                for (const log of receipt.logs) {
-                                    try {
-                                        const decoded = decodeEventLog({
-                                            abi: PredictionBattleABI.abi,
-                                            data: log.data,
-                                            topics: log.topics,
-                                        });
-                                        if (decoded.eventName === 'MarketCreated') {
-                                            realId = (decoded.args as any).id;
-                                            break;
-                                        }
-                                    } catch (err) {
-                                        // Ignore logs that don't match our ABI
-                                    }
+                                console.log(`[CREATE PAGE] Block timestamp: ${blockTimestamp}, marketCount used: ${marketCountBefore}`);
+
+                                // Reconstruct the exact same hash the contract computed
+                                const realId = keccak256(encodePacked(
+                                    ['address', 'string', 'uint256', 'uint256'],
+                                    [address as `0x${string}`, finalQuestion, blockTimestamp, marketCountBefore]
+                                ));
+
+                                console.log(`[CREATE PAGE] Reconstructed Real ID: ${realId}`);
+
+                                // Verify it exists on-chain
+                                const marketExists = await publicClient.readContract({
+                                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                    abi: PredictionBattleABI.abi,
+                                    functionName: 'marketExists',
+                                    args: [realId],
+                                }) as boolean;
+
+                                console.log(`[CREATE PAGE] Market exists on-chain: ${marketExists}`);
+
+                                if (!marketExists) {
+                                    throw new Error(`Reconstructed ID ${realId} not found on-chain!`);
                                 }
-
-                                if (!realId) {
-                                    throw new Error('MarketCreated event not found in tx receipt');
-                                }
-
-                                console.log(`[CREATE PAGE] Extracted Real ID: ${realId}`);
 
                                 // Sync ID with DB
                                 if (data.predictionId && data.predictionId !== realId) {
                                     console.log(`[CREATE PAGE] Syncing DB ID ${data.predictionId} -> ${realId}`);
-                                    await fetch('/api/predictions/update-id', {
+                                    const syncRes = await fetch('/api/predictions/update-id', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ oldId: data.predictionId, newId: realId })
                                     });
-                                    console.log('[CREATE PAGE] DB ID Synced.');
+                                    const syncData = await syncRes.json();
+                                    if (!syncRes.ok || !syncData.success) {
+                                        throw new Error(`DB Sync failed: ${syncData.error || 'Unknown error'}`);
+                                    }
+                                    console.log('[CREATE PAGE] ✅ DB ID Synced successfully!');
                                 }
-
                             } catch (e) {
-                                console.warn('Could not derive/sync real ID', e);
+                                console.error('[CREATE PAGE] ❌ Could not derive/sync real ID:', e);
                             }
 
                         }

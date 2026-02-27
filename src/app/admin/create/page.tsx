@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseUnits, parseEther, decodeEventLog } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
 import { useModal } from '@/providers/ModalProvider';
 import { getContractAddress } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -366,22 +366,24 @@ export default function CreateCommunityBet() {
 
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
 
+                // [V10 FIX] Read marketCount BEFORE the transaction to reconstruct the ID later
+                let marketCountBefore = BigInt(0);
+                if (publicClient) {
+                    try {
+                        marketCountBefore = await publicClient.readContract({
+                            address: getContractAddress(),
+                            abi: PredictionBattleABI.abi,
+                            functionName: 'marketCount',
+                        }) as bigint;
+                        console.log(`[ADMIN CREATE] marketCount before tx: ${marketCountBefore}`);
+                    } catch (err) {
+                        console.warn('[ADMIN CREATE] Could not read marketCount:', err);
+                    }
+                }
+
                 const createHash = await writeContractAsync({
                     address: getContractAddress(),
-                    abi: [
-                        {
-                            name: 'createMarket',
-                            type: 'function',
-                            stateMutability: 'nonpayable',
-                            inputs: [
-                                { name: '_question', type: 'string' },
-                                { name: '_usdcSeedAmount', type: 'uint256' },
-                                { name: '_duration', type: 'uint256' },
-                                { name: '_bonusDuration', type: 'uint256' }
-                            ],
-                            outputs: []
-                        }
-                    ],
+                    abi: PredictionBattleABI.abi,
                     functionName: 'createMarket',
                     args: [
                         finalQuestion,
@@ -401,44 +403,56 @@ export default function CreateCommunityBet() {
                     }
                     console.log('✅ On-chain creation confirmed');
 
+                    // [V10 FIX] Reconstruct the on-chain market ID
+                    // Contract does: keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount))
+                    // Then converts bytes32 to hex string "0x..." via _bytes32ToString
                     try {
-                        console.log('[CREATE PAGE] Version 10: Extracting ID from event log...');
-                        let realId = '';
+                        // Get block timestamp from the mined block
+                        const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                        const blockTimestamp = block.timestamp;
 
-                        for (const log of receipt.logs) {
-                            try {
-                                const decoded = decodeEventLog({
-                                    abi: PredictionBattleABI.abi,
-                                    data: log.data,
-                                    topics: log.topics,
-                                });
-                                if (decoded.eventName === 'MarketCreated') {
-                                    realId = (decoded.args as any).id;
-                                    break;
-                                }
-                            } catch (err) {
-                                // Ignore logs that don't match our ABI
-                            }
+                        console.log(`[ADMIN CREATE] Block timestamp: ${blockTimestamp}, marketCount used: ${marketCountBefore}`);
+
+                        // Reconstruct the exact same hash the contract computed
+                        const realId = keccak256(encodePacked(
+                            ['address', 'string', 'uint256', 'uint256'],
+                            [address as `0x${string}`, finalQuestion, blockTimestamp, marketCountBefore]
+                        ));
+
+                        console.log(`[ADMIN CREATE] Reconstructed Real ID: ${realId}`);
+
+                        // Verify it exists on-chain
+                        const marketExists = await publicClient.readContract({
+                            address: getContractAddress(),
+                            abi: PredictionBattleABI.abi,
+                            functionName: 'marketExists',
+                            args: [realId],
+                        }) as boolean;
+
+                        console.log(`[ADMIN CREATE] Market exists on-chain: ${marketExists}`);
+
+                        if (!marketExists) {
+                            throw new Error(`Reconstructed ID ${realId} not found on-chain!`);
                         }
-
-                        if (!realId) {
-                            throw new Error('MarketCreated event not found in tx receipt');
-                        }
-
-                        console.log(`[CREATE PAGE] Extracted Real ID: ${realId}`);
 
                         // Sync ID with DB
                         if (data.predictionId && data.predictionId !== realId) {
-                            console.log(`[CREATE PAGE] Syncing DB ID ${data.predictionId} -> ${realId}`);
-                            await fetch('/api/predictions/update-id', {
+                            console.log(`[ADMIN CREATE] Syncing DB ID ${data.predictionId} -> ${realId}`);
+                            const syncRes = await fetch('/api/predictions/update-id', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ oldId: data.predictionId, newId: realId })
                             });
-                            console.log('[CREATE PAGE] DB ID Synced.');
+
+                            const syncData = await syncRes.json();
+                            if (!syncRes.ok || !syncData.success) {
+                                throw new Error(`DB Sync failed: ${syncData.error || 'Unknown error'}`);
+                            }
+                            console.log('[ADMIN CREATE] ✅ DB ID Synced successfully!');
                         }
                     } catch (e) {
-                        console.warn('Could not derive/sync real ID', e);
+                        console.error('[ADMIN CREATE] ❌ Could not derive/sync real ID:', e);
+                        showAlert('Sync Warning', `Market created on-chain but failed to sync ID: ${(e as Error).message}. It may appear as Off-Chain.`, 'warning');
                     }
                 } else {
                     console.log('✅ On-chain creation confirmed (no public client to verify receipt/logs)');
