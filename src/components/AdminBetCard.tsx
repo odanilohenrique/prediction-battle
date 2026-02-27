@@ -236,6 +236,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // On-chain deadlineTime (index 5) is the authoritative deadline (Unix seconds)
     const onChainDeadlineSec = activeMarketData ? Number(activeMarketData[5]) : 0;
     const effectiveDeadlineMs = onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : bet.expiresAt;
+    // V10: Deadline reached = open-ended (0) or past deadline
+    const isOpenEnded = onChainDeadlineSec === 0;
+    const deadlineReached = isOpenEnded || Date.now() >= effectiveDeadlineMs;
 
     // Determine Result (Chain > DB)
     let resultString = (bet.result || '').toLowerCase();
@@ -1295,21 +1298,31 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         )}
 
 
-                        {/* V5: Verify Button - For LOCKED, PROPOSED or OPEN+EXPIRED markets */}
+                        {/* V10: Verify Button - deadline-aware */}
                         {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
-                            <button
-                                onClick={() => setShowVerificationModal(true)}
-                                className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketDisputed
-                                    ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
-                                    : isMarketProposed
-                                        ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
-                                        : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
-                                    }`}
-                                title={isMarketDisputed ? "Market is under dispute" : isMarketProposed ? "View verification status" : "Verify outcome"}
-                            >
-                                {isMarketDisputed ? <AlertTriangle className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-                                {isMarketDisputed ? 'Disputed' : isMarketProposed ? 'Verifying' : 'Verify'}
-                            </button>
+                            // Market is on-chain
+                            (isMarketProposed || isMarketDisputed || deadlineReached) ? (
+                                // Deadline reached OR already proposed/disputed → show action button
+                                <button
+                                    onClick={() => setShowVerificationModal(true)}
+                                    className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketDisputed
+                                        ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
+                                        : isMarketProposed
+                                            ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
+                                            : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+                                        }`}
+                                    title={isMarketDisputed ? "Market is under dispute" : isMarketProposed ? "View verification status" : "Verify outcome"}
+                                >
+                                    {isMarketDisputed ? <AlertTriangle className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                                    {isMarketDisputed ? 'Disputed' : isMarketProposed ? 'Verifying' : 'Verify'}
+                                </button>
+                            ) : (
+                                // Deadline NOT reached → show disabled countdown
+                                <div className="px-4 py-3 rounded-xl bg-white/5 text-white/40 border border-white/10 flex items-center gap-2 cursor-not-allowed" title={`Verification available after ${new Date(effectiveDeadlineMs).toLocaleString()}`}>
+                                    <Clock className="w-4 h-4" />
+                                    <span className="text-sm font-bold">⏳ Awaiting Deadline</span>
+                                </div>
+                            )
                         ) : (address && canVerify && activeMarketData && activeMarketData[1] === '0x0000000000000000000000000000000000000000') && (
                             <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
                                 <AlertTriangle className="w-4 h-4" />

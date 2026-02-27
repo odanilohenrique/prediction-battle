@@ -343,9 +343,8 @@ export default function CreateCommunityBet() {
             try {
                 console.log('Registering prediction on-chain...');
 
-                // Calculate duration from deadline datetime (V8)
-                const ONE_YEAR_SECONDS = 31536000;
-                let durationSeconds = ONE_YEAR_SECONDS; // Default to 1 Year (as displayed in UI)
+                // Calculate duration from deadline datetime
+                let durationSeconds = 0; // Default: open-ended market (no deadline, can verify anytime)
 
                 if (formData.deadlineDateTime) {
                     const deadlineMs = new Date(formData.deadlineDateTime).getTime();
@@ -361,7 +360,7 @@ export default function CreateCommunityBet() {
                         return;
                     }
                 } else {
-                    console.log(`[ADMIN CREATE] Using Default Timeframe: 1 Year (${durationSeconds}s)`);
+                    console.log(`[ADMIN CREATE] Creating OPEN-ENDED market (no deadline, durationSeconds=0)`);
                 }
 
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
@@ -742,29 +741,33 @@ export default function CreateCommunityBet() {
                         </div>
 
 
-                        {/* Battle Deadline */}
+                        {/* Market Deadline (Optional) */}
                         <div className="bg-black/20 border border-white/10 rounded-2xl p-6">
                             <label className="block text-sm font-medium text-white mb-3">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-orange-500" />
-                                    Market Deadline
+                                    Market Deadline <span className="text-xs text-white/40 font-normal">(Optional)</span>
                                 </div>
                             </label>
-                            <p className="text-xs text-white/50 mb-3">When will this market close for betting and resolution?</p>
+                            <p className="text-xs text-white/50 mb-3">Leave empty for an open-ended market (can verify anytime). Set a deadline to lock betting at a specific time.</p>
                             <input
                                 type="datetime-local"
                                 value={formData.deadlineDateTime}
                                 onChange={(e) => setFormData({ ...formData, deadlineDateTime: e.target.value })}
                                 min={new Date(Date.now() + 24 * 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                                 className="w-full bg-black/30 border border-orange-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                                required
                             />
                             {formData.deadlineDateTime && (
                                 <div className="mt-2 text-xs text-orange-400">
                                     Duration: {Math.ceil((new Date(formData.deadlineDateTime).getTime() - Date.now()) / (1000 * 60 * 60))} hours from now
                                 </div>
                             )}
-                            <p className="text-xs text-white/40 mt-2">⚠️ Minimum: 24 hours from now</p>
+                            {!formData.deadlineDateTime && (
+                                <p className="text-xs text-green-400/60 mt-2">✅ Open-ended market — can be verified and resolved at any time</p>
+                            )}
+                            {formData.deadlineDateTime && (
+                                <p className="text-xs text-white/40 mt-2">⚠️ Minimum: 24 hours from now</p>
+                            )}
                         </div>
 
                         {/* Limits for Battle */}
