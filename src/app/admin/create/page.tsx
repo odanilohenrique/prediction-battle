@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseUnits, parseEther } from 'viem';
+import { parseUnits, parseEther, decodeEventLog } from 'viem';
 import { useModal } from '@/providers/ModalProvider';
 import { getContractAddress } from '@/lib/config';
+import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
 // Extended bet types
 type BetType =
@@ -394,9 +395,54 @@ export default function CreateCommunityBet() {
                 console.log('CreateMarket Tx:', createHash);
 
                 if (publicClient) {
-                    await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
+                    const receipt = await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
+                    if (receipt.status !== 'success') {
+                        throw new Error('Contract transaction reverted');
+                    }
+                    console.log('✅ On-chain creation confirmed');
+
+                    try {
+                        console.log('[CREATE PAGE] Version 10: Extracting ID from event log...');
+                        let realId = '';
+
+                        for (const log of receipt.logs) {
+                            try {
+                                const decoded = decodeEventLog({
+                                    abi: PredictionBattleABI.abi,
+                                    data: log.data,
+                                    topics: log.topics,
+                                });
+                                if (decoded.eventName === 'MarketCreated') {
+                                    realId = (decoded.args as any).id;
+                                    break;
+                                }
+                            } catch (err) {
+                                // Ignore logs that don't match our ABI
+                            }
+                        }
+
+                        if (!realId) {
+                            throw new Error('MarketCreated event not found in tx receipt');
+                        }
+
+                        console.log(`[CREATE PAGE] Extracted Real ID: ${realId}`);
+
+                        // Sync ID with DB
+                        if (data.predictionId && data.predictionId !== realId) {
+                            console.log(`[CREATE PAGE] Syncing DB ID ${data.predictionId} -> ${realId}`);
+                            await fetch('/api/predictions/update-id', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ oldId: data.predictionId, newId: realId })
+                            });
+                            console.log('[CREATE PAGE] DB ID Synced.');
+                        }
+                    } catch (e) {
+                        console.warn('Could not derive/sync real ID', e);
+                    }
+                } else {
+                    console.log('✅ On-chain creation confirmed (no public client to verify receipt/logs)');
                 }
-                console.log('✅ On-chain creation confirmed');
 
             } catch (contractError) {
                 console.error('Failed to create on contract:', contractError);
@@ -695,7 +741,7 @@ export default function CreateCommunityBet() {
                                 type="datetime-local"
                                 value={formData.deadlineDateTime}
                                 onChange={(e) => setFormData({ ...formData, deadlineDateTime: e.target.value })}
-                                min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                                min={new Date(Date.now() + 24 * 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                                 className="w-full bg-black/30 border border-orange-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                                 required
                             />
