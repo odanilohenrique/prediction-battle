@@ -236,9 +236,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // On-chain deadlineTime (index 5) is the authoritative deadline (Unix seconds)
     const onChainDeadlineSec = activeMarketData ? Number(activeMarketData[5]) : 0;
     const effectiveDeadlineMs = onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : bet.expiresAt;
-    // V10: Deadline reached = open-ended (0) or past deadline
+    // V10: Deadline reached = past deadline (Excludes open-ended markets)
     const isOpenEnded = onChainDeadlineSec === 0;
-    const deadlineReached = isOpenEnded || Date.now() >= effectiveDeadlineMs;
+    const deadlineReached = !isOpenEnded && Date.now() >= effectiveDeadlineMs;
 
     // Determine Result (Chain > DB)
     let resultString = (bet.result || '').toLowerCase();
@@ -494,7 +494,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // House Address (where money goes)
     const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
 
-    const formatTimeRemaining = () => {
+    const getTimeDisplay = () => {
+        if (isOpenEnded) return 'Open-Ended ♾️';
         // Use on-chain deadline as authoritative source
         if (!effectiveDeadlineMs) return 'Invalid Date';
         const remaining = effectiveDeadlineMs - Date.now();
@@ -929,9 +930,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 {/* Header Ticket Stub */}
                 <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
                     <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && Date.now() < effectiveDeadlineMs ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && !deadlineReached ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                         <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : Date.now() >= effectiveDeadlineMs ? 'EXPIRED' : 'LIVE BATTLE'}
+                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : deadlineReached ? 'EXPIRED' : 'LIVE BATTLE'}
                         </span>
                         {/* Creator Badge */}
                         {bet.creatorAddress && (

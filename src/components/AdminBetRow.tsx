@@ -150,18 +150,28 @@ export default function AdminBetRow({ bet, selectedBet, setSelectedBet, fetchBet
     };
 
     // Time Info Calculation
+    const onChainDeadlineSec = marketStruct ? Number(marketStruct[5]) : -1;
+    const isOpenEnded = onChainDeadlineSec === 0;
+
     let timeInfo = { text: 'Loading...', isExpired: false };
-    if (bet.deadlineBlock && currentBlock > 0) {
+    if (onChainDeadlineSec === -1) {
+        // Still loading contract state
+        timeInfo = formatTimeRemaining(bet.expiresAt);
+    } else if (isOpenEnded) {
+        timeInfo = { text: 'Open-Ended ♾️', isExpired: false };
+    } else if (bet.deadlineBlock && currentBlock > 0) {
         timeInfo = {
             text: formatBlockDuration(bet.deadlineBlock, currentBlock),
             isExpired: currentBlock >= bet.deadlineBlock
         };
     } else {
-        timeInfo = formatTimeRemaining(bet.expiresAt);
+        timeInfo = formatTimeRemaining(onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : bet.expiresAt);
     }
+
+    // V10 Fix: Exclude open-ended markets from being expired
+    const isExpired = !isOpenEnded && Date.now() > (onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : bet.expiresAt);
     const yesPool = bet.participants.yes.reduce((a, b) => a + b.amount, 0);
     const noPool = bet.participants.no.reduce((a, b) => a + b.amount, 0);
-    const isExpired = Date.now() > bet.expiresAt;
 
     // Mock AdminBet object for ValidationModal (it expects different shape)
     const mockBetForModal: any = {

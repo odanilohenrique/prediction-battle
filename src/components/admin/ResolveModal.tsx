@@ -13,6 +13,7 @@ interface ResolveModalProps {
     betId: string | undefined;
     username: string | undefined;
     knownOnChainState?: number; // Pass known state from admin page to ensure correct UI
+    bet?: any; // Full bet object with custom options
 }
 
 enum MarketState {
@@ -31,7 +32,7 @@ enum MarketOutcome {
     CANCELLED = 4
 }
 
-export default function ResolveModal({ isOpen, onClose, betId, username, knownOnChainState }: ResolveModalProps) {
+export default function ResolveModal({ isOpen, onClose, betId, username, knownOnChainState, bet }: ResolveModalProps) {
     const [isResolving, setIsResolving] = useState(false);
     const contractAddress = getContractAddress();
 
@@ -284,7 +285,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                     <div className="flex justify-between">
                                         <span className="text-textSecondary">Proposed Outcome:</span>
                                         <span className={`font-bold ${proposedResult ? 'text-green-500' : 'text-red-500'}`}>
-                                            {proposedResult ? 'YES' : 'NO'}
+                                            {proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
                                         </span>
                                     </div>
                                     {evidenceUrl && (
@@ -367,14 +368,14 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                         disabled={isResolving}
                                         className="p-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-500 font-bold transition-all"
                                     >
-                                        Force YES
+                                        Force {bet?.optionA?.label || 'YES'}
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceNo')}
                                         disabled={isResolving}
                                         className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold transition-all"
                                     >
-                                        Force NO
+                                        Force {bet?.optionB?.label || 'NO'}
                                     </button>
                                     <button
                                         onClick={() => handleAction('forceDraw')}

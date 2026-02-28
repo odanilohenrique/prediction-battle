@@ -82,10 +82,16 @@ export default function BetCard({
     const effectiveDeadlineMs = onChainDeadlineSec > 0 ? onChainDeadlineSec * 1000 : prediction.expiresAt;
     const effectiveRemainingMs = effectiveDeadlineMs - Date.now();
 
-    let isExpired = effectiveRemainingMs <= 0;
+    // V10: Deadline reached = past deadline (Excludes open-ended markets)
+    const isOpenEnded = onChainDeadlineSec === 0;
+
+    let isExpired = !isOpenEnded && effectiveRemainingMs <= 0;
     let timeDisplay = '';
 
-    if (effectiveRemainingMs > 365 * 24 * 60 * 60 * 1000 * 50) {
+    if (isOpenEnded) {
+        timeDisplay = 'Open-Ended ♾️';
+        isExpired = false;
+    } else if (effectiveRemainingMs > 365 * 24 * 60 * 60 * 1000 * 50) {
         timeDisplay = 'Unlimited';
         isExpired = false;
     } else if (effectiveRemainingMs <= 0) {
