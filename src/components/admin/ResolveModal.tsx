@@ -285,7 +285,7 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                     <div className="flex justify-between">
                                         <span className="text-textSecondary">Proposed Outcome:</span>
                                         <span className={`font-bold ${proposedResult ? 'text-green-500' : 'text-red-500'}`}>
-                                            {proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
+                                            {proposedResult ? (bet?.optionA?.label || 'YES') : (bet?.optionB?.label || 'NO')}
                                         </span>
                                     </div>
                                     {evidenceUrl && (
