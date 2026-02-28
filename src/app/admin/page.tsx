@@ -289,6 +289,12 @@ export default function AdminDashboard() {
                             User Management
                         </button>
                         <button
+                            onClick={() => setActiveTab('verifications')}
+                            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-1 ${activeTab === 'verifications' ? 'bg-yellow-500 text-black' : 'text-textSecondary hover:text-yellow-500 bg-white/5'}`}
+                        >
+                            🛡️ Verifications ({bets.filter(b => b.onChainState === 2).length})
+                        </button>
+                        <button
                             onClick={() => setActiveTab('disputes')}
                             className={`px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'disputes' ? 'bg-red-500 text-white' : 'text-textSecondary hover:text-red-500 bg-white/5'}`}
                         >
@@ -337,6 +343,66 @@ export default function AdminDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* VERIFICATIONS TAB CONTENT */}
+            {
+                activeTab === 'verifications' && (
+                    <div className="bg-surface border border-yellow-500/20 rounded-2xl overflow-hidden animate-fade-in mb-8">
+                        <div className="px-6 py-4 border-b border-white/5 bg-yellow-500/5">
+                            <h2 className="text-xl font-bold text-yellow-500 flex items-center gap-2">
+                                <Shield className="w-5 h-5" />
+                                Pending Verifications
+                            </h2>
+                            <p className="text-sm text-yellow-500/60">Markets that have a proposed outcome awaiting confirmation.</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-black/20">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Market</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Pot</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {bets.filter(b => b.onChainState === 2).map(bet => (
+                                        <tr key={bet.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-white">@{bet.username}</div>
+                                                <div className="text-xs text-textSecondary">{bet.type}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-green-400 font-bold">${bet.totalPot.toFixed(2)}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
+                                                    🟡 PENDING
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <button
+                                                    onClick={() => handleOpenResolveModal(bet)}
+                                                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-bold text-sm hover:bg-yellow-500 transition-colors shadow-[0_0_10px_rgba(202,138,4,0.4)] flex items-center gap-2"
+                                                >
+                                                    🔍 VERIFICAR
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {bets.filter(b => b.onChainState === 2).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-textSecondary">
+                                                <Shield className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                                                <p className="text-lg font-bold text-white/20">No Pending Verifications</p>
+                                                <p className="text-sm">All markets are clear.</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* DISPUTES TAB CONTENT */}
             {
@@ -726,9 +792,14 @@ export default function AdminDashboard() {
                                                                 {(bet.status === 'active' && bet.onChainState !== 4) && (
                                                                     <button
                                                                         onClick={() => handleOpenResolveModal(bet)}
-                                                                        className="text-xs bg-red-500/20 text-red-500 border border-red-500 rounded px-2 py-1 hover:bg-red-500/30 transition-colors font-bold"
+                                                                        className={`text-xs border rounded px-2 py-1 transition-colors font-bold whitespace-nowrap ${bet.onChainState === 3
+                                                                            ? 'bg-purple-500/20 text-purple-400 border-purple-500 hover:bg-purple-500/30'
+                                                                            : bet.onChainState === 2
+                                                                                ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500 hover:bg-yellow-500/30'
+                                                                                : 'bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/30'
+                                                                            }`}
                                                                     >
-                                                                        ⚖️ Resolve
+                                                                        ⚖️ {bet.onChainState === 3 ? 'Resolve Dispute' : bet.onChainState === 2 ? 'Verify' : 'Resolve'}
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -823,6 +894,7 @@ export default function AdminDashboard() {
                 betId={selectedBet?.id}
                 username={selectedBet?.username}
                 knownOnChainState={selectedBet?.onChainState}
+                bet={selectedBet}
             />
         </div >
     );
