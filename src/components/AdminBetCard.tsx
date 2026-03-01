@@ -976,7 +976,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         <div className="flex items-center gap-1.5 text-xs font-mono text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
                             <Clock className="w-3 h-3 text-primary" />
                             <span suppressHydrationWarning>
-                                {formatTimeRemaining()}
+                                {getTimeDisplay()}
                             </span>
                         </div>
                     )}
