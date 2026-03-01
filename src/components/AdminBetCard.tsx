@@ -262,8 +262,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const yesDataArray = (yesBetData as [bigint, bigint, string]) || [BigInt(0), BigInt(0), ''];
     const noDataArray = (noBetData as [bigint, bigint, string]) || [BigInt(0), BigInt(0), ''];
 
-    const userYesAmount = yesDataArray[0];
-    const userNoAmount = noDataArray[0];
+    const userYesAmount = yesDataArray[0];  // USDC deposited on YES
+    const userNoAmount = noDataArray[0];    // USDC deposited on NO
+    const userYesShares = yesDataArray[1];  // Shares earned on YES
+    const userNoShares = noDataArray[1];    // Shares earned on NO
 
     // Determine shares based on result
     let userShares = BigInt(0);
@@ -274,15 +276,17 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     const normalizedResult = resultString;
 
     if (normalizedResult === 'void' || normalizedResult === 'draw') userShares = userYesAmount + userNoAmount;
-    else if (normalizedResult === 'yes') userShares = userYesAmount;
-    else if (normalizedResult === 'no') userShares = userNoAmount;
+    else if (normalizedResult === 'yes') userShares = userYesShares;
+    else if (normalizedResult === 'no') userShares = userNoShares;
 
     // DEBUG LOGS
     useEffect(() => {
         if (bet.status !== 'active' || isMarketResolved) {
             console.log(`[DEBUG] Bet: ${bet.id}`);
             console.log(`[DEBUG] Chain Result: ${normalizedResult}`);
-            console.log(`[DEBUG] User Shares: ${userShares}`);
+            console.log(`[DEBUG] User YES amount=${userYesAmount}, shares=${userYesShares}`);
+            console.log(`[DEBUG] User NO  amount=${userNoAmount}, shares=${userNoShares}`);
+            console.log(`[DEBUG] User Winning Shares: ${userShares}`);
             console.log(`[DEBUG] Has Claimed: ${hasClaimed}`);
         }
     }, [bet, isMarketResolved, normalizedResult, userShares, hasClaimed]);
@@ -293,36 +297,35 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
     // 2. Get Market Info (Moved Up)
     // const { data: marketStruct... } defined above
 
-    // 3. Calculate Actual Payout
+    // 3. Calculate Actual Payout — MUST mirror contract's claimWinnings exactly
     let calculatedPayout = BigInt(0);
     if (marketStruct && userShares > BigInt(0)) {
-        // V9 Struct Indices:
-        // 19: totalYes, 20: totalNo, 8: seedAmount, 9: seedWithdrawn
+        // V10 Market Struct Indices:
+        // 19: totalYes (USDC), 20: totalNo (USDC)
+        // 21: totalSharesYes, 22: totalSharesNo
+        // 23: netDistributable (pool after 21% fees)
 
         const totalYes = BigInt(marketStruct[19] || 0);
         const totalNo = BigInt(marketStruct[20] || 0);
-        const seedYes = BigInt(marketStruct[8] || 0); // V9: seedAmount (total, not per-side)
-        const seedNo = BigInt(0); // V9: no separate seedNo
-
-        // Fee Calculation (20% + 5% = 25%)
-        const feeBps = BigInt(2500);
-        const totalPool = totalYes + totalNo;
-        const fee = (totalPool * feeBps) / BigInt(10000);
-        const distributablePool = totalPool - fee;
+        const totalSharesYes = BigInt(marketStruct[21] || 0);
+        const totalSharesNo = BigInt(marketStruct[22] || 0);
+        const netDistributable = BigInt(marketStruct[23] || 0);
 
         if (normalizedResult === 'void') {
-            // VOID REFUND (Contract V6.1 Line 398): Returns Exact Amount (No Fee)
-            // payout = yesBet.amount + noBet.amount
+            // CANCELLED: Full Refund (no fees) — contract uses amount, not shares
             calculatedPayout = userYesAmount + userNoAmount;
+        } else if (normalizedResult === 'draw') {
+            // DRAW: Pro-rata refund from netDistributable based on USDC amount
+            const userTotalAmount = userYesAmount + userNoAmount;
+            const totalPoolAmount = totalYes + totalNo;
+            if (userTotalAmount > BigInt(0) && totalPoolAmount > BigInt(0)) {
+                calculatedPayout = (userTotalAmount * netDistributable) / totalPoolAmount;
+            }
         } else {
-            // Winner Logic
-            // Eligible Shares = WinningTotal - WinningSeed
-            const winningPoolTotal = normalizedResult === 'yes' ? totalYes : totalNo;
-            const winningSeed = normalizedResult === 'yes' ? seedYes : seedNo;
-            const eligibleShares = winningPoolTotal - winningSeed;
-
-            if (eligibleShares > BigInt(0)) {
-                calculatedPayout = (userShares * distributablePool) / eligibleShares;
+            // YES or NO: Parimutuel payout from netDistributable based on SHARES
+            const totalWinningShares = normalizedResult === 'yes' ? totalSharesYes : totalSharesNo;
+            if (totalWinningShares > BigInt(0)) {
+                calculatedPayout = (userShares * netDistributable) / totalWinningShares;
             }
         }
     }
