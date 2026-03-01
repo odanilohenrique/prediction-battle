@@ -1305,7 +1305,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                         {/* V10: Verify Button - deadline-aware */}
                         {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
                             // Market is on-chain
-                            (isMarketProposed || isMarketDisputed || deadlineReached) ? (
+                            (isMarketProposed || isMarketDisputed || isOpenEnded || deadlineReached) ? (
                                 // Deadline reached OR already proposed/disputed → show action button
                                 <button
                                     onClick={() => setShowVerificationModal(true)}
