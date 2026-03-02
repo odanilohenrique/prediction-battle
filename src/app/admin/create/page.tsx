@@ -366,6 +366,7 @@ export default function CreateCommunityBet() {
                 const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
 
                 // [V10 FIX] Read marketCount BEFORE the transaction to reconstruct the ID later
+                // (Kept as fallback only)
                 let marketCountBefore = BigInt(0);
                 if (publicClient) {
                     try {
@@ -402,37 +403,70 @@ export default function CreateCommunityBet() {
                     }
                     console.log('✅ On-chain creation confirmed');
 
-                    // [V10 FIX] Reconstruct the on-chain market ID
-                    // Contract does: keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount))
-                    // Then converts bytes32 to hex string "0x..." via _bytes32ToString
+                    // [V10 FIX] Extract the real market ID by reconstructing the keccak256 hash
                     try {
-                        // Get block timestamp from the mined block
+                        let realId: string | null = null;
+
                         const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                         const blockTimestamp = block.timestamp;
 
-                        console.log(`[ADMIN CREATE] Block timestamp: ${blockTimestamp}, marketCount used: ${marketCountBefore}`);
+                        // Method 1: Read marketCount AFTER tx (post-increment value) and use count - 1
+                        // This is the most reliable approach since we get the exact nonce used
+                        try {
+                            const marketCountAfter = await publicClient.readContract({
+                                address: getContractAddress(),
+                                abi: PredictionBattleABI.abi,
+                                functionName: 'marketCount',
+                            }) as bigint;
 
-                        // Reconstruct the exact same hash the contract computed
-                        const realId = keccak256(encodePacked(
-                            ['address', 'string', 'uint256', 'uint256'],
-                            [address as `0x${string}`, finalQuestion, blockTimestamp, marketCountBefore]
-                        ));
+                            const nonceUsed = marketCountAfter - BigInt(1);
+                            console.log(`[ADMIN CREATE] marketCount after tx: ${marketCountAfter}, nonce used: ${nonceUsed}`);
 
-                        console.log(`[ADMIN CREATE] Reconstructed Real ID: ${realId}`);
+                            const candidateId = keccak256(encodePacked(
+                                ['address', 'string', 'uint256', 'uint256'],
+                                [address as `0x${string}`, finalQuestion, blockTimestamp, nonceUsed]
+                            ));
 
-                        // Verify it exists on-chain
-                        const marketExists = await publicClient.readContract({
-                            address: getContractAddress(),
-                            abi: PredictionBattleABI.abi,
-                            functionName: 'marketExists',
-                            args: [realId],
-                        }) as boolean;
+                            const exists = await publicClient.readContract({
+                                address: getContractAddress(),
+                                abi: PredictionBattleABI.abi,
+                                functionName: 'marketExists',
+                                args: [candidateId],
+                            }) as boolean;
 
-                        console.log(`[ADMIN CREATE] Market exists on-chain: ${marketExists}`);
-
-                        if (!marketExists) {
-                            throw new Error(`Reconstructed ID ${realId} not found on-chain!`);
+                            if (exists) {
+                                realId = candidateId;
+                                console.log(`[ADMIN CREATE] ✅ ID found (post-tx count): ${realId}`);
+                            }
+                        } catch (err) {
+                            console.warn('[ADMIN CREATE] Post-tx marketCount read failed:', err);
                         }
+
+                        // Method 2: Fallback — use pre-tx marketCount (original approach)
+                        if (!realId) {
+                            console.log(`[ADMIN CREATE] Fallback: using pre-tx marketCount: ${marketCountBefore}`);
+                            const candidateId = keccak256(encodePacked(
+                                ['address', 'string', 'uint256', 'uint256'],
+                                [address as `0x${string}`, finalQuestion, blockTimestamp, marketCountBefore]
+                            ));
+
+                            const exists = await publicClient.readContract({
+                                address: getContractAddress(),
+                                abi: PredictionBattleABI.abi,
+                                functionName: 'marketExists',
+                                args: [candidateId],
+                            }) as boolean;
+
+                            if (exists) {
+                                realId = candidateId;
+                                console.log(`[ADMIN CREATE] ✅ ID found (pre-tx count): ${realId}`);
+                            }
+                        }
+
+                        if (!realId) {
+                            throw new Error('Could not reconstruct market ID with any method');
+                        }
+
 
                         // Sync ID with DB
                         if (data.predictionId && data.predictionId !== realId) {

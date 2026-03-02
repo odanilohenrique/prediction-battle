@@ -47,10 +47,10 @@ export default function EarningsPage() {
                                 </p>
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-purple-400 font-bold">Referral Rewards (5%)</h3>
+                                <h3 className="text-purple-400 font-bold">Rewards (Referral + Reporter)</h3>
                                 <p className="text-sm text-textSecondary leading-relaxed">
-                                    When users bet using your referral link, you earn 5% of their bet amount.
-                                    Share your link to start earning passively!
+                                    <strong>Referral (5%):</strong> Earned when users bet using your link.
+                                    <br /><strong>Reporter (1%):</strong> Earned for correctly verifying market outcomes.
                                 </p>
                             </div>
                             <div className="space-y-2">
