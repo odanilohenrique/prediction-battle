@@ -69,6 +69,7 @@ export default function EarningsCard() {
     const houseBalance = houseBalanceRaw ? Number(formatUnits(houseBalanceRaw as bigint, 6)) : 0;
 
     const totalEarnings = creatorBalance + referrerBalance + bondBalance; // House fees NOT included in personal earnings
+    const hasAnythingToShow = totalEarnings > 0 || (isAdmin && houseBalance > 0);
 
     async function handleWithdrawCreatorFees() {
         if (!address || creatorBalance <= 0) return;
@@ -178,8 +179,8 @@ export default function EarningsCard() {
         }
     }
 
-    // Don't render if not connected or no earnings
-    if (!isConnected || totalEarnings <= 0) {
+    // Don't render if not connected or nothing to show
+    if (!isConnected || !hasAnythingToShow) {
         return null;
     }
 
@@ -231,12 +232,15 @@ export default function EarningsCard() {
                     </div>
                 )}
 
-                {/* Referrer Rewards */}
+                {/* Rewards (Referral + Reporter) */}
                 {referrerBalance > 0 && (
                     <div className="flex items-center justify-between bg-white/5 rounded-xl p-3">
                         <div>
                             <div className="text-sm text-gray-400 flex items-center gap-1">
-                                <Gift className="w-3 h-3" /> Referral Rewards
+                                <Gift className="w-3 h-3" /> Rewards
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                                Referral (5%) + Reporter (1%)
                             </div>
                             <div className="text-lg font-bold text-white">
                                 ${referrerBalance.toFixed(2)} USDC
@@ -289,7 +293,7 @@ export default function EarningsCard() {
             </div>
 
             <p className="text-xs text-gray-500 mt-3">
-                Creator fees: 5% of bets on markets you created. Referral rewards: 5% of bets from users you referred.
+                Creator fees: 5% of bets on markets you created. Rewards: Referral (5% of bets via your link) + Reporter (1% for correct verifications).
             </p>
 
             {/* Admin Section */}
