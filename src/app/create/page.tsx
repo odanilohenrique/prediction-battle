@@ -455,35 +455,69 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [V10 FIX] Reconstruct the on-chain market ID
-                            // Contract does: keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount))
-                            // Then converts bytes32 to hex string "0x..." via _bytes32ToString
+                            // [V10 FIX] Extract the real market ID by reconstructing it and matching against the receipt logs!
+                            // This bypasses any RPC replica lag because we do not need to call `marketExists` on-chain.
                             try {
+                                let realId: string | null = null;
                                 const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                                 const blockTimestamp = block.timestamp;
+                                console.log(`[CREATE PAGE] Block ${receipt.blockNumber}, timestamp: ${blockTimestamp}`);
 
-                                console.log(`[CREATE PAGE] Block timestamp: ${blockTimestamp}, marketCount used: ${marketCountBefore}`);
+                                // 1. Find the MarketCreated log in the receipt
+                                const MARKET_CREATED_SIGNATURE = 'MarketCreated(string,address,uint256,uint256)';
+                                const MARKET_CREATED_TOPIC = keccak256(stringToBytes(MARKET_CREATED_SIGNATURE));
 
-                                // Reconstruct the exact same hash the contract computed
-                                const realId = keccak256(encodePacked(
-                                    ['address', 'string', 'uint256', 'uint256'],
-                                    [address as `0x${string}`, finalQuestion, blockTimestamp, marketCountBefore]
-                                ));
+                                const creationLog = receipt.logs.find(log => log.topics[0] === MARKET_CREATED_TOPIC);
 
-                                console.log(`[CREATE PAGE] Reconstructed Real ID: ${realId}`);
+                                if (creationLog && creationLog.topics.length > 1) {
+                                    const expectedIdHash = creationLog.topics[1]; // keccak256(bytes(realId))
+                                    console.log(`[CREATE PAGE] Found MarketCreated log. Expected ID hash: ${expectedIdHash}`);
 
-                                // Verify it exists on-chain
-                                const marketExists = await publicClient.readContract({
-                                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketExists',
-                                    args: [realId],
-                                }) as boolean;
+                                    // Estimate nonce to sweep
+                                    let baseNonce = BigInt(0);
+                                    try {
+                                        baseNonce = await publicClient.readContract({
+                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                            abi: PredictionBattleABI.abi,
+                                            functionName: 'marketCount',
+                                        }) as bigint;
+                                    } catch (e) {
+                                        console.warn('[CREATE PAGE] Could not read marketCount, sweeping from 0');
+                                        baseNonce = BigInt(20);
+                                    }
 
-                                console.log(`[CREATE PAGE] Market exists on-chain: ${marketExists}`);
+                                    const maxNonce = Number(baseNonce) + 10;
 
-                                if (!marketExists) {
-                                    throw new Error(`Reconstructed ID ${realId} not found on-chain!`);
+                                    // 2. Generate candidates and hash them to match the topic
+                                    for (let n = 0; n < maxNonce && !realId; n++) {
+                                        for (let offset = -10; offset <= 10 && !realId; offset++) {
+                                            const ts = blockTimestamp + BigInt(offset);
+
+                                            const candidateId = keccak256(encodePacked(
+                                                ['address', 'string', 'uint256', 'uint256'],
+                                                [address as `0x${string}`, finalQuestion, ts, BigInt(n)]
+                                            ));
+
+                                            const candidateTopicHash = keccak256(stringToBytes(candidateId));
+
+                                            if (candidateTopicHash === expectedIdHash) {
+                                                realId = candidateId;
+                                                console.log(`[CREATE PAGE] ✅ ID matched from logs! candidate=${realId}, nonce=${n}, offset=${offset}s`);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    console.warn('[CREATE PAGE] MarketCreated log not found in receipt!');
+                                }
+
+                                if (!realId) {
+                                    console.error(`[CREATE PAGE] ❌ Reconstruction failed to match logs. Debug info:`, {
+                                        creator: address,
+                                        question: finalQuestion.slice(0, 50),
+                                        blockTimestamp: blockTimestamp.toString(),
+                                        blockNumber: receipt.blockNumber.toString(),
+                                    });
+                                    throw new Error('Could not reconstruct market ID from transaction logs');
                                 }
 
                                 // Sync ID with DB
