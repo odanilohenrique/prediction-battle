@@ -403,96 +403,72 @@ export default function CreateCommunityBet() {
                     }
                     console.log('✅ On-chain creation confirmed');
 
-                    // [V10 FIX] Extract the real market ID by reconstructing the keccak256 hash
-                    // The contract computes: keccak256(abi.encodePacked(msg.sender, _question, block.timestamp, marketCount++))
-                    // We must use the EXACT same inputs. Key: read marketCount at the TX's block, not "latest".
+                    // [V10 FIX] Extract the real market ID by reconstructing it and matching against the receipt logs!
+                    // This bypasses any RPC replica lag because we do not need to call `marketExists` on-chain.
+                    // The `MarketCreated` event emits the string ID as an indexed parameter, which hashes to `keccak256(bytes(id))`.
                     try {
                         let realId: string | null = null;
-
                         const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                         const blockTimestamp = block.timestamp;
                         console.log(`[ADMIN CREATE] Block ${receipt.blockNumber}, timestamp: ${blockTimestamp}`);
 
-                        // Method 1 (most reliable): Read marketCount AT the TX's block number.
-                        // After the TX, marketCount = (nonce used) + 1, so nonce = marketCount@block - 1
-                        try {
-                            const marketCountAtBlock = await publicClient.readContract({
-                                address: getContractAddress(),
-                                abi: PredictionBattleABI.abi,
-                                functionName: 'marketCount',
-                                blockNumber: receipt.blockNumber,
-                            }) as bigint;
+                        // 1. Find the MarketCreated log in the receipt
+                        const MARKET_CREATED_SIGNATURE = 'MarketCreated(string,address,uint256,uint256)';
+                        const MARKET_CREATED_TOPIC = keccak256(stringToBytes(MARKET_CREATED_SIGNATURE));
 
-                            const nonceUsed = marketCountAtBlock - BigInt(1);
-                            console.log(`[ADMIN CREATE] marketCount at block ${receipt.blockNumber}: ${marketCountAtBlock}, nonce: ${nonceUsed}`);
+                        const creationLog = receipt.logs.find(log => log.topics[0] === MARKET_CREATED_TOPIC);
 
-                            const candidateId = keccak256(encodePacked(
-                                ['address', 'string', 'uint256', 'uint256'],
-                                [address as `0x${string}`, finalQuestion, blockTimestamp, nonceUsed]
-                            ));
+                        if (creationLog && creationLog.topics.length > 1) {
+                            const expectedIdHash = creationLog.topics[1]; // This is keccak256(bytes(realId))
+                            console.log(`[ADMIN CREATE] Found MarketCreated log. Expected ID hash: ${expectedIdHash}`);
 
-                            const exists = await publicClient.readContract({
-                                address: getContractAddress(),
-                                abi: PredictionBattleABI.abi,
-                                functionName: 'marketExists',
-                                args: [candidateId],
-                            }) as boolean;
-
-                            if (exists) {
-                                realId = candidateId;
-                                console.log(`[ADMIN CREATE] ✅ ID found (block-exact count): ${realId}`);
-                            }
-                        } catch (err) {
-                            console.warn('[ADMIN CREATE] Block-exact marketCount read failed:', err);
-                        }
-
-                        // Method 2: Fallback — sweep nonces from pre-tx count to latest count
-                        if (!realId) {
-                            console.log(`[ADMIN CREATE] Method 1 failed. Sweeping nonces...`);
+                            // We need an estimate of the nonce. We'll sweep a wide range of nonces and timestamps.
+                            let baseNonce = BigInt(0);
                             try {
-                                const marketCountLatest = await publicClient.readContract({
+                                baseNonce = await publicClient.readContract({
                                     address: getContractAddress(),
                                     abi: PredictionBattleABI.abi,
                                     functionName: 'marketCount',
                                 }) as bigint;
+                            } catch (e) {
+                                console.warn('[ADMIN CREATE] Could not read marketCount, sweeping from 0');
+                                baseNonce = BigInt(20); // Sweep up to 30 just in case
+                            }
 
-                                // Sweep from marketCountBefore to marketCountLatest
-                                const startNonce = marketCountBefore > BigInt(0) ? marketCountBefore - BigInt(1) : BigInt(0);
-                                const endNonce = marketCountLatest;
-                                console.log(`[ADMIN CREATE] Sweeping nonces ${startNonce} to ${endNonce}...`);
+                            const maxNonce = Number(baseNonce) + 10;
 
-                                for (let n = startNonce; n < endNonce && !realId; n++) {
+                            // 2. Generate candidates and hash them to match the topic
+                            for (let n = 0; n < maxNonce && !realId; n++) {
+                                for (let offset = -10; offset <= 10 && !realId; offset++) {
+                                    const ts = blockTimestamp + BigInt(offset);
+
+                                    // How the contract creates the raw bytes32 ID:
                                     const candidateId = keccak256(encodePacked(
                                         ['address', 'string', 'uint256', 'uint256'],
-                                        [address as `0x${string}`, finalQuestion, blockTimestamp, n]
+                                        [address as `0x${string}`, finalQuestion, ts, BigInt(n)]
                                     ));
 
-                                    const exists = await publicClient.readContract({
-                                        address: getContractAddress(),
-                                        abi: PredictionBattleABI.abi,
-                                        functionName: 'marketExists',
-                                        args: [candidateId],
-                                    }) as boolean;
+                                    // How Solidity hashes it for the indexed topic:
+                                    const candidateTopicHash = keccak256(stringToBytes(candidateId));
 
-                                    if (exists) {
+                                    if (candidateTopicHash === expectedIdHash) {
                                         realId = candidateId;
-                                        console.log(`[ADMIN CREATE] ✅ ID found (sweep nonce=${n}): ${realId}`);
+                                        console.log(`[ADMIN CREATE] ✅ ID matched from logs! candidate=${realId}, nonce=${n}, offset=${offset}s`);
                                     }
                                 }
-                            } catch (err) {
-                                console.warn('[ADMIN CREATE] Nonce sweep failed:', err);
                             }
+                        } else {
+                            console.warn('[ADMIN CREATE] MarketCreated log not found in receipt!');
                         }
 
                         if (!realId) {
-                            console.error(`[ADMIN CREATE] ❌ Reconstruction failed. Debug info:`, {
+                            console.error(`[ADMIN CREATE] ❌ Reconstruction failed to match logs. Debug info:`, {
                                 creator: address,
                                 question: finalQuestion.slice(0, 50),
                                 blockTimestamp: blockTimestamp.toString(),
-                                marketCountBefore: marketCountBefore.toString(),
                                 blockNumber: receipt.blockNumber.toString(),
                             });
-                            throw new Error('Could not reconstruct market ID with any method');
+                            throw new Error('Could not reconstruct market ID from transaction logs');
                         }
 
                         // Sync ID with DB
