@@ -416,20 +416,7 @@ export default function CreateCommunityBet() {
                     if (!skipCreation) {
                         const bonusDuration = Math.floor(duration / 4); // 25% for boost
 
-                        // [V10 FIX] Read marketCount BEFORE the transaction to reconstruct the ID later
-                        let marketCountBefore = BigInt(0);
-                        if (publicClient) {
-                            try {
-                                marketCountBefore = await publicClient.readContract({
-                                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketCount',
-                                }) as bigint;
-                                console.log(`[CREATE PAGE] marketCount before tx: ${marketCountBefore}`);
-                            } catch (err) {
-                                console.warn('[CREATE PAGE] Could not read marketCount:', err);
-                            }
-                        }
+
 
                         const contractHash = await writeContractAsync({
                             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
@@ -455,8 +442,9 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [V10 FIX] Extract the real market ID by reconstructing it and matching against the receipt logs!
-                            // This bypasses any RPC replica lag because we do not need to call `marketExists` on-chain.
+                            // [MAINNET FIX] Extract real market ID — ZERO guesswork approach.
+                            // Reads marketCount at the EXACT confirmed block (no RPC lag possible).
+                            // Combined with exact block.timestamp, computes the ID in O(1).
                             try {
                                 let realId: string | null = null;
                                 const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
@@ -466,43 +454,67 @@ export default function CreateCommunityBet() {
                                 // 1. Find the MarketCreated log in the receipt
                                 const MARKET_CREATED_SIGNATURE = 'MarketCreated(string,address,uint256,uint256)';
                                 const MARKET_CREATED_TOPIC = keccak256(stringToBytes(MARKET_CREATED_SIGNATURE));
-
                                 const creationLog = receipt.logs.find(log => log.topics[0] === MARKET_CREATED_TOPIC);
 
                                 if (creationLog && creationLog.topics.length > 1) {
-                                    const expectedIdHash = creationLog.topics[1]; // keccak256(bytes(realId))
+                                    const expectedIdHash = creationLog.topics[1];
                                     console.log(`[CREATE PAGE] Found MarketCreated log. Expected ID hash: ${expectedIdHash}`);
 
-                                    // Estimate nonce to sweep
-                                    let baseNonce = BigInt(0);
+                                    // 2. Read marketCount at the EXACT confirmed block — eliminates RPC lag entirely
+                                    let marketCountAtBlock = BigInt(0);
                                     try {
-                                        baseNonce = await publicClient.readContract({
+                                        marketCountAtBlock = await publicClient.readContract({
                                             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                                             abi: PredictionBattleABI.abi,
                                             functionName: 'marketCount',
+                                            blockNumber: receipt.blockNumber, // KEY: exact block, zero lag
                                         }) as bigint;
+                                        console.log(`[CREATE PAGE] marketCount at block ${receipt.blockNumber}: ${marketCountAtBlock}`);
                                     } catch (e) {
-                                        console.warn('[CREATE PAGE] Could not read marketCount, sweeping from 0');
-                                        baseNonce = BigInt(20);
+                                        console.warn('[CREATE PAGE] Could not read marketCount at block, falling back to latest');
+                                        try {
+                                            marketCountAtBlock = await publicClient.readContract({
+                                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                                abi: PredictionBattleABI.abi,
+                                                functionName: 'marketCount',
+                                            }) as bigint;
+                                        } catch { marketCountAtBlock = BigInt(50); }
                                     }
 
-                                    const maxNonce = Number(baseNonce) + 10;
+                                    // 3. The nonce used was marketCount-1 (post-increment in contract).
+                                    //    Sweep ±3 for edge case of multiple createMarket in same block.
+                                    //    Timestamp is exact from the block — no offset sweep needed.
+                                    const exactNonce = Number(marketCountAtBlock) - 1;
+                                    const minNonce = Math.max(0, exactNonce - 3);
+                                    const maxNonce = exactNonce + 3;
 
-                                    // 2. Generate candidates and hash them to match the topic
-                                    for (let n = 0; n < maxNonce && !realId; n++) {
-                                        for (let offset = -10; offset <= 10 && !realId; offset++) {
-                                            const ts = blockTimestamp + BigInt(offset);
+                                    for (let n = minNonce; n <= maxNonce && !realId; n++) {
+                                        const candidateId = keccak256(encodePacked(
+                                            ['address', 'string', 'uint256', 'uint256'],
+                                            [address as `0x${string}`, finalQuestion, blockTimestamp, BigInt(n)]
+                                        ));
+                                        const candidateTopicHash = keccak256(stringToBytes(candidateId));
+                                        if (candidateTopicHash === expectedIdHash) {
+                                            realId = candidateId;
+                                            console.log(`[CREATE PAGE] ✅ ID matched! nonce=${n}, ID=${realId}`);
+                                        }
+                                    }
 
-                                            const candidateId = keccak256(encodePacked(
-                                                ['address', 'string', 'uint256', 'uint256'],
-                                                [address as `0x${string}`, finalQuestion, ts, BigInt(n)]
-                                            ));
-
-                                            const candidateTopicHash = keccak256(stringToBytes(candidateId));
-
-                                            if (candidateTopicHash === expectedIdHash) {
-                                                realId = candidateId;
-                                                console.log(`[CREATE PAGE] ✅ ID matched from logs! candidate=${realId}, nonce=${n}, offset=${offset}s`);
+                                    // 4. Ultimate fallback: wider sweep (should never be needed)
+                                    if (!realId) {
+                                        console.warn('[CREATE PAGE] Exact match failed, running wide sweep...');
+                                        for (let n = 0; n <= Number(marketCountAtBlock) + 10 && !realId; n++) {
+                                            for (let offset = -2; offset <= 2 && !realId; offset++) {
+                                                const ts = blockTimestamp + BigInt(offset);
+                                                const candidateId = keccak256(encodePacked(
+                                                    ['address', 'string', 'uint256', 'uint256'],
+                                                    [address as `0x${string}`, finalQuestion, ts, BigInt(n)]
+                                                ));
+                                                const candidateTopicHash = keccak256(stringToBytes(candidateId));
+                                                if (candidateTopicHash === expectedIdHash) {
+                                                    realId = candidateId;
+                                                    console.log(`[CREATE PAGE] ✅ ID matched (fallback)! nonce=${n}, offset=${offset}, ID=${realId}`);
+                                                }
                                             }
                                         }
                                     }
@@ -511,12 +523,6 @@ export default function CreateCommunityBet() {
                                 }
 
                                 if (!realId) {
-                                    console.error(`[CREATE PAGE] ❌ Reconstruction failed to match logs. Debug info:`, {
-                                        creator: address,
-                                        question: finalQuestion.slice(0, 50),
-                                        blockTimestamp: blockTimestamp.toString(),
-                                        blockNumber: receipt.blockNumber.toString(),
-                                    });
                                     throw new Error('Could not reconstruct market ID from transaction logs');
                                 }
 
