@@ -442,9 +442,7 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [ZERO-LATENCY FIX] Reconstruct market ID fully offline
-                            // RPC nodes are often 1-2 blocks behind and return 'false' for marketExists() immediately after creation.
-                            // We bypass the RPC by double-hashing our candidate ID against the MarketCreated event topic in the receipt.
+                            // [ZERO-LATENCY FIX + DEEP DEBUG] Reconstruct market ID fully offline
                             try {
                                 let realId: string | null = null;
                                 const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
@@ -453,15 +451,21 @@ export default function CreateCommunityBet() {
                                 const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
                                 const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
 
+                                console.log('[CREATE PAGE DEBUG] tx.from:', receipt.from);
+                                console.log('[CREATE PAGE DEBUG] finalQuestion:', finalQuestion);
+                                console.log('[CREATE PAGE DEBUG] blockTimestamp:', blockTimestamp);
+                                console.log('[CREATE PAGE DEBUG] receipt.logs length:', receipt.logs.length);
+
                                 if (!creationLog || !creationLog.topics[1]) {
-                                    throw new Error('MarketCreated log not found in transaction receipt');
+                                    throw new Error(`DEBUG_1: MarketCreated log not found. Logs: ${receipt.logs.length}. Signature: ${marketCreatedSignature}`);
                                 }
 
-                                const targetHash = creationLog.topics[1]; // This is keccak256(bytes(realId)) emitted by the contract
+                                const targetHash = creationLog.topics[1];
+                                console.log(`[CREATE PAGE DEBUG] Target Hash from log: ${targetHash}`);
 
-                                console.log(`[CREATE PAGE] Zero-Latency Engine: Searching for hash ${targetHash}`);
+                                let debugLastCandidateHash = '';
+                                let debugLastCandidateId = '';
 
-                                // Brute-force the local nonce mathematically. Costs 0 network requests.
                                 for (let n = 0; n < 100 && !realId; n++) {
                                     const candidateId = keccak256(encodePacked(
                                         ['address', 'string', 'uint256', 'uint256'],
@@ -470,6 +474,12 @@ export default function CreateCommunityBet() {
 
                                     const candidateHash = keccak256(stringToBytes(candidateId));
 
+                                    if (n === 0) {
+                                        debugLastCandidateId = candidateId;
+                                        debugLastCandidateHash = candidateHash;
+                                        console.log(`[CREATE PAGE DEBUG] Nonce 0 candidate ID: ${candidateId}, Hash: ${candidateHash}`);
+                                    }
+
                                     if (candidateHash === targetHash) {
                                         realId = candidateId;
                                         console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ID=${realId}`);
@@ -477,7 +487,7 @@ export default function CreateCommunityBet() {
                                 }
 
                                 if (!realId) {
-                                    throw new Error('Could not find market on-chain after creation');
+                                    throw new Error(`DEBUG_2: Failed to match hash. Target: ${targetHash}. N0_ID: ${debugLastCandidateId}. N0_Hash: ${debugLastCandidateHash}. from: ${receipt.from}, ts: ${blockTimestamp}. question: "${finalQuestion}"`);
                                 }
 
                                 // Step 4: Sync ID with database
