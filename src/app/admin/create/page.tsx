@@ -436,7 +436,7 @@ export default function CreateCommunityBet() {
                         for (let n = Number(mcBefore); n < Number(mcAfter) + 3 && !realId; n++) {
                             const candidateId = keccak256(encodePacked(
                                 ['address', 'string', 'uint256', 'uint256'],
-                                [address as `0x${string}`, finalQuestion, blockTimestamp, BigInt(n)]
+                                [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
                             ));
 
                             try {
@@ -463,7 +463,7 @@ export default function CreateCommunityBet() {
                             for (let n = 0; n <= Number(mcAfter) + 10 && !realId; n++) {
                                 const candidateId = keccak256(encodePacked(
                                     ['address', 'string', 'uint256', 'uint256'],
-                                    [address as `0x${string}`, finalQuestion, blockTimestamp, BigInt(n)]
+                                    [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
                                 ));
                                 try {
                                     const exists = await publicClient.readContract({
