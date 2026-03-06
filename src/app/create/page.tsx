@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther, encodePacked, keccak256, stringToBytes } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -442,93 +442,101 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [MAINNET FIX] Extract real market ID — ZERO guesswork approach.
-                            // Reads marketCount at the EXACT confirmed block (no RPC lag possible).
-                            // Combined with exact block.timestamp, computes the ID in O(1).
+                            // [PROFESSIONAL FIX] Reconstruct market ID and verify directly on-chain.
+                            // No event parsing. No stringToBytes. No double-hashing.
+                            // Simply: compute candidate IDs → call marketExists() → match.
                             try {
                                 let realId: string | null = null;
                                 const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                                 const blockTimestamp = block.timestamp;
                                 console.log(`[CREATE PAGE] Block ${receipt.blockNumber}, timestamp: ${blockTimestamp}`);
 
-                                // 1. Find the MarketCreated log in the receipt
-                                const MARKET_CREATED_SIGNATURE = 'MarketCreated(string,address,uint256,uint256)';
-                                const MARKET_CREATED_TOPIC = keccak256(stringToBytes(MARKET_CREATED_SIGNATURE));
-                                const creationLog = receipt.logs.find(log => log.topics[0] === MARKET_CREATED_TOPIC);
-
-                                if (creationLog && creationLog.topics.length > 1) {
-                                    const expectedIdHash = creationLog.topics[1];
-                                    console.log(`[CREATE PAGE] Found MarketCreated log. Expected ID hash: ${expectedIdHash}`);
-
-                                    // 2. Read marketCount at the EXACT confirmed block — eliminates RPC lag entirely
-                                    let marketCountAtBlock = BigInt(0);
-                                    try {
-                                        marketCountAtBlock = await publicClient.readContract({
+                                // Step 1: Determine nonce range
+                                let mcBefore = BigInt(0);
+                                let mcAfter = BigInt(0);
+                                try {
+                                    const [before, after] = await Promise.all([
+                                        publicClient.readContract({
                                             address: CURRENT_CONFIG.contractAddress as `0x${string}`,
                                             abi: PredictionBattleABI.abi,
                                             functionName: 'marketCount',
-                                            blockNumber: receipt.blockNumber, // KEY: exact block, zero lag
+                                            blockNumber: receipt.blockNumber - 1n,
+                                        }) as Promise<bigint>,
+                                        publicClient.readContract({
+                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                            abi: PredictionBattleABI.abi,
+                                            functionName: 'marketCount',
+                                            blockNumber: receipt.blockNumber,
+                                        }) as Promise<bigint>,
+                                    ]);
+                                    mcBefore = before;
+                                    mcAfter = after;
+                                    console.log(`[CREATE PAGE] marketCount: ${mcBefore} (block-1) → ${mcAfter} (block)`);
+                                } catch (e) {
+                                    console.warn('[CREATE PAGE] Historical read failed, using latest');
+                                    try {
+                                        mcAfter = await publicClient.readContract({
+                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                            abi: PredictionBattleABI.abi,
+                                            functionName: 'marketCount',
                                         }) as bigint;
-                                        console.log(`[CREATE PAGE] marketCount at block ${receipt.blockNumber}: ${marketCountAtBlock}`);
-                                    } catch (e) {
-                                        console.warn('[CREATE PAGE] Could not read marketCount at block, falling back to latest');
-                                        try {
-                                            marketCountAtBlock = await publicClient.readContract({
-                                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                                abi: PredictionBattleABI.abi,
-                                                functionName: 'marketCount',
-                                            }) as bigint;
-                                        } catch { marketCountAtBlock = BigInt(50); }
+                                        mcBefore = mcAfter > 5n ? mcAfter - 5n : 0n;
+                                    } catch { mcAfter = BigInt(50); mcBefore = BigInt(0); }
+                                }
+
+                                // Step 2: Compute candidate IDs and verify with marketExists()
+                                for (let n = Number(mcBefore); n < Number(mcAfter) + 3 && !realId; n++) {
+                                    const candidateId = keccak256(encodePacked(
+                                        ['address', 'string', 'uint256', 'uint256'],
+                                        [address as `0x${string}`, finalQuestion, blockTimestamp, BigInt(n)]
+                                    ));
+                                    try {
+                                        const exists = await publicClient.readContract({
+                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                            abi: PredictionBattleABI.abi,
+                                            functionName: 'marketExists',
+                                            args: [candidateId],
+                                            blockNumber: receipt.blockNumber,
+                                        }) as boolean;
+                                        if (exists) {
+                                            realId = candidateId;
+                                            console.log(`[CREATE PAGE] ✅ Market verified on-chain! nonce=${n}, ID=${realId}`);
+                                        }
+                                    } catch (verifyErr) {
+                                        console.warn(`[CREATE PAGE] marketExists check failed for nonce ${n}:`, verifyErr);
                                     }
+                                }
 
-                                    // 3. The nonce used was marketCount-1 (post-increment in contract).
-                                    //    Sweep ±3 for edge case of multiple createMarket in same block.
-                                    //    Timestamp is exact from the block — no offset sweep needed.
-                                    const exactNonce = Number(marketCountAtBlock) - 1;
-                                    const minNonce = Math.max(0, exactNonce - 3);
-                                    const maxNonce = exactNonce + 3;
-
-                                    for (let n = minNonce; n <= maxNonce && !realId; n++) {
+                                // Step 3: Ultimate fallback
+                                if (!realId) {
+                                    console.warn('[CREATE PAGE] Primary sweep missed. Running fallback from nonce 0...');
+                                    for (let n = 0; n <= Number(mcAfter) + 10 && !realId; n++) {
                                         const candidateId = keccak256(encodePacked(
                                             ['address', 'string', 'uint256', 'uint256'],
                                             [address as `0x${string}`, finalQuestion, blockTimestamp, BigInt(n)]
                                         ));
-                                        const candidateTopicHash = keccak256(stringToBytes(candidateId));
-                                        if (candidateTopicHash === expectedIdHash) {
-                                            realId = candidateId;
-                                            console.log(`[CREATE PAGE] ✅ ID matched! nonce=${n}, ID=${realId}`);
-                                        }
-                                    }
-
-                                    // 4. Ultimate fallback: wider sweep (should never be needed)
-                                    if (!realId) {
-                                        console.warn('[CREATE PAGE] Exact match failed, running wide sweep...');
-                                        for (let n = 0; n <= Number(marketCountAtBlock) + 10 && !realId; n++) {
-                                            for (let offset = -2; offset <= 2 && !realId; offset++) {
-                                                const ts = blockTimestamp + BigInt(offset);
-                                                const candidateId = keccak256(encodePacked(
-                                                    ['address', 'string', 'uint256', 'uint256'],
-                                                    [address as `0x${string}`, finalQuestion, ts, BigInt(n)]
-                                                ));
-                                                const candidateTopicHash = keccak256(stringToBytes(candidateId));
-                                                if (candidateTopicHash === expectedIdHash) {
-                                                    realId = candidateId;
-                                                    console.log(`[CREATE PAGE] ✅ ID matched (fallback)! nonce=${n}, offset=${offset}, ID=${realId}`);
-                                                }
+                                        try {
+                                            const exists = await publicClient.readContract({
+                                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                                                abi: PredictionBattleABI.abi,
+                                                functionName: 'marketExists',
+                                                args: [candidateId],
+                                            }) as boolean;
+                                            if (exists) {
+                                                realId = candidateId;
+                                                console.log(`[CREATE PAGE] ✅ Market found (fallback)! nonce=${n}, ID=${realId}`);
                                             }
-                                        }
+                                        } catch { }
                                     }
-                                } else {
-                                    console.warn('[CREATE PAGE] MarketCreated log not found in receipt!');
                                 }
 
                                 if (!realId) {
-                                    throw new Error('Could not reconstruct market ID from transaction logs');
+                                    throw new Error('Could not find market on-chain after creation');
                                 }
 
-                                // Sync ID with DB
+                                // Step 4: Sync ID with database
                                 if (data.predictionId && data.predictionId !== realId) {
-                                    console.log(`[CREATE PAGE] Syncing DB ID ${data.predictionId} -> ${realId}`);
+                                    console.log(`[CREATE PAGE] Syncing DB: ${data.predictionId} → ${realId}`);
                                     const syncRes = await fetch('/api/predictions/update-id', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
@@ -536,12 +544,12 @@ export default function CreateCommunityBet() {
                                     });
                                     const syncData = await syncRes.json();
                                     if (!syncRes.ok || !syncData.success) {
-                                        throw new Error(`DB Sync failed: ${syncData.error || 'Unknown error'}`);
+                                        throw new Error(`DB Sync failed: ${syncData.error || 'Unknown'}`);
                                     }
-                                    console.log('[CREATE PAGE] ✅ DB ID Synced successfully!');
+                                    console.log('[CREATE PAGE] ✅ DB synced!');
                                 }
                             } catch (e) {
-                                console.error('[CREATE PAGE] ❌ Could not derive/sync real ID:', e);
+                                console.error('[CREATE PAGE] ❌ ID sync failed:', e);
                             }
 
                         }
