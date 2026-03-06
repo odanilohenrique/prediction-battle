@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain } from 'wagmi';
-import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256, stringToBytes } from 'viem';
 import { useModal } from '@/providers/ModalProvider';
 import { getContractAddress } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -396,92 +396,34 @@ export default function CreateCommunityBet() {
                         let realId: string | null = null;
                         const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                         const blockTimestamp = block.timestamp;
-                        console.log(`[ADMIN CREATE] Block ${receipt.blockNumber}, timestamp: ${blockTimestamp}`);
 
-                        // Step 1: Determine the nonce range by reading marketCount BEFORE and AFTER our tx
-                        let mcBefore = BigInt(0);
-                        let mcAfter = BigInt(0);
-                        try {
-                            const [before, after] = await Promise.all([
-                                publicClient.readContract({
-                                    address: getContractAddress(),
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketCount',
-                                    blockNumber: receipt.blockNumber - 1n,
-                                }) as Promise<bigint>,
-                                publicClient.readContract({
-                                    address: getContractAddress(),
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketCount',
-                                    blockNumber: receipt.blockNumber,
-                                }) as Promise<bigint>,
-                            ]);
-                            mcBefore = before;
-                            mcAfter = after;
-                            console.log(`[ADMIN CREATE] marketCount: ${mcBefore} (block-1) → ${mcAfter} (block)`);
-                        } catch (e) {
-                            console.warn('[ADMIN CREATE] Historical read failed, using latest');
-                            try {
-                                mcAfter = await publicClient.readContract({
-                                    address: getContractAddress(),
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketCount',
-                                }) as bigint;
-                                mcBefore = mcAfter > 5n ? mcAfter - 5n : 0n;
-                            } catch { mcAfter = BigInt(50); mcBefore = BigInt(0); }
+                        const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
+                        const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
+
+                        if (!creationLog || !creationLog.topics[1]) {
+                            throw new Error('MarketCreated log not found in transaction receipt');
                         }
 
-                        // Step 2: Compute candidate IDs and verify each with marketExists()
-                        // The nonce used was somewhere in [mcBefore, mcAfter). Try exact range first.
-                        for (let n = Number(mcBefore); n < Number(mcAfter) + 3 && !realId; n++) {
+                        const targetHash = creationLog.topics[1]; // keccak256(bytes(realId)) emitted by the contract
+                        console.log(`[ADMIN CREATE] Zero-Latency Engine: Searching for hash ${targetHash}`);
+
+                        // Brute-force the local nonce mathematically. Costs 0 network requests.
+                        for (let n = 0; n < 100 && !realId; n++) {
                             const candidateId = keccak256(encodePacked(
                                 ['address', 'string', 'uint256', 'uint256'],
                                 [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
                             ));
 
-                            try {
-                                const exists = await publicClient.readContract({
-                                    address: getContractAddress(),
-                                    abi: PredictionBattleABI.abi,
-                                    functionName: 'marketExists',
-                                    args: [candidateId],
-                                    blockNumber: receipt.blockNumber,
-                                }) as boolean;
+                            const candidateHash = keccak256(stringToBytes(candidateId));
 
-                                if (exists) {
-                                    realId = candidateId;
-                                    console.log(`[ADMIN CREATE] ✅ Market verified on-chain! nonce=${n}, ID=${realId}`);
-                                }
-                            } catch (verifyErr) {
-                                console.warn(`[ADMIN CREATE] marketExists check failed for nonce ${n}:`, verifyErr);
-                            }
-                        }
-
-                        // Step 3: Ultimate fallback — wider nonce sweep from 0
-                        if (!realId) {
-                            console.warn('[ADMIN CREATE] Primary sweep missed. Running fallback from nonce 0...');
-                            for (let n = 0; n <= Number(mcAfter) + 10 && !realId; n++) {
-                                const candidateId = keccak256(encodePacked(
-                                    ['address', 'string', 'uint256', 'uint256'],
-                                    [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
-                                ));
-                                try {
-                                    const exists = await publicClient.readContract({
-                                        address: getContractAddress(),
-                                        abi: PredictionBattleABI.abi,
-                                        functionName: 'marketExists',
-                                        args: [candidateId],
-                                    }) as boolean;
-                                    if (exists) {
-                                        realId = candidateId;
-                                        console.log(`[ADMIN CREATE] ✅ Market found (fallback)! nonce=${n}, ID=${realId}`);
-                                    }
-                                } catch { }
+                            if (candidateHash === targetHash) {
+                                realId = candidateId;
+                                console.log(`[ADMIN CREATE] ✅ Zero-Latency ID Match! nonce=${n}, ID=${realId}`);
                             }
                         }
 
                         if (!realId) {
-                            throw new Error('Could not find market on-chain after creation');
+                            throw new Error('Could not reconstruct ID definitively from on-chain data.');
                         }
 
                         // Step 4: Sync ID with database
