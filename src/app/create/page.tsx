@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
-import { parseUnits, parseEther, encodePacked, keccak256 } from 'viem';
+import { parseUnits, parseEther, encodePacked, keccak256, stringToBytes } from 'viem';
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
@@ -442,91 +442,37 @@ export default function CreateCommunityBet() {
                             }
                             console.log('[CREATE PAGE] On-chain creation confirmed!');
 
-                            // [PROFESSIONAL FIX] Reconstruct market ID and verify directly on-chain.
-                            // No event parsing. No stringToBytes. No double-hashing.
-                            // Simply: compute candidate IDs → call marketExists() → match.
+                            // [ZERO-LATENCY FIX] Reconstruct market ID fully offline
+                            // RPC nodes are often 1-2 blocks behind and return 'false' for marketExists() immediately after creation.
+                            // We bypass the RPC by double-hashing our candidate ID against the MarketCreated event topic in the receipt.
                             try {
                                 let realId: string | null = null;
                                 const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
                                 const blockTimestamp = block.timestamp;
-                                console.log(`[CREATE PAGE] Block ${receipt.blockNumber}, timestamp: ${blockTimestamp}`);
 
-                                // Step 1: Determine nonce range
-                                let mcBefore = BigInt(0);
-                                let mcAfter = BigInt(0);
-                                try {
-                                    const [before, after] = await Promise.all([
-                                        publicClient.readContract({
-                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                            abi: PredictionBattleABI.abi,
-                                            functionName: 'marketCount',
-                                            blockNumber: receipt.blockNumber - 1n,
-                                        }) as Promise<bigint>,
-                                        publicClient.readContract({
-                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                            abi: PredictionBattleABI.abi,
-                                            functionName: 'marketCount',
-                                            blockNumber: receipt.blockNumber,
-                                        }) as Promise<bigint>,
-                                    ]);
-                                    mcBefore = before;
-                                    mcAfter = after;
-                                    console.log(`[CREATE PAGE] marketCount: ${mcBefore} (block-1) → ${mcAfter} (block)`);
-                                } catch (e) {
-                                    console.warn('[CREATE PAGE] Historical read failed, using latest');
-                                    try {
-                                        mcAfter = await publicClient.readContract({
-                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                            abi: PredictionBattleABI.abi,
-                                            functionName: 'marketCount',
-                                        }) as bigint;
-                                        mcBefore = mcAfter > 5n ? mcAfter - 5n : 0n;
-                                    } catch { mcAfter = BigInt(50); mcBefore = BigInt(0); }
+                                const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
+                                const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
+
+                                if (!creationLog || !creationLog.topics[1]) {
+                                    throw new Error('MarketCreated log not found in transaction receipt');
                                 }
 
-                                // Step 2: Compute candidate IDs and verify with marketExists()
-                                for (let n = Number(mcBefore); n < Number(mcAfter) + 3 && !realId; n++) {
+                                const targetHash = creationLog.topics[1]; // This is keccak256(bytes(realId)) emitted by the contract
+
+                                console.log(`[CREATE PAGE] Zero-Latency Engine: Searching for hash ${targetHash}`);
+
+                                // Brute-force the local nonce mathematically. Costs 0 network requests.
+                                for (let n = 0; n < 100 && !realId; n++) {
                                     const candidateId = keccak256(encodePacked(
                                         ['address', 'string', 'uint256', 'uint256'],
                                         [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
                                     ));
-                                    try {
-                                        const exists = await publicClient.readContract({
-                                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                            abi: PredictionBattleABI.abi,
-                                            functionName: 'marketExists',
-                                            args: [candidateId],
-                                            blockNumber: receipt.blockNumber,
-                                        }) as boolean;
-                                        if (exists) {
-                                            realId = candidateId;
-                                            console.log(`[CREATE PAGE] ✅ Market verified on-chain! nonce=${n}, ID=${realId}`);
-                                        }
-                                    } catch (verifyErr) {
-                                        console.warn(`[CREATE PAGE] marketExists check failed for nonce ${n}:`, verifyErr);
-                                    }
-                                }
 
-                                // Step 3: Ultimate fallback
-                                if (!realId) {
-                                    console.warn('[CREATE PAGE] Primary sweep missed. Running fallback from nonce 0...');
-                                    for (let n = 0; n <= Number(mcAfter) + 10 && !realId; n++) {
-                                        const candidateId = keccak256(encodePacked(
-                                            ['address', 'string', 'uint256', 'uint256'],
-                                            [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
-                                        ));
-                                        try {
-                                            const exists = await publicClient.readContract({
-                                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                                abi: PredictionBattleABI.abi,
-                                                functionName: 'marketExists',
-                                                args: [candidateId],
-                                            }) as boolean;
-                                            if (exists) {
-                                                realId = candidateId;
-                                                console.log(`[CREATE PAGE] ✅ Market found (fallback)! nonce=${n}, ID=${realId}`);
-                                            }
-                                        } catch { }
+                                    const candidateHash = keccak256(stringToBytes(candidateId));
+
+                                    if (candidateHash === targetHash) {
+                                        realId = candidateId;
+                                        console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ID=${realId}`);
                                     }
                                 }
 
