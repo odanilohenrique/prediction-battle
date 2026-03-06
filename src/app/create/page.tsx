@@ -445,15 +445,31 @@ export default function CreateCommunityBet() {
                             // [ZERO-LATENCY FIX + DEEP DEBUG] Reconstruct market ID fully offline
                             try {
                                 let realId: string | null = null;
-                                const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
-                                const blockTimestamp = block.timestamp;
+                                let guessedTimestamps: bigint[] = [];
+
+                                try {
+                                    const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                                    guessedTimestamps = [block.timestamp];
+                                    console.log('[CREATE PAGE DEBUG] Fetched exact block timestamp:', block.timestamp);
+                                } catch (blockErr) {
+                                    console.warn('[CREATE PAGE DEBUG] RPC failed to find block! Brute-forcing timestamp...', blockErr);
+                                    // 100% offline fallback: the transaction just mined, so the block timestamp is extremely close to Date.now()
+                                    // Sweep a 120-second window (+/- 60 seconds)
+                                    const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+                                    // Add the exact 'now' first, then spread outwards
+                                    guessedTimestamps.push(nowSecs);
+                                    for (let i = 1; i <= 60; i++) {
+                                        guessedTimestamps.push(nowSecs - BigInt(i));
+                                        guessedTimestamps.push(nowSecs + BigInt(i));
+                                    }
+                                }
 
                                 const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
                                 const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
 
                                 console.log('[CREATE PAGE DEBUG] tx.from:', receipt.from);
                                 console.log('[CREATE PAGE DEBUG] finalQuestion:', finalQuestion);
-                                console.log('[CREATE PAGE DEBUG] blockTimestamp:', blockTimestamp);
+                                console.log('[CREATE PAGE DEBUG] first guessed ts:', guessedTimestamps[0]);
                                 console.log('[CREATE PAGE DEBUG] receipt.logs length:', receipt.logs.length);
 
                                 if (!creationLog || !creationLog.topics[1]) {
@@ -466,28 +482,32 @@ export default function CreateCommunityBet() {
                                 let debugLastCandidateHash = '';
                                 let debugLastCandidateId = '';
 
-                                for (let n = 0; n < 100 && !realId; n++) {
-                                    const candidateId = keccak256(encodePacked(
-                                        ['address', 'string', 'uint256', 'uint256'],
-                                        [receipt.from, finalQuestion, blockTimestamp, BigInt(n)]
-                                    ));
+                                for (const ts of guessedTimestamps) {
+                                    for (let n = 0; n < 100 && !realId; n++) {
+                                        const candidateId = keccak256(encodePacked(
+                                            ['address', 'string', 'uint256', 'uint256'],
+                                            [receipt.from, finalQuestion, ts, BigInt(n)]
+                                        ));
 
-                                    const candidateHash = keccak256(stringToBytes(candidateId));
+                                        const candidateHash = keccak256(stringToBytes(candidateId));
 
-                                    if (n === 0) {
-                                        debugLastCandidateId = candidateId;
-                                        debugLastCandidateHash = candidateHash;
-                                        console.log(`[CREATE PAGE DEBUG] Nonce 0 candidate ID: ${candidateId}, Hash: ${candidateHash}`);
+                                        if (n === 0 && ts === guessedTimestamps[0]) {
+                                            debugLastCandidateId = candidateId;
+                                            debugLastCandidateHash = candidateHash;
+                                            console.log(`[CREATE PAGE DEBUG] Nonce 0, primary ts candidate ID: ${candidateId}, Hash: ${candidateHash}`);
+                                        }
+
+                                        if (candidateHash === targetHash) {
+                                            realId = candidateId;
+                                            console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ts=${ts}, ID=${realId}`);
+                                            break; // exit inner loop
+                                        }
                                     }
-
-                                    if (candidateHash === targetHash) {
-                                        realId = candidateId;
-                                        console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ID=${realId}`);
-                                    }
+                                    if (realId) break; // exit outer loop
                                 }
 
                                 if (!realId) {
-                                    throw new Error(`DEBUG_2: Failed to match hash. Target: ${targetHash}. N0_ID: ${debugLastCandidateId}. N0_Hash: ${debugLastCandidateHash}. from: ${receipt.from}, ts: ${blockTimestamp}. question: "${finalQuestion}"`);
+                                    throw new Error(`DEBUG_2: Failed to match hash after tracking ${guessedTimestamps.length} timestamps. Target: ${targetHash}. N0_T0_ID: ${debugLastCandidateId}. N0_T0_Hash: ${debugLastCandidateHash}. from: ${receipt.from}. question: "${finalQuestion}"`);
                                 }
 
                                 // Step 4: Sync ID with database
