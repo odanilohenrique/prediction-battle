@@ -1266,200 +1266,199 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </span></span>
                         </div>
                     </div>
-
-                    {/* SLASH PUNISHMENT BANNER */}
-                    {bet.slashReason && (
-                        <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-fade-in">
-                            <div className="flex items-start gap-2">
-                                <span className="text-lg mt-0.5">⚠️</span>
-                                <div>
-                                    <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">
-                                        {bet.slashType === 'creator' ? 'Creator Punished' : 'Proposer Punished'}
-                                    </h4>
-                                    <p className="text-sm text-white/80 leading-relaxed">
-                                        {bet.slashReason}
-                                    </p>
-                                    {bet.slashedAddress && (
-                                        <p className="text-[10px] text-white/30 mt-1 font-mono">
-                                            Address: {bet.slashedAddress.slice(0, 6)}...{bet.slashedAddress.slice(-4)}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Action Area */}
-                    <div className="flex gap-3">
-
-                        {/* ... existing render ... */}
-                        {/* Seed button only for admin on empty pools */}
-                        {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < effectiveDeadlineMs && (
-                            <button
-                                onClick={handleSeedPool}
-                                disabled={isSubmitting}
-                                className="px-4 py-3 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold hover:bg-yellow-500/20 transition-all"
-                            >
-                                🌱 Seed
-                            </button>
-                        )}
-
-                        {/* VOID Button (Admin Only) - For Stuck Bets */}
-                        {address && isAdmin(address) && bet.status === 'active' && (
-                            <button
-                                onClick={handleVoid}
-                                disabled={isSubmitting}
-                                className="px-4 py-3 rounded-xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-bold hover:bg-gray-500/20 transition-all"
-                                title="Void/Refund Bet"
-                            >
-                                🏳️ Void
-                            </button>
-                        )}
-
-                        {/* V9: Withdraw Seed Button (Creator Only, Any Resolved Market) */}
-                        {address && isCreator && isMarketResolved && seedAmount > BigInt(0) && !isSeedWithdrawn && (
-                            <button
-                                onClick={handleWithdrawSeed}
-                                disabled={isSubmitting}
-                                className="px-4 py-3 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 font-bold hover:bg-blue-500/20 transition-all flex items-center gap-2"
-                                title="Withdraw your initial seed liquidity"
-                            >
-                                💰 Withdraw Seed
-                            </button>
-                        )}
-
-
-                        {/* V10: Verify Button - deadline-aware */}
-                        {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
-                            // Market is on-chain
-                            (isMarketProposed || isMarketDisputed || isOpenEnded || deadlineReached) ? (
-                                // Deadline reached OR already proposed/disputed → show action button
-                                <button
-                                    onClick={() => setShowVerificationModal(true)}
-                                    className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketDisputed
-                                        ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
-                                        : isMarketProposed
-                                            ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
-                                            : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
-                                        }`}
-                                    title={isMarketDisputed ? "Market is under dispute" : isMarketProposed ? "View verification status" : "Verify outcome"}
-                                >
-                                    {isMarketDisputed ? <AlertTriangle className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-                                    {isMarketDisputed ? 'Disputed' : isMarketProposed ? 'Verifying' : 'Verify'}
-                                </button>
-                            ) : (
-                                // Deadline NOT reached → show disabled countdown
-                                <div className="px-4 py-3 rounded-xl bg-white/5 text-white/40 border border-white/10 flex items-center gap-2 cursor-not-allowed" title={`Verification available after ${new Date(effectiveDeadlineMs).toLocaleString()}`}>
-                                    <Clock className="w-4 h-4" />
-                                    <span className="text-sm font-bold">⏳ Awaiting Deadline</span>
-                                </div>
-                            )
-                        ) : (address && canVerify && activeMarketData && activeMarketData[1] === '0x0000000000000000000000000000000000000000') && (
-                            <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
-                                <AlertTriangle className="w-4 h-4" />
-                                <span className="text-sm font-bold">Off-Chain / V2</span>
-                            </div>
-                        )}
-
-                        {canClaim ? (
-                            <ClaimButton
-                                amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
-                                onClick={handleClaim}
-                                loading={isSubmitting}
-                                label={normalizedResult === 'void' ? 'CLAIM REFUND' : 'CLAIM WINNINGS'}
-                                subtext={normalizedResult === 'void' ? 'FULL RETURN' : 'GET PAID'}
-                            />
-                        ) : (bet.status !== 'active' || Date.now() >= effectiveDeadlineMs ? (
-                            <div className="flex flex-col gap-2 w-full">
-                                <ClaimButton
-                                    amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
-                                    onClick={() => { }}
-                                    disabled={true}
-                                    label={hasClaimed ? 'REWARD CLAIMED' : 'NOT ELIGIBLE'}
-                                    subtext={hasClaimed ? 'RECEIVED' : 'YOU LOST'}
-                                />
-                                {!hasClaimed && calculatedPayout === BigInt(0) && (
-                                    <div className="text-[10px] text-center text-red-500/60 font-medium px-2">
-                                        Fair Play Policy: Dishonest verification attempts result in permanent bans.
-                                    </div>
-                                )}
-                            </div>
-                        ) : (isMarketProposed || isMarketDisputed) ? (
-                            <div className="w-full flex flex-col gap-2">
-                                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 animate-fade-in relative overflow-hidden">
-                                    <div className="flex items-center justify-between mb-2 relative z-10">
-                                        <div className="flex items-center gap-2 text-yellow-500 font-bold">
-                                            <Shield className="w-5 h-5" />
-                                            <span>VERIFICATION IN PROGRESS</span>
-                                        </div>
-                                        <div className="text-2xl font-mono font-black text-white drop-shadow-md">
-                                            {disputeTimer || 'Calculating...'}
-                                        </div>
-                                    </div>
-
-                                    {/* Progress Bar */}
-                                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mb-3 relative z-10">
-                                        {!canFinalize && <div className="h-full bg-yellow-500 animate-[progress_2s_ease-in-out_infinite] w-full origin-left" />}
-                                        {canFinalize && <div className="h-full bg-green-500 w-full" />}
-                                    </div>
-
-                                    <div className="text-xs text-white/40 flex justify-between mb-4 relative z-10">
-                                        <span>Observation Period (12h)</span>
-                                        <span className={canFinalize ? 'text-green-400 font-bold' : 'text-yellow-500'}>
-                                            {canFinalize ? 'WINDOW CLOSED' : 'DISPUTE WINDOW OPEN'}
-                                        </span>
-                                    </div>
-
-                                    {canFinalize && (
-                                        <button
-                                            onClick={handleClaim}
-                                            disabled={isSubmitting}
-                                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg text-sm transition-colors shadow-lg shadow-green-500/20 animate-pulse flex items-center justify-center gap-2 mb-2 relative z-10"
-                                        >
-                                            ✅ Finalize & Enable Payouts
-                                        </button>
-                                    )}
-
-                                    {/* Background Pulse */}
-                                    <div className="absolute inset-0 bg-yellow-500/5 animate-pulse z-0 pointer-events-none"></div>
-                                </div>
-
-                                {parsedProposalInfo && (
-                                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-white/60 font-bold uppercase">Proposed Result:</span>
-                                            <span className={`font-black px-2 py-0.5 rounded text-sm ${parsedProposalInfo.proposedResult ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                                                {parsedProposalInfo.proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
-                                            </span>
-                                        </div>
-                                        {typeof parsedProposalInfo.evidenceUrl === 'string' && parsedProposalInfo.evidenceUrl && (
-                                            <a
-                                                href={parsedProposalInfo.evidenceUrl.startsWith('http') ? parsedProposalInfo.evidenceUrl : `https://${parsedProposalInfo.evidenceUrl}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="block w-full text-center py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded-lg transition-colors font-bold flex items-center justify-center gap-2"
-                                            >
-                                                <ExternalLink className="w-3 h-3" />
-                                                REVIEW EVIDENCE
-                                            </a>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => setIsBattleModalOpen(true)}
-                                className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-[1.02] active:scale-[0.98]"
-                            >
-                                JOIN BATTLE
-                            </button>
-                        ))}
-                    </div>
-
-
                 </div>
-            </div >
+            </div>
 
+            {/* SLASH PUNISHMENT BANNER (Only for admin view during claim phase) */}
+            {isMarketResolved && bet.slashReason && (
+                <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 animate-fade-in mx-6">
+                    <div className="flex items-start gap-3">
+                        <span className="text-2xl mt-0.5">⚠️</span>
+                        <div>
+                            <h4 className="text-sm font-black text-red-500 uppercase tracking-wider mb-1">
+                                PUNISHMENT APPLIED
+                            </h4>
+                            <p className="text-sm text-white/80 leading-relaxed mb-2">
+                                {bet.slashReason}
+                            </p>
+                            {bet.slashedAddress && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Target:</span>
+                                    <code className="text-[10px] text-red-300/80 bg-red-500/10 px-2 py-0.5 rounded font-mono">
+                                        {bet.slashedAddress.slice(0, 6)}...{bet.slashedAddress.slice(-4)}
+                                    </code>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Action Area */}
+            <div className="flex gap-3 px-6 pb-6">
+
+                {/* Seed button only for admin on empty pools */}
+                {address && isAdmin(address) && bet.totalPot === 0 && bet.status === 'active' && Date.now() < effectiveDeadlineMs && (
+                    <button
+                        onClick={handleSeedPool}
+                        disabled={isSubmitting}
+                        className="px-4 py-3 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold hover:bg-yellow-500/20 transition-all"
+                    >
+                        🌱 Seed
+                    </button>
+                )}
+
+                {/* VOID Button (Admin Only) - For Stuck Bets */}
+                {address && isAdmin(address) && bet.status === 'active' && (
+                    <button
+                        onClick={handleVoid}
+                        disabled={isSubmitting}
+                        className="px-4 py-3 rounded-xl bg-gray-500/10 text-gray-500 border border-gray-500/20 font-bold hover:bg-gray-500/20 transition-all"
+                        title="Void/Refund Bet"
+                    >
+                        🏳️ Void
+                    </button>
+                )}
+
+                {/* V9: Withdraw Seed Button (Creator Only, Any Resolved Market) */}
+                {address && isCreator && isMarketResolved && seedAmount > BigInt(0) && !isSeedWithdrawn && (
+                    <button
+                        onClick={handleWithdrawSeed}
+                        disabled={isSubmitting}
+                        className="px-4 py-3 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 font-bold hover:bg-blue-500/20 transition-all flex items-center gap-2"
+                        title="Withdraw your initial seed liquidity"
+                    >
+                        💰 Withdraw Seed
+                    </button>
+                )}
+
+
+                {/* V10: Verify Button - deadline-aware */}
+                {address && canVerify && activeMarketData && activeMarketData[1] !== '0x0000000000000000000000000000000000000000' ? (
+                    // Market is on-chain
+                    (isMarketProposed || isMarketDisputed || isOpenEnded || deadlineReached) ? (
+                        // Deadline reached OR already proposed/disputed → show action button
+                        <button
+                            onClick={() => setShowVerificationModal(true)}
+                            className={`px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${isMarketDisputed
+                                ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'
+                                : isMarketProposed
+                                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500/20'
+                                    : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+                                }`}
+                            title={isMarketDisputed ? "Market is under dispute" : isMarketProposed ? "View verification status" : "Verify outcome"}
+                        >
+                            {isMarketDisputed ? <AlertTriangle className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                            {isMarketDisputed ? 'Disputed' : isMarketProposed ? 'Verifying' : 'Verify'}
+                        </button>
+                    ) : (
+                        // Deadline NOT reached → show disabled countdown
+                        <div className="px-4 py-3 rounded-xl bg-white/5 text-white/40 border border-white/10 flex items-center gap-2 cursor-not-allowed" title={`Verification available after ${new Date(effectiveDeadlineMs).toLocaleString()}`}>
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm font-bold">⏳ Awaiting Deadline</span>
+                        </div>
+                    )
+                ) : (address && canVerify && activeMarketData && activeMarketData[1] === '0x0000000000000000000000000000000000000000') && (
+                    <div className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-2" title="Not found on contract">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm font-bold">Off-Chain / V2</span>
+                    </div>
+                )}
+
+                {canClaim ? (
+                    <ClaimButton
+                        amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : (bet.initialValue ? (bet.initialValue / 1000000).toFixed(2) : '0.00')}
+                        onClick={handleClaim}
+                        loading={isSubmitting}
+                        label={normalizedResult === 'void' ? 'CLAIM REFUND' : 'CLAIM WINNINGS'}
+                        subtext={normalizedResult === 'void' ? 'FULL RETURN' : 'GET PAID'}
+                    />
+                ) : (bet.status !== 'active' || Date.now() >= effectiveDeadlineMs ? (
+                    <div className="flex flex-col gap-2 w-full">
+                        <ClaimButton
+                            amount={calculatedPayout > BigInt(0) ? (Number(calculatedPayout) / 1000000).toFixed(2) : '0.00'}
+                            onClick={() => { }}
+                            disabled={true}
+                            label={hasClaimed ? 'REWARD CLAIMED' : 'NOT ELIGIBLE'}
+                            subtext={hasClaimed ? 'RECEIVED' : 'YOU LOST'}
+                        />
+                        {!hasClaimed && calculatedPayout === BigInt(0) && (
+                            <div className="text-[10px] text-center text-red-500/60 font-medium px-2">
+                                Fair Play Policy: Dishonest verification attempts result in permanent bans.
+                            </div>
+                        )}
+                    </div>
+                ) : (isMarketProposed || isMarketDisputed) ? (
+                    <div className="w-full flex flex-col gap-2">
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 animate-fade-in relative overflow-hidden">
+                            <div className="flex items-center justify-between mb-2 relative z-10">
+                                <div className="flex items-center gap-2 text-yellow-500 font-bold">
+                                    <Shield className="w-5 h-5" />
+                                    <span>VERIFICATION IN PROGRESS</span>
+                                </div>
+                                <div className="text-2xl font-mono font-black text-white drop-shadow-md">
+                                    {disputeTimer || 'Calculating...'}
+                                </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mb-3 relative z-10">
+                                {!canFinalize && <div className="h-full bg-yellow-500 animate-[progress_2s_ease-in-out_infinite] w-full origin-left" />}
+                                {canFinalize && <div className="h-full bg-green-500 w-full" />}
+                            </div>
+
+                            <div className="text-xs text-white/40 flex justify-between mb-4 relative z-10">
+                                <span>Observation Period (12h)</span>
+                                <span className={canFinalize ? 'text-green-400 font-bold' : 'text-yellow-500'}>
+                                    {canFinalize ? 'WINDOW CLOSED' : 'DISPUTE WINDOW OPEN'}
+                                </span>
+                            </div>
+
+                            {canFinalize && (
+                                <button
+                                    onClick={handleClaim}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg text-sm transition-colors shadow-lg shadow-green-500/20 animate-pulse flex items-center justify-center gap-2 mb-2 relative z-10"
+                                >
+                                    ✅ Finalize & Enable Payouts
+                                </button>
+                            )}
+
+                            {/* Background Pulse */}
+                            <div className="absolute inset-0 bg-yellow-500/5 animate-pulse z-0 pointer-events-none"></div>
+                        </div>
+
+                        {parsedProposalInfo && (
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-white/60 font-bold uppercase">Proposed Result:</span>
+                                    <span className={`font-black px-2 py-0.5 rounded text-sm ${parsedProposalInfo.proposedResult ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                        {parsedProposalInfo.proposedResult ? (bet.optionA?.label || 'YES') : (bet.optionB?.label || 'NO')}
+                                    </span>
+                                </div>
+                                {typeof parsedProposalInfo.evidenceUrl === 'string' && parsedProposalInfo.evidenceUrl && (
+                                    <a
+                                        href={parsedProposalInfo.evidenceUrl.startsWith('http') ? parsedProposalInfo.evidenceUrl : `https://${parsedProposalInfo.evidenceUrl}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block w-full text-center py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded-lg transition-colors font-bold flex items-center justify-center gap-2"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        REVIEW EVIDENCE
+                                    </a>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setIsBattleModalOpen(true)}
+                        className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        JOIN BATTLE
+                    </button>
+                ))}
+            </div>
 
             {/* Battle Station Modal */}
             {
