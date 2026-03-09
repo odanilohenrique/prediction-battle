@@ -355,6 +355,28 @@ export default function BetCard({
                     </div>
                 )}
 
+                {/* SLASH PUNISHMENT BANNER */}
+                {prediction.slashReason && (
+                    <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-fade-in">
+                        <div className="flex items-start gap-2">
+                            <span className="text-lg mt-0.5">⚠️</span>
+                            <div>
+                                <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">
+                                    {prediction.slashType === 'creator' ? 'Creator Punished' : 'Proposer Punished'}
+                                </h4>
+                                <p className="text-sm text-white/80 leading-relaxed">
+                                    {prediction.slashReason}
+                                </p>
+                                {prediction.slashedAddress && (
+                                    <p className="text-[10px] text-white/30 mt-1 font-mono">
+                                        Address: {prediction.slashedAddress.slice(0, 6)}...{prediction.slashedAddress.slice(-4)}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* [NEW] Public Dispute Timer / Finalize Button */}
                 {!isResolved && marketState === 2 && (
                     <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 animate-fade-in">

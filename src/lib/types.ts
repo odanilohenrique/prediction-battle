@@ -42,6 +42,11 @@ export interface Prediction {
     creatorAddress?: string;
     wordToMatch?: string;
     rules?: string;
+    // Slash / Punishment tracking
+    slashReason?: string;
+    slashType?: 'creator' | 'proposer';
+    slashedAddress?: string;
+    slashedAt?: number;
 }
 
 export interface Cast {

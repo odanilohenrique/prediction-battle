@@ -58,6 +58,10 @@ interface AdminBet {
         wordToMatch?: string; // If keyword type
     };
     initialValue?: number;
+    slashReason?: string;
+    slashType?: 'creator' | 'proposer';
+    slashedAddress?: string;
+    slashedAt?: number;
 }
 
 interface AdminBetCardProps {
@@ -1262,6 +1266,28 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             </span></span>
                         </div>
                     </div>
+
+                    {/* SLASH PUNISHMENT BANNER */}
+                    {bet.slashReason && (
+                        <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-fade-in">
+                            <div className="flex items-start gap-2">
+                                <span className="text-lg mt-0.5">⚠️</span>
+                                <div>
+                                    <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">
+                                        {bet.slashType === 'creator' ? 'Creator Punished' : 'Proposer Punished'}
+                                    </h4>
+                                    <p className="text-sm text-white/80 leading-relaxed">
+                                        {bet.slashReason}
+                                    </p>
+                                    {bet.slashedAddress && (
+                                        <p className="text-[10px] text-white/30 mt-1 font-mono">
+                                            Address: {bet.slashedAddress.slice(0, 6)}...{bet.slashedAddress.slice(-4)}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Action Area */}
                     <div className="flex gap-3">

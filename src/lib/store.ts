@@ -69,6 +69,12 @@ export interface Bet {
     creatorAddress?: string;    // Wallet address of the battle creator
     wordToMatch?: string;       // For 'word_mentions' type
 
+    // Slash / Punishment tracking
+    slashReason?: string;           // Admin-provided reason for punishment
+    slashType?: 'creator' | 'proposer'; // Who was slashed
+    slashedAddress?: string;        // Address of the punished user
+    slashedAt?: number;             // Timestamp of the slash
+
     // Automated Verification Metadata
     verification?: {
         enabled: boolean;

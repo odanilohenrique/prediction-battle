@@ -98,6 +98,12 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
     const [extensionHours, setExtensionHours] = useState(24);
     // [V10] Slash Proposer on Reopen
     const [slashProposer, setSlashProposer] = useState(false);
+    // Slash Reason
+    const [slashReason, setSlashReason] = useState('');
+
+    // Detect open-ended market (deadlineTime = 0)
+    const deadlineTime = getField(marketData, 'deadlineTime', 5, 'number');
+    const isOpenEnded = deadlineTime === 0;
 
     const handleAction = async (action: 'finalize' | 'resolveDispute' | 'void' | 'forceYes' | 'forceNo' | 'forceDraw' | 'reopen', winner?: string, finalResult?: boolean) => {
         if (!betId || !contractAddress) return;
@@ -130,7 +136,8 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                 });
             } else if (action === 'reopen') {
                 // [V10] Reopen Market - reverts to OPEN, refunds bonds, extends deadline
-                const extensionSeconds = BigInt(extensionHours * 3600);
+                // For open-ended markets, pass 0 seconds (no deadline change)
+                const extensionSeconds = isOpenEnded ? BigInt(0) : BigInt(extensionHours * 3600);
                 hash = await writeContractAsync({
                     address: contractAddress as `0x${string}`,
                     abi: PredictionBattleABI.abi,
@@ -161,6 +168,25 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
             }
 
             if (hash) {
+                // Persist slash reason if any slash was applied
+                const shouldSaveSlash = (slashCreator || slashProposer) && slashReason.trim();
+                if (shouldSaveSlash && betId) {
+                    try {
+                        const creatorAddr = getField(marketData, 'creator', 1, 'string');
+                        await fetch('/api/admin/slash-reason', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                betId,
+                                reason: slashReason.trim(),
+                                slashType: slashCreator ? 'creator' : 'proposer',
+                                slashedAddress: slashCreator ? creatorAddr : proposer,
+                            })
+                        });
+                    } catch (e) {
+                        console.error('Failed to save slash reason:', e);
+                    }
+                }
                 alert('Transaction Sent! Please wait for confirmation.');
                 onClose();
             }
@@ -334,6 +360,18 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                             <span className="text-xs text-white/60">Check this if the market is fraudulent/spam. Seed goes to Treasury.</span>
                                         </div>
                                     </label>
+                                    {slashCreator && (
+                                        <div className="mt-3">
+                                            <label className="text-xs text-red-300 font-bold block mb-1">Punishment Reason (visible to the user):</label>
+                                            <textarea
+                                                value={slashReason}
+                                                onChange={(e) => setSlashReason(e.target.value)}
+                                                placeholder="Ex: Fraudulent market, spam, manipulation..."
+                                                className="w-full px-3 py-2 bg-black border border-red-500/30 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:border-red-500 resize-none"
+                                                rows={2}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* SOLITAIRE BET PROTECTION */}
@@ -397,18 +435,24 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                 {(isProposed || isDisputed) && (
                                     <div className="border-t border-white/10 pt-4 mt-2">
                                         <h4 className="text-xs text-blue-400 uppercase mb-2 font-bold flex items-center gap-1">🔄 Reopen Market</h4>
-                                        <p className="text-xs text-white/60 mb-3">Cancels the dispute, refunds all bonds, and reopens the market for betting.</p>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <label className="text-xs text-textSecondary whitespace-nowrap">Extend by:</label>
-                                            <input
-                                                type="number"
-                                                value={extensionHours}
-                                                onChange={(e) => setExtensionHours(Math.max(0, Number(e.target.value)))}
-                                                className="w-20 px-2 py-1 bg-black border border-white/20 rounded-lg text-white text-sm text-center"
-                                                min={0}
-                                            />
-                                            <span className="text-xs text-textSecondary">hours</span>
-                                        </div>
+                                        <p className="text-xs text-white/60 mb-3">
+                                            {isOpenEnded
+                                                ? 'Cancels the dispute, refunds all bonds, and reopens the market (no deadline change).'
+                                                : 'Cancels the dispute, refunds all bonds, and reopens the market for betting.'}
+                                        </p>
+                                        {!isOpenEnded && (
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <label className="text-xs text-textSecondary whitespace-nowrap">Extend by:</label>
+                                                <input
+                                                    type="number"
+                                                    value={extensionHours}
+                                                    onChange={(e) => setExtensionHours(Math.max(0, Number(e.target.value)))}
+                                                    className="w-20 px-2 py-1 bg-black border border-white/20 rounded-lg text-white text-sm text-center"
+                                                    min={0}
+                                                />
+                                                <span className="text-xs text-textSecondary">hours</span>
+                                            </div>
+                                        )}
                                         <div className="mb-3 p-2 bg-orange-500/10 border border-orange-500/30 rounded-lg">
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <input
@@ -422,13 +466,27 @@ export default function ResolveModal({ isOpen, onClose, betId, username, knownOn
                                                     <span className="text-[10px] text-white/50 block">Confiscate bond (80% to challenger, 20% treasury)</span>
                                                 </div>
                                             </label>
+                                            {slashProposer && (
+                                                <div className="mt-2">
+                                                    <label className="text-xs text-orange-300 font-bold block mb-1">Punishment Reason (visible to the user):</label>
+                                                    <textarea
+                                                        value={slashReason}
+                                                        onChange={(e) => setSlashReason(e.target.value)}
+                                                        placeholder="Ex: False report, malicious proposal..."
+                                                        className="w-full px-3 py-2 bg-black border border-orange-500/30 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:border-orange-500 resize-none"
+                                                        rows={2}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                         <button
                                             onClick={() => handleAction('reopen')}
                                             disabled={isResolving}
                                             className="w-full p-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/50 text-blue-400 font-bold transition-all flex items-center justify-center gap-2"
                                         >
-                                            🔄 Reopen Market (+{extensionHours}h)
+                                            {isOpenEnded
+                                                ? '🔄 Reopen Market'
+                                                : `🔄 Reopen Market (+${extensionHours}h)`}
                                         </button>
                                     </div>
                                 )}
