@@ -298,6 +298,7 @@ export default function BetCard({
     };
 
     const statusDisplay = getStatusDisplay();
+    const isSlashedUser = address && prediction.slashedAddress && address.toLowerCase() === prediction.slashedAddress.toLowerCase();
 
     return (
         <>
@@ -350,28 +351,6 @@ export default function BetCard({
                                 <p className="text-sm text-white/80 whitespace-pre-wrap leading-relaxed">
                                     {prediction.rules}
                                 </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* SLASH PUNISHMENT BANNER */}
-                {prediction.slashReason && (
-                    <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-fade-in">
-                        <div className="flex items-start gap-2">
-                            <span className="text-lg mt-0.5">⚠️</span>
-                            <div>
-                                <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider mb-1">
-                                    {prediction.slashType === 'creator' ? 'Creator Punished' : 'Proposer Punished'}
-                                </h4>
-                                <p className="text-sm text-white/80 leading-relaxed">
-                                    {prediction.slashReason}
-                                </p>
-                                {prediction.slashedAddress && (
-                                    <p className="text-[10px] text-white/30 mt-1 font-mono">
-                                        Address: {prediction.slashedAddress.slice(0, 6)}...{prediction.slashedAddress.slice(-4)}
-                                    </p>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -575,6 +554,23 @@ export default function BetCard({
                                     </a>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* SLASH PUNISHMENT BANNER (Only for slashed user during claim phase) */}
+                    {isResolved && isSlashedUser && prediction.slashReason && (
+                        <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 animate-fade-in">
+                            <div className="flex items-start gap-3">
+                                <span className="text-2xl mt-0.5">⚠️</span>
+                                <div>
+                                    <h4 className="text-sm font-black text-red-500 uppercase tracking-wider mb-1">
+                                        YOU WERE PUNISHED
+                                    </h4>
+                                    <p className="text-sm text-white/80 leading-relaxed">
+                                        {prediction.slashReason}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
 
