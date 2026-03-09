@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock } from 'lucide-react';
+import { ArrowLeft, Target, Calendar, DollarSign, Users, Info, Link as LinkIcon, Edit3, Droplets, Sparkles, Sword, Upload, Clock, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
 import { parseUnits, parseEther, encodePacked, keccak256, stringToBytes } from 'viem';
@@ -1660,9 +1660,9 @@ export default function CreateCommunityBet() {
                                     alert('No wallet connectors found. Please install a wallet.');
                                 }
                             }}
-                            className="flex-1 bg-white hover:bg-gray-200 text-black font-black py-3 rounded-xl transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                            className="flex-1 bg-primary hover:bg-secondary text-background font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            <span>💳</span> Connect Wallet
+                            <Wallet className="w-5 h-5" /> Wallet
                         </button>
                     )}
                 </div>

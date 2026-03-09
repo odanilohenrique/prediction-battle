@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ClaimButton from './ClaimButton';
-import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins, Shield } from 'lucide-react';
+import { X, Target, DollarSign, Users, Clock, ScrollText, Swords, AlertTriangle, Zap, Trash2, ExternalLink, Coins, Shield, Wallet } from 'lucide-react';
 import { useAccount, useWriteContract, useSwitchChain, usePublicClient, useConnect, useReadContract, useBlockNumber } from 'wagmi';
 import { parseUnits, parseEther, formatUnits } from 'viem';
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
@@ -1679,9 +1679,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 alert('No wallet connectors found. Please install Rabby or MetaMask.');
                                             }
                                         }}
-                                        className="w-full bg-white text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg hover:bg-gray-200 flex items-center justify-center gap-2"
+                                        className="w-full bg-primary hover:bg-secondary text-background font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg flex items-center justify-center gap-2"
                                     >
-                                        <span>💳</span> CONNECT WALLET
+                                        <Wallet className="w-5 h-5" /> Wallet
                                     </button>
                                 )}
                             </div>

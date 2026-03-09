@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, Wallet } from 'lucide-react';
 import { useModal } from '@/providers/ModalProvider';
 import { useAccount, useWriteContract, usePublicClient, useSwitchChain, useConnect, useReadContract } from 'wagmi';
 import { parseUnits } from 'viem';
@@ -238,9 +238,12 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting}
-                        className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full font-black py-4 rounded-xl transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isConnected
+                                ? 'bg-primary hover:bg-white hover:text-black text-black shadow-[0_0_20px_rgba(255,95,31,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]'
+                                : 'bg-primary hover:bg-secondary text-background'
+                            }`}
                     >
-                        {isSubmitting ? 'PROCESSING...' : isConnected ? 'PLACE BET' : 'CONNECT WALLET'}
+                        {isSubmitting ? 'PROCESSING...' : isConnected ? 'PLACE BET' : (<><Wallet className="w-5 h-5" /> Wallet</>)}
                     </button>
 
                     {/* Invite Friends Button */}
