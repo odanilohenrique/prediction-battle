@@ -13,6 +13,7 @@ import ViralReceipt from './ViralReceipt';
 import VerificationModal from './VerificationModal';
 import { formatBlockDuration, estimateTimeFromBlocks, BLOCK_TIME_SECONDS } from '@/lib/blockTime';
 import { calculateRequiredBond, MarketOutcome } from '@/lib/contracts';
+import { getPrioritizedConnector } from '@/lib/wallet';
 
 interface AdminBet {
     id: string;
@@ -1671,14 +1672,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 ) : (
                                     <button
                                         onClick={() => {
-                                            // Same priority as WalletButton: Rabby > Injected > MetaMask > Coinbase
-                                            const rabbyConnector = connectors.find(c => c.id === 'io.rabby');
-                                            const injectedConnector = connectors.find(c => c.id === 'injected');
-                                            const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
-                                            const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
-
-                                            const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
-
+                                            const targetConnector = getPrioritizedConnector(connectors);
                                             if (targetConnector) {
                                                 connect({ connector: targetConnector });
                                             } else {

@@ -5,6 +5,7 @@ import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useModal } from '@/providers/ModalProvider';
 import { SignInButton, useProfile } from '@farcaster/auth-kit';
 import { useFarcasterMiniApp } from '@/providers/FarcasterMiniAppProvider';
+import { getPrioritizedConnector } from '@/lib/wallet';
 
 interface WalletButtonProps {
     onConnect?: () => void;
@@ -23,12 +24,7 @@ export default function WalletButton({ onConnect }: WalletButtonProps) {
     const { isAuthenticated, profile } = useProfile();
 
     const handleConnectWallet = () => {
-        const rabbyConnector = connectors.find((c) => c.id === 'io.rabby');
-        const injectedConnector = connectors.find((c) => c.id === 'injected');
-        const metaMaskConnector = connectors.find((c) => c.id === 'metaMask');
-        const coinbaseConnector = connectors.find((c) => c.id === 'coinbaseWalletSDK');
-
-        const targetConnector = rabbyConnector || injectedConnector || metaMaskConnector || coinbaseConnector || connectors[0];
+        const targetConnector = getPrioritizedConnector(connectors);
 
         if (!targetConnector) {
             showAlert('Wallet Not Found', 'Please install Rabby or MetaMask.', 'warning');

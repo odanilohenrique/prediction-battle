@@ -9,6 +9,7 @@ import { parseUnits, parseEther, encodePacked, keccak256, stringToBytes } from '
 
 import { isAdmin, CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
+import { getPrioritizedConnector } from '@/lib/wallet';
 
 // Extended bet types
 type BetType =
@@ -1652,11 +1653,9 @@ export default function CreateCommunityBet() {
                         <button
                             type="button"
                             onClick={() => {
-                                const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK' || c.name === 'Coinbase Wallet');
-                                if (coinbaseConnector) {
-                                    connect({ connector: coinbaseConnector });
-                                } else if (connectors.length > 0) {
-                                    connect({ connector: connectors[0] });
+                                const targetConnector = getPrioritizedConnector(connectors);
+                                if (targetConnector) {
+                                    connect({ connector: targetConnector });
                                 } else {
                                     alert('No wallet connectors found. Please install a wallet.');
                                 }

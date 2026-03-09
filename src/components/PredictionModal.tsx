@@ -8,6 +8,7 @@ import { parseUnits } from 'viem';
 import { CURRENT_CONFIG } from '@/lib/config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import ViralReceipt from './ViralReceipt';
+import { getPrioritizedConnector } from '@/lib/wallet';
 
 interface PredictionModalProps {
     predictionId: string;
@@ -114,8 +115,9 @@ export default function PredictionModal({ predictionId, onClose, optionA, option
 
     const handleSubmit = async () => {
         if (!isConnected) {
-            const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
-            if (coinbaseConnector) connect({ connector: coinbaseConnector });
+            const targetConnector = getPrioritizedConnector(connectors);
+            if (targetConnector) connect({ connector: targetConnector });
+            else showAlert('Wallet Not Found', 'Please install a wallet to bet.', 'warning');
             return;
         }
 
