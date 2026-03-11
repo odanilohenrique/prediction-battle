@@ -2,12 +2,12 @@
 import { NextResponse } from 'next/server';
 import { store, Bet } from '@/lib/store';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia, base } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 import { CURRENT_CONFIG } from '@/lib/config';
 
 const publicClient = createPublicClient({
-    chain: process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia,
+    chain: baseSepolia,
     transport: http(),
 });
 

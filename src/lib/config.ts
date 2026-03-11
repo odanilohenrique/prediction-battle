@@ -16,24 +16,8 @@ export const TESTNET_CONFIG = {
     contractAddress: '0xF8623E94364b58246BC6FaBeA10710563d2dB6ae', // Base Sepolia V10 Audited
 };
 
-export const MAINNET_CONFIG = {
-    chainId: 8453, // Base Mainnet
-    chainName: 'Base',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL_MAINNET || 'https://mainnet.base.org',
-    blockExplorer: 'https://basescan.org',
-    nativeCurrency: {
-        name: 'Ethereum',
-        symbol: 'ETH',
-        decimals: 18,
-    },
-    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base Mainnet USDC
-    contractAddress: '0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c', // Base Mainnet Address
-};
-
-// Toggle network based on environment
-const useMainnet = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
-
-export const CURRENT_CONFIG = useMainnet ? MAINNET_CONFIG : TESTNET_CONFIG;
+// Always use testnet config
+export const CURRENT_CONFIG = TESTNET_CONFIG;
 
 // Helper that NEVER returns empty - use this everywhere
 export function getContractAddress(): `0x${string}` {
@@ -53,13 +37,12 @@ export function getUsdcAddress(): `0x${string}` {
 // Admin wallet addresses (whitelist)
 export const ADMIN_ADDRESSES = [
     process.env.NEXT_PUBLIC_ADMIN_ADDRESS?.toLowerCase() || '',
-    '0x8C451adc05eFDDe2B8cB2F0BA9d7A2223212BECb'.toLowerCase(), // Contract Owner (Deployed V7)
-    '0xfbb847e4ba555fa38c737caa3e3591b6448ce987', // Previous Admin
-    '0xfa278965a56a16252ccb850d3bb354f6a6e9fb02', // Previous Operator
+    '0x1cb36C90dd0278906295D6bc890A2A76E4D8f80b'.toLowerCase(), // Contract Owner (New Wallet)
+    '0xFbb847E4bA555fa38C737CAA3E3591B6448cE987'.toLowerCase(), // Operator (New Wallet)
 ].filter(Boolean);
 
 // Operator address for resolution
-export const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02'.toLowerCase();
+export const OPERATOR_ADDRESS = '0xFbb847E4bA555fa38C737CAA3E3591B6448cE987'.toLowerCase();
 
 // Check if address is admin
 export function isAdmin(address: string): boolean {

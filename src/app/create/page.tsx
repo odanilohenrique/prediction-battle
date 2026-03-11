@@ -98,13 +98,10 @@ export default function CreateCommunityBet() {
     const { connectors, connect } = useConnect();
     const publicClient = usePublicClient();
 
-    // Configuration
-    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
-    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532;
-    const USDC_ADDRESS = IS_MAINNET
-        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-        : '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
+    // Configuration — Testnet Only
+    const EXPECTED_CHAIN_ID = 84532; // Base Sepolia
+    const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia
+    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x9E7EDBcBce2fF688297103762B3532E2B40855C8';
 
     const [formData, setFormData] = useState({
         // User info

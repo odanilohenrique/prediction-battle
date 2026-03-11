@@ -69,10 +69,7 @@ copy .env.local.example .env.local
 NEYNAR_API_KEY=D4D3EF36-7563-4321-AE04-CC5B2CEA5FC7
 
 # IMPORTANTE: Cole SEU endereço aqui!
-NEXT_PUBLIC_ADMIN_ADDRESS=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0
-
-# Testnet ativo
-NEXT_PUBLIC_USE_MAINNET=false
+NEXT_PUBLIC_ADMIN_ADDRESS=0x1cb36C90dd0278906295D6bc890A2A76E4D8f80b
 
 NEXT_PUBLIC_URL=http://localhost:3000
 ```
@@ -184,9 +181,7 @@ Depois de testar tudo em testnet:
 2. ✅ Conseguir API keys OnchainKit
 3. ✅ Integrar pagamentos USDC reais
 4. ✅ Testar em testnet com transações reais
-5. ✅ Migrar para mainnet Base
-6. ✅ Carregar USDC real
-7. 🚀 **GO LIVE!**
+5. 🚀 **Pronto para demonstração/venda!**
 
 ---
 
@@ -195,7 +190,7 @@ Depois de testar tudo em testnet:
 - **Sempre teste em testnet primeiro**
 - **Guarde sua seed phrase com segurança**
 - **Testnet é grátis, abuse dos testes**
-- **Só vá para mainnet quando tudo funcionar**
+- **Nunca exponha private keys no código**
 
 ---
 

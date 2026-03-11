@@ -1,4 +1,4 @@
-export const BLOCK_TIME_SECONDS = 2; // Base (Mainnet & Sepolia) approx 2s per block
+export const BLOCK_TIME_SECONDS = 2; // Base Sepolia approx 2s per block
 
 /**
  * Estimates the timestamp (ms) for a given future block number.

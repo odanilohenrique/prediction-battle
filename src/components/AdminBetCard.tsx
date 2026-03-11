@@ -490,17 +490,14 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
     const canClaim = (bet.status !== 'active' || isMarketResolved) && userShares > BigInt(0) && !hasClaimed;
 
-    // Configuration
-    const IS_MAINNET = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
-    const EXPECTED_CHAIN_ID = IS_MAINNET ? 8453 : 84532; // Base Mainnet (8453) or Base Sepolia (84532)
+    // Configuration — Testnet Only
+    const EXPECTED_CHAIN_ID = 84532; // Base Sepolia
 
-    // USDC Contract Address
-    const USDC_ADDRESS = IS_MAINNET
-        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // Mainnet
-        : '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Sepolia
+    // USDC Contract Address — Base Sepolia
+    const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
     // House Address (where money goes)
-    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x2Cd0934AC31888827C3711527eb2e0276f3B66b4';
+    const HOUSE_ADDRESS = process.env.NEXT_PUBLIC_RECEIVER_ADDRESS || '0x9E7EDBcBce2fF688297103762B3532E2B40855C8';
 
     const getTimeDisplay = () => {
         if (isOpenEnded) return 'Open-Ended ♾️';
@@ -562,7 +559,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                     }
                 } catch (switchError) {
                     console.error('Failed to switch chain:', switchError);
-                    showAlert('Wrong Network', `Please switch to ${IS_MAINNET ? 'Base Mainnet' : 'Base Sepolia'}.`, 'error');
+                    showAlert('Wrong Network', 'Please switch to Base Sepolia.', 'error');
                     setIsSubmitting(false);
                     return;
                 }

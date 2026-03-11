@@ -61,7 +61,7 @@ export default function PayoutsPage() {
         try {
             // Create a client manually to avoid hook limitations in loop/callback
             const client = createPublicClient({
-                chain: process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia,
+                chain: baseSepolia,
                 transport: http()
             });
 

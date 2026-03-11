@@ -6,7 +6,6 @@ import { Home, Flame, User, Trophy, LayoutGrid, Book, Users, Wallet, Menu, Sword
 // import { cn } from '@/lib/utils'; // Removed to avoid error
 import { motion } from 'framer-motion';
 import WalletButton from './WalletButton';
-import NetworkToggle from './NetworkToggle';
 import Image from 'next/image';
 
 // Utility for classes if lib/utils not present (standard in specialized setups, but just in case)
@@ -105,10 +104,6 @@ export default function Navigation() {
                 <div className="p-4 border-t border-white/5 bg-black/40 flex flex-col gap-3">
                     <div className="w-full">
                         <WalletButton />
-                    </div>
-                    {/* Centered Network Toggle */}
-                    <div className="w-full flex justify-center pt-1 scale-90 origin-top">
-                        <NetworkToggle />
                     </div>
                 </div>
             </aside>

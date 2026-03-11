@@ -32,7 +32,7 @@ export default function WhitepaperPage() {
                     </h1>
                     <p className="text-xl font-bold text-white/70 mt-1">Technical Whitepaper — v2.0</p>
                     <p className="text-sm text-white/35 mt-1 font-mono">
-                        Contract: <a href="https://basescan.org/address/0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattleV10</a> · Base Mainnet · March 2026
+                        Contract: <a href="https://sepolia.basescan.org/address/0xF8623E94364b58246BC6FaBeA10710563d2dB6ae#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattleV10</a> · Base Sepolia Testnet · March 2026
                     </p>
                 </div>
 
@@ -278,7 +278,7 @@ export default function WhitepaperPage() {
                         <div className="grid md:grid-cols-2 gap-4">
                             {[
                                 ['✅ Phase 1 — Beta (Complete)', 'text-green-400', 'Core smart contract (V10), Base Sepolia testnet, frontend MVP, manual resolution, basic market creation.'],
-                                ['🚀 Phase 2 — Mainnet (Current)', 'text-blue-400', 'Base Mainnet deployment. Verified contract. Referral system. Early bird bonuses. Production frontend and full decentralized resolution.'],
+                                ['🚀 Phase 2 — Testnet (Current)', 'text-blue-400', 'Base Sepolia Testnet deployment. Verified contract. Referral system. Early bird bonuses. Production frontend and full decentralized resolution.'],
                                 ['🗓 Phase 3 — Scale', 'text-yellow-400', 'Resolution automation. Dispute dashboard improvements. Creator analytics. API for third-party integrations. Expanded market categories (sports, crypto, politics).'],
                                 ['🌐 Phase 4 — Decentralization', 'text-purple-400', 'DAO governance for dispute arbitration. Multi-sig treasury. Governance token ($BATTLE) for protocol fee sharing and resolution voting.'],
                             ].map(([title, color, desc]) => (

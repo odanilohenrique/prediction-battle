@@ -1,11 +1,11 @@
 import { createWalletClient, http, publicActions, custom, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia, base } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import { CURRENT_CONFIG } from './config';
 import PredictionBattleABI from '@/lib/abi/PredictionBattleV10.json';
 
-// Use MAINNET or TESTNET chain object from viem based on config
-const chain = process.env.NEXT_PUBLIC_USE_MAINNET === 'true' ? base : baseSepolia;
+// Always use Base Sepolia Testnet
+const chain = baseSepolia;
 
 export function getOperatorClient() {
     const privateKey = process.env.OPERATOR_PRIVATE_KEY;

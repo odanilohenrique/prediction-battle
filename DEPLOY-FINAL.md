@@ -30,10 +30,10 @@ Certifique-se que você tem estas 5 variáveis em **Settings > Environment Varia
 | Nome da Variável | Valor |
 |------------------|-------|
 | `NEYNAR_API_KEY` | `D4D3...` |
-| `RECEIVER_ADDRESS` | `0x2Cd...` |
-| `NEXT_PUBLIC_ADMIN_ADDRESS` | `0xFbb...` (Seu endereço Testnet) |
-| `NEXT_PUBLIC_USE_MAINNET` | `false` |
+| `RECEIVER_ADDRESS` | `0x1cb36C90dd0278906295D6bc890A2A76E4D8f80b` |
+| `NEXT_PUBLIC_ADMIN_ADDRESS` | `0x1cb36C90dd0278906295D6bc890A2A76E4D8f80b` (Owner) |
 | `NEXT_PUBLIC_ONCHAINKIT_API_KEY` | `eMK4P...` (Sua chave Coinbase) |
+| `OPERATOR_PRIVATE_KEY` | Private key da wallet Operator |
 
 > **Nota:** As variáveis do banco (`KV_...`) devem aparecer automaticamente após o Passo 1.
 

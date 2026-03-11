@@ -4,16 +4,14 @@ import { type ReactNode, useState } from 'react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { base, baseSepolia } from 'wagmi/chains';
+import { baseSepolia } from 'wagmi/chains';
 import { config } from '@/lib/wagmi';
 import FarcasterProvider from '@/providers/FarcasterProvider';
-import { NetworkProvider, useNetwork } from '@/providers/NetworkProvider';
 
 function ProvidersContent({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient());
-    const { isMainnet } = useNetwork();
 
-    const selectedChain = isMainnet ? base : baseSepolia;
+    const selectedChain = baseSepolia;
 
     return (
         <FarcasterProvider>
@@ -33,8 +31,6 @@ function ProvidersContent({ children }: { children: ReactNode }) {
 
 export default function OnchainProviders({ children }: { children: ReactNode }) {
     return (
-        <NetworkProvider>
-            <ProvidersContent>{children}</ProvidersContent>
-        </NetworkProvider>
+        <ProvidersContent>{children}</ProvidersContent>
     );
 }
