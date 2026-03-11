@@ -48,7 +48,7 @@ export default function DocsPage() {
                         Contract-accurate reference for all market rules, fee structures, and decentralized resolution mechanics.
                     </p>
                     <p className="text-xs text-white/30 mt-2 font-mono">
-                        Contract: <a href="https://sepolia.basescan.org/address/0xF8623E94364b58246BC6FaBeA10710563d2dB6ae#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">0xF8623E94364b58246BC6FaBeA10710563d2dB6ae</a> · Base Sepolia Testnet
+                        Contract: <a href="https://sepolia.basescan.org/address/0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9</a> · Base Sepolia Testnet
                     </p>
                 </div>
 

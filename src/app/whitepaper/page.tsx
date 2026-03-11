@@ -32,7 +32,7 @@ export default function WhitepaperPage() {
                     </h1>
                     <p className="text-xl font-bold text-white/70 mt-1">Technical Whitepaper — v2.0</p>
                     <p className="text-sm text-white/35 mt-1 font-mono">
-                        Contract: <a href="https://sepolia.basescan.org/address/0xF8623E94364b58246BC6FaBeA10710563d2dB6ae#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattleV10</a> · Base Sepolia Testnet · March 2026
+                        Contract: <a href="https://sepolia.basescan.org/address/0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattleV10</a> · Base Sepolia Testnet · March 2026
                     </p>
                 </div>
 
