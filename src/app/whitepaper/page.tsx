@@ -239,7 +239,7 @@ export default function WhitepaperPage() {
                             <li><strong className="text-white">Circuit Breakers:</strong> Configurable max bet (100k USDC) and max pool (1M USDC) caps prevent extreme concentration of funds in a single market.</li>
                             <li><strong className="text-white">MEV Protection:</strong> Open-ended markets have a per-user 5-minute cooldown between placing a bet and proposing an outcome on the same market, preventing same-block manipulation.</li>
                             <li><strong className="text-white">Pausable:</strong> Admin can halt all market activity in an emergency without disrupting existing claims.</li>
-                            <li><strong className="text-white">Verified on Basescan:</strong> Contract source is publicly verified at <a href="https://basescan.org/address/0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">0x5aB3e14ff...eBd6c</a>.</li>
+                            <li><strong className="text-white">Verified on Basescan:</strong> Contract source is publicly verified at <a href="https://sepolia.basescan.org/address/0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">0x8ce4f5A39...2A1E9</a>.</li>
                         </ul>
                     </WPSection>
 
