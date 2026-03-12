@@ -1269,8 +1269,8 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                 </div>
             </div>
 
-            {/* SLASH PUNISHMENT BANNER (Only for admin view during claim phase) */}
-            {isMarketResolved && bet.slashReason && (
+            {/* SLASH PUNISHMENT BANNER (Only for slashed user during claim phase) */}
+            {isMarketResolved && bet.slashReason && address && bet.slashedAddress && address.toLowerCase() === bet.slashedAddress.toLowerCase() && (
                 <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 animate-fade-in mx-6">
                     <div className="flex items-start gap-3">
                         <span className="text-2xl mt-0.5">⚠️</span>

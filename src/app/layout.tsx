@@ -8,16 +8,14 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 
 export const metadata: Metadata = {
-    title: "Prediction Battle - Bet on Farcaster Casts",
-    description: "Bet USDC on whether Farcaster casts will hit engagement targets. Win big if you're right!",
+    title: "Prediction Battle",
+    description: "Arena descentralizada de palpites. Aposte USDC em eventos do mundo real e ganhe com quem perder.",
+    icons: {
+        icon: '/icon.png',
+        shortcut: '/icon.png',
+        apple: '/icon.png',
+    },
     manifest: '/manifest.json',
-    other: {
-        "fc:frame": "vNext",
-        "fc:frame:image": "https://predictionbattle.xyz/og-image.png",
-        "fc:frame:button:1": "Launch App",
-        "fc:frame:button:1:action": "link",
-        "fc:frame:button:1:target": "https://predictionbattle.xyz"
-    }
 };
 
 import { ModalProvider } from "@/providers/ModalProvider";

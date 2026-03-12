@@ -18,20 +18,22 @@ export const TESTNET_CONFIG = {
 
 export const MAINNET_CONFIG = {
     chainId: 8453, // Base Mainnet
-    chainName: 'Base Mainnet',
-    rpcUrl: 'https://mainnet.base.org',
+    chainName: 'Base',
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL_MAINNET || 'https://mainnet.base.org',
     blockExplorer: 'https://basescan.org',
     nativeCurrency: {
         name: 'Ethereum',
         symbol: 'ETH',
         decimals: 18,
     },
-    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base Mainnet
-    contractAddress: '', // To be deployed
+    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base Mainnet USDC
+    contractAddress: '0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c', // Base Mainnet Address
 };
 
-// For now, always use testnet
-export const CURRENT_CONFIG = TESTNET_CONFIG;
+// Toggle network based on environment
+const useMainnet = process.env.NEXT_PUBLIC_USE_MAINNET === 'true';
+
+export const CURRENT_CONFIG = useMainnet ? MAINNET_CONFIG : TESTNET_CONFIG;
 
 // Helper that NEVER returns empty - use this everywhere
 export function getContractAddress(): `0x${string}` {

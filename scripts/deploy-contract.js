@@ -9,7 +9,7 @@ const path = require('path');
 const solc = require('solc');
 
 // CONFIGURATION
-const PRIVATE_KEY = '0x409ca09bf89611f6158525db82bb06ed9038c2cea0a6760b6e74cf8da7345fbc';
+const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
 const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
 const OPERATOR_ADDRESS = '0xFA278965A56a16252ccB850d3bB354f6a6E9fB02';
 

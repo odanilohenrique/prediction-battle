@@ -1,303 +1,399 @@
-
+import { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Zap, Shield, HelpCircle, Terminal, Wallet, AlertTriangle, CheckCircle, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Swords, Coins, Scale, Clock, Shield, Flame, HelpCircle, TriangleAlert } from 'lucide-react';
+
+function Section({ id, icon, color, number, title, children }: { id: string; icon: ReactNode; color: string; number: string; title: string; children: ReactNode }) {
+    return (
+        <section id={id} className="space-y-5 scroll-mt-24">
+            <h2 className={`text-2xl font-black italic tracking-wider text-white flex items-center gap-3 uppercase border-l-4 pl-4 ${color}`}>
+                {icon}
+                <span className="text-white/30 font-mono text-lg">{number}</span>
+                {title}
+            </h2>
+            <div className="space-y-4 text-base text-white/70 leading-relaxed pl-2">
+                {children}
+            </div>
+        </section>
+    );
+}
+
+function InfoBox({ type, children }: { type: 'note' | 'warning' | 'danger' | 'success'; children: ReactNode }) {
+    const styles = {
+        note: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+        warning: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
+        danger: 'bg-red-500/10 border-red-500/30 text-red-300',
+        success: 'bg-green-500/10 border-green-500/30 text-green-300',
+    };
+    return (
+        <div className={`p-4 border rounded-xl text-sm ${styles[type]}`}>
+            {children}
+        </div>
+    );
+}
 
 export default function DocsPage() {
     return (
-        <main className="min-h-screen bg-black text-white p-6 md:p-12">
+        <main className="min-h-screen bg-transparent text-white p-6 md:p-12">
             <div className="max-w-4xl mx-auto">
                 <Link href="/" className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors mb-8">
                     <ArrowLeft className="w-4 h-4" />
                     Back to Arena
                 </Link>
 
-                <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter mb-2">
-                    DOCUMENTATION
-                </h1>
-                <p className="text-xl text-white/60 mb-12">
-                    Technical guides for users, creators, and developers.
-                </p>
+                <div className="mb-12">
+                    <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter mb-2 uppercase text-white">
+                        Documentation
+                    </h1>
+                    <p className="text-lg text-white/50">
+                        Contract-accurate reference for all market rules, fee structures, and decentralized resolution mechanics.
+                    </p>
+                    <p className="text-xs text-white/30 mt-2 font-mono">
+                        Contract: <a href="https://basescan.org/address/0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">0x5aB3e14ff6d2d2e5F41111235d4A147a970eBd6c</a> · Base Mainnet
+                    </p>
+                </div>
 
                 {/* Table of Contents */}
-                <nav className="mb-12 p-6 bg-white/5 rounded-2xl border border-white/10">
-                    <h2 className="text-sm font-bold text-white/40 uppercase tracking-widest mb-4">Contents</h2>
-                    <ul className="space-y-2 text-sm">
-                        <li><a href="#getting-started" className="text-primary hover:underline">1. Getting Started</a></li>
-                        <li><a href="#creating-markets" className="text-primary hover:underline">2. Creating Markets</a></li>
-                        <li><a href="#placing-bets" className="text-primary hover:underline">3. Placing Bets</a></li>
-                        <li><a href="#verification" className="text-primary hover:underline">4. Verification & Resolution</a></li>
-                        <li><a href="#disputes" className="text-primary hover:underline">5. Dispute Mechanism</a></li>
-                        <li><a href="#claiming" className="text-primary hover:underline">6. Claiming Winnings</a></li>
-                        <li><a href="#contracts" className="text-primary hover:underline">7. Smart Contract Reference</a></li>
-                        <li><a href="#faq" className="text-primary hover:underline">8. FAQ</a></li>
+                <nav className="mb-12 p-6 bg-white/[0.03] rounded-2xl border border-white/5">
+                    <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Contents</h2>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8 text-sm">
+                        {[
+                            ['#what-is', '1. What Is Prediction Battle'],
+                            ['#markets', '2. Markets & Creation Rules'],
+                            ['#betting', '3. Betting & Liquidity Mechanics'],
+                            ['#fees', '4. Fee Structure'],
+                            ['#payouts', '5. Winning, Losing & Scenarios'],
+                            ['#resolution', '6. Decentralized Resolution'],
+                            ['#slash', '7. Punishment & Slashing'],
+                            ['#faq', '8. FAQ'],
+                        ].map(([href, label]) => (
+                            <li key={href}><a href={href} className="text-white/50 hover:text-primary transition-colors">{label}</a></li>
+                        ))}
                     </ul>
                 </nav>
 
                 <div className="space-y-16">
 
-                    {/* Getting Started */}
-                    <section id="getting-started" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Wallet className="w-6 h-6 text-primary" />
-                            1. Getting Started
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                Prediction Battle runs on <strong className="text-white">Base</strong>, Coinbase's Layer 2 network.
-                                You'll need a compatible wallet and some USDC to participate.
-                            </p>
-                            <h3 className="text-lg font-bold text-white mt-6">1.1 Wallet Setup</h3>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Install a Web3 wallet: <strong className="text-white">Rabby</strong>, <strong className="text-white">MetaMask</strong>, or <strong className="text-white">Coinbase Wallet</strong>.</li>
-                                <li>Add the Base network to your wallet:
-                                    <ul className="list-disc pl-6 mt-2 text-xs text-white/50">
-                                        <li>Network Name: <code className="bg-white/10 px-1 rounded">Base</code></li>
-                                        <li>RPC URL: <code className="bg-white/10 px-1 rounded">https://mainnet.base.org</code></li>
-                                        <li>Chain ID: <code className="bg-white/10 px-1 rounded">8453</code></li>
-                                        <li>Currency: <code className="bg-white/10 px-1 rounded">ETH</code></li>
-                                    </ul>
+                    {/* 1 */}
+                    <Section id="what-is" number="01" icon={<Flame className="w-5 h-5" />} color="border-orange-500" title="What Is Prediction Battle">
+                        <p>
+                            Prediction Battle is a <strong className="text-white">non-custodial prediction market</strong> running fully on the <strong className="text-white">Base blockchain</strong>.
+                            All funds are held exclusively by a verified smart contract. No central authority can freeze, move, or confiscate your stake — except in explicitly defined <a href="#slash" className="text-primary hover:underline">slash conditions</a>.
+                        </p>
+                        <p>
+                            Markets are structured as <strong className="text-white">binary disputes</strong> between two sides (e.g., <em>Creator A vs Creator B</em>, <em>Ethereum vs Solana this quarter</em>, <em>Will @user hit 1M followers before @other?</em>).
+                            Participants stake USDC on the side they believe will win. Winners claim a share of the losing pool.
+                        </p>
+                        <InfoBox type="note">
+                            <strong>No House Edge in the traditional sense.</strong> The "house" only takes a fixed fee percentage. There is no counter-party risk — the protocol never bets against you.
+                        </InfoBox>
+                    </Section>
+
+                    {/* 2 */}
+                    <Section id="markets" number="02" icon={<Swords className="w-5 h-5" />} color="border-blue-500" title="Markets & Creation Rules">
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2">Who Can Create</h3>
+                        <p>Any connected wallet can create a market. There is a <strong className="text-white">1-hour cooldown</strong> between market creations per address (anti-spam).</p>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Creation Requirements</h3>
+                        <ul className="list-disc pl-5 space-y-2">
+                            <li><strong className="text-white">Seed Liquidity (minimum 1 USDC):</strong> The creator must deposit a USDC seed to bootstrap the market. This amount is NOT part of the betting pool and is fully refundable to the creator after market resolution. It is held separately by the contract.</li>
+                            <li><strong className="text-white">Question:</strong> Must be between 10 and 500 characters.</li>
+                            <li><strong className="text-white">Deadline:</strong> A future timestamp after which no new bets are accepted and the result can be proposed. Markets with no deadline ("open-ended") accept bets until someone proposes the first outcome.</li>
+                        </ul>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Market Types</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                <h4 className="font-bold text-white mb-1">⏱ Time-Bound Market</h4>
+                                <p className="text-sm">Has an explicit expiration. Result can only be proposed after the deadline. Examples: <em>"Who gets more retweets this week?"</em>, <em>"Who posts first on Sunday?"</em></p>
+                            </div>
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                <h4 className="font-bold text-white mb-1">🔓 Open-Ended Market</h4>
+                                <p className="text-sm">No deadline. Anyone can propose the result at any time. Creator must wait 24h after creation before proposing. Great for events with no fixed end date.</p>
+                            </div>
+                        </div>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Examples of Valid Markets</h3>
+                        <ul className="space-y-2">
+                            {[
+                                ['🏛️', 'Politics', 'Who will get more mentions on X this month: Trump or Biden?'],
+                                ['⛓️', 'Crypto Tribalism', 'Which chain will have more active wallets in Q2: Solana or Ethereum?'],
+                                ['📱', 'Social Warfare', `Will @elonmusk's next post get more likes than @MrBeast's next YouTube link on X?`],
+                                ['🎭', 'Influencer Drama', 'Who will hit 10M followers on X first: Creator A or Creator B?'],
+                                ['🏆', 'Sports Predictions', `Which team's announcement post will get more shares this weekend?`],
+                            ].map(([icon, label, desc]) => (
+                                <li key={label} className="flex gap-3 text-sm">
+                                    <span>{icon}</span>
+                                    <div><strong className="text-white">{label}:</strong> {desc}</div>
                                 </li>
-                                <li>Bridge USDC to Base using the <a href="https://bridge.base.org" target="_blank" rel="noreferrer" className="text-primary hover:underline">Base Bridge</a> or purchase directly via Coinbase.</li>
-                            </ol>
+                            ))}
+                        </ul>
 
-                            <h3 className="text-lg font-bold text-white mt-6">1.2 Connecting to the App</h3>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Navigate to <a href="https://predictionbattle.xyz" className="text-primary hover:underline">predictionbattle.xyz</a>.</li>
-                                <li>Click the <strong className="text-white">"Wallet"</strong> button in the sidebar.</li>
-                                <li>Approve the connection request in your wallet.</li>
-                                <li>Ensure you are on the correct network (Base Mainnet or Sepolia for testing).</li>
-                            </ol>
+                        <InfoBox type="warning">
+                            <strong>Market Cap:</strong> The maximum total betting pool per market is <strong>1,000,000 USDC</strong>. No single bet may exceed <strong>100,000 USDC</strong>.
+                        </InfoBox>
+                    </Section>
+
+                    {/* 3 */}
+                    <Section id="betting" number="03" icon={<Coins className="w-5 h-5" />} color="border-green-500" title="Betting & Liquidity Mechanics">
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2">Bet Limits</h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                            <li><strong className="text-white">Minimum bet:</strong> 0.05 USDC</li>
+                            <li><strong className="text-white">Maximum bet:</strong> 100,000 USDC</li>
+                            <li>Bets can only be placed while the market is in <strong className="text-white">OPEN</strong> state and before the deadline.</li>
+                            <li>You may bet multiple times on the same market and same side. Each bet accumulates your position.</li>
+                        </ul>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">How the Multiplier Works (Pari-Mutuel System)</h3>
+                        <p>
+                            Your USDC goes directly into the liquidity pool of the side you chose. There are two separate pools: <strong className="text-white">Side A Pool</strong> and <strong className="text-white">Side B Pool</strong>.
+                            If your side wins, you are entitled to a proportional share of the losing side's pool.
+                        </p>
+                        <p className="mt-2">
+                            Your payout multiplier is determined entirely by the <strong className="text-white">ratio of the two pools</strong> at market close:
+                        </p>
+                        <div className="p-5 bg-white/5 border border-white/10 rounded-xl mt-4 font-mono text-sm">
+                            <p className="text-white/50 mb-2">{`// Simplified formula`}</p>
+                            <p><span className="text-primary">yourShare</span> = (yourBet / totalWinningSidePool) × totalLosingPool</p>
+                            <p><span className="text-primary">grossPayout</span> = yourShare + yourOriginalBet</p>
+                            <p><span className="text-primary">netPayout</span> = grossPayout − 21% fees (on profit only)</p>
                         </div>
-                    </section>
 
-                    {/* Creating Markets */}
-                    <section id="creating-markets" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Zap className="w-6 h-6 text-yellow-500" />
-                            2. Creating Markets
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                Anyone can create a prediction market based on a Farcaster Cast. As the creator,
-                                you earn <strong className="text-green-400">1% of the winning pot</strong> as a reward.
-                            </p>
-                            <h3 className="text-lg font-bold text-white mt-6">2.1 Steps to Create</h3>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Click <strong className="text-white">"Create Battle"</strong> on the home page.</li>
-                                <li>Paste the Farcaster Cast URL (e.g., <code className="bg-white/10 px-1 rounded text-xs">https://warpcast.com/username/0xabc123</code>).</li>
-                                <li>Select the engagement metric: <strong>Likes</strong>, <strong>Recasts</strong>, or <strong>Replies</strong>.</li>
-                                <li>Set the target value (e.g., "Will this cast hit 500 likes?").</li>
-                                <li>Choose the deadline (when the prediction ends).</li>
-                                <li>Confirm the transaction in your wallet. This creates the market on-chain.</li>
-                            </ol>
-                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl mt-4">
-                                <p className="text-xs text-yellow-400">
-                                    <strong>Note:</strong> Creating a market requires a small gas fee (~0.001 ETH).
-                                    You do not need to stake USDC to create—only to bet.
-                                </p>
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Numerical Example</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm">
+                                <h4 className="font-bold text-white mb-2">🏗️ Setup</h4>
+                                <ul className="space-y-1">
+                                    <li>Side A pool: <strong className="text-white">$200 USDC</strong></li>
+                                    <li>Side B pool: <strong className="text-white">$1,000 USDC</strong></li>
+                                    <li>Your bet: <strong className="text-green-400">$100 on Side A</strong></li>
+                                    <li>Your share of Side A: 100 / 300 = <strong className="text-white">33.3%</strong></li>
+                                </ul>
+                            </div>
+                            <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl text-sm">
+                                <h4 className="font-bold text-green-400 mb-2">✅ If Side A Wins</h4>
+                                <ul className="space-y-1">
+                                    <li>Your slice of losing pool: 33.3% × $1,000 = $333</li>
+                                    <li>Gross payout: $333 + $100 = <strong className="text-white">$433</strong></li>
+                                    <li>Profit: $333 → 21% fee = ~$70</li>
+                                    <li>Net payout: ≈ <strong className="text-green-400">$363 USDC</strong></li>
+                                </ul>
                             </div>
                         </div>
-                    </section>
 
-                    {/* Placing Bets */}
-                    <section id="placing-bets" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Users className="w-6 h-6 text-purple-500" />
-                            3. Placing Bets
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                Betting is the core of Prediction Battle. You stake USDC on your prediction.
-                            </p>
-                            <h3 className="text-lg font-bold text-white mt-6">3.1 How to Bet</h3>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Find an active market on the home page ("Official" or "Community" tabs).</li>
-                                <li>Click the market card to open the betting modal.</li>
-                                <li>Choose your side: <span className="text-green-400 font-bold">YES</span> (target will be hit) or <span className="text-red-400 font-bold">NO</span> (target will not be hit).</li>
-                                <li>Enter your bet amount in USDC.</li>
-                                <li>If this is your first bet, you'll need to <strong className="text-white">Approve</strong> USDC spending first.</li>
-                                <li>Confirm the bet transaction in your wallet.</li>
-                            </ol>
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Early Bird Bonus</h3>
+                        <p>
+                            Bets placed during the <strong className="text-white">Bonus Window</strong> (a time range defined by the creator at market creation) receive <strong className="text-white">up to 1.2x</strong> the shares compared to bets placed after the bonus period.
+                            This rewards early participants for taking on greater uncertainty.
+                        </p>
+                        <InfoBox type="note">
+                            Shares determine your proportional claim on the winning pool. More shares = bigger slice of the pie. After the bonus window closes, all new bets receive 1.0x shares.
+                        </InfoBox>
+                    </Section>
 
-                            <h3 className="text-lg font-bold text-white mt-6">3.2 Referral System</h3>
-                            <p>
-                                Each user has a unique referral code. When someone bets using your code,
-                                you earn <strong className="text-purple-400">1% of their winnings</strong> if they win.
-                            </p>
-                            <ul className="list-disc pl-6 space-y-1">
-                                <li>Your referral code is displayed after you place your first bet.</li>
-                                <li>Share your link: <code className="bg-white/10 px-1 rounded text-xs">predictionbattle.xyz?ref=YOUR_CODE</code></li>
-                            </ul>
-                        </div>
-                    </section>
+                    {/* 4 */}
+                    <Section id="fees" number="04" icon={<Clock className="w-5 h-5" />} color="border-yellow-500" title="Fee Structure">
+                        <p>
+                            All fees are deducted <strong className="text-white">only from the profit</strong> (i.e., from the losing side's pool before it is distributed to winners). Your original stake is never subject to fees.
+                        </p>
 
-                    {/* Verification */}
-                    <section id="verification" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Shield className="w-6 h-6 text-green-500" />
-                            4. Verification & Resolution
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                After the market deadline passes, the outcome must be verified before payouts can occur.
-                            </p>
-                            <h3 className="text-lg font-bold text-white mt-6">4.1 Automated Verification</h3>
-                            <p>
-                                Our backend uses the <strong className="text-white">Neynar API</strong> to fetch real-time
-                                engagement data from Farcaster. An automated cron job checks expired markets and proposes outcomes.
-                            </p>
-
-                            <h3 className="text-lg font-bold text-white mt-6">4.2 Manual Verification</h3>
-                            <p>
-                                Anyone can manually verify a market by clicking <strong className="text-white">"Verify"</strong>
-                                on an expired market card. This calls the <code className="bg-white/10 px-1 rounded">proposeOutcome()</code>
-                                function on the smart contract.
-                            </p>
-                            <ul className="list-disc pl-6 space-y-1">
-                                <li>You must stake a <strong>verification bond</strong> (defaults to 2 USDC).</li>
-                                <li>If your proposal is correct and unchallenged, your bond is returned.</li>
-                                <li>If disputed and overturned, you lose your bond to the disputer.</li>
-                            </ul>
-
-                            <h3 className="text-lg font-bold text-white mt-6">4.3 Evidence</h3>
-                            <p>
-                                When proposing, you can attach an <strong>evidence URL</strong> (e.g., a screenshot or archive link).
-                                This helps other users validate the result during the dispute window.
-                            </p>
-                        </div>
-                    </section>
-
-                    {/* Disputes */}
-                    <section id="disputes" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <AlertTriangle className="w-6 h-6 text-red-500" />
-                            5. Dispute Mechanism
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                To prevent incorrect resolutions, there is a <strong className="text-white">24-hour dispute window</strong>
-                                after an outcome is proposed.
-                            </p>
-                            <h3 className="text-lg font-bold text-white mt-6">5.1 How to Dispute</h3>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Find a market in the "Verifying" state.</li>
-                                <li>Review the proposed outcome and evidence.</li>
-                                <li>If you believe it's wrong, click <strong className="text-red-400">"Dispute"</strong>.</li>
-                                <li>Stake a counter-bond (1.5x the original bond).</li>
-                                <li>Provide your own evidence URL.</li>
-                            </ol>
-
-                            <h3 className="text-lg font-bold text-white mt-6">5.2 Dispute Resolution</h3>
-                            <p>
-                                Currently, disputes escalate to admin review. In future versions, disputes will
-                                be resolved by a decentralized jury or DAO governance.
-                            </p>
-                            <ul className="list-disc pl-6 space-y-1">
-                                <li>If the dispute is successful, the disputer receives the original proposer's bond.</li>
-                                <li>If the dispute fails, the disputer loses their counter-bond.</li>
-                            </ul>
-                        </div>
-                    </section>
-
-                    {/* Claiming */}
-                    <section id="claiming" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <CheckCircle className="w-6 h-6 text-green-400" />
-                            6. Claiming Winnings
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <p>
-                                Once a market is finalized (dispute window closed with no challenge), winners can claim.
-                            </p>
-                            <ol className="list-decimal pl-6 space-y-2">
-                                <li>Navigate to your <strong className="text-white">Profile</strong> page.</li>
-                                <li>Find the market in your "Completed" bets.</li>
-                                <li>Click <strong className="text-green-400">"Claim"</strong>.</li>
-                                <li>Confirm the transaction. Your USDC winnings will be sent to your wallet.</li>
-                            </ol>
-                            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl mt-4">
-                                <p className="text-xs text-green-400">
-                                    <strong>Payout Calculation:</strong> Your share = (Your Stake / Total Winning Stake) × Losing Pot × (1 - Fees)
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Contracts */}
-                    <section id="contracts" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Terminal className="w-6 h-6 text-cyan-400" />
-                            7. Smart Contract Reference
-                        </h2>
-                        <div className="space-y-4 text-sm text-white/70">
-                            <h3 className="text-lg font-bold text-white">Deployed Contracts</h3>
-                            <table className="w-full text-left text-xs border border-white/10 rounded-xl overflow-hidden">
-                                <thead className="bg-white/5">
+                        <div className="overflow-hidden rounded-xl border border-white/10 mt-4">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-white/5 text-white/50 uppercase text-xs tracking-wider">
                                     <tr>
-                                        <th className="p-3 border-b border-white/10">Network</th>
-                                        <th className="p-3 border-b border-white/10">Contract</th>
-                                        <th className="p-3 border-b border-white/10">Address</th>
+                                        <th className="p-4">Recipient</th>
+                                        <th className="p-4">Rate</th>
+                                        <th className="p-4">Who</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr className="border-b border-white/5">
-                                        <td className="p-3">Base Mainnet</td>
-                                        <td className="p-3">PredictionBattleV3</td>
-                                        <td className="p-3 font-mono text-primary">0x...TBD</td>
+                                <tbody className="divide-y divide-white/5">
+                                    <tr className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4 font-bold text-white">Protocol Treasury</td>
+                                        <td className="p-4 font-mono text-yellow-400">10%</td>
+                                        <td className="p-4">Maintenance, security, development</td>
                                     </tr>
-                                    <tr className="border-b border-white/5">
-                                        <td className="p-3">Base Sepolia</td>
-                                        <td className="p-3">PredictionBattleV3</td>
-                                        <td className="p-3 font-mono text-primary">0x...TBD</td>
+                                    <tr className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4 font-bold text-white">Market Creator</td>
+                                        <td className="p-4 font-mono text-yellow-400">5%</td>
+                                        <td className="p-4">The wallet that created the market</td>
                                     </tr>
-                                    <tr>
-                                        <td className="p-3">Base Mainnet</td>
-                                        <td className="p-3">USDC</td>
-                                        <td className="p-3 font-mono">0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</td>
+                                    <tr className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4 font-bold text-white">Referrer</td>
+                                        <td className="p-4 font-mono text-yellow-400">5%</td>
+                                        <td className="p-4">Wallet that referred the winning bettor (if any)</td>
+                                    </tr>
+                                    <tr className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-4 font-bold text-white">Result Reporter</td>
+                                        <td className="p-4 font-mono text-yellow-400">1%</td>
+                                        <td className="p-4">Whoever proposed the correct final outcome on-chain</td>
+                                    </tr>
+                                    <tr className="bg-white/5">
+                                        <td className="p-4 font-bold text-primary">Total</td>
+                                        <td className="p-4 font-mono font-bold text-primary">21%</td>
+                                        <td className="p-4 text-white/50">Applied to the profit portion only</td>
                                     </tr>
                                 </tbody>
                             </table>
-                            <p className="text-xs text-white/40 mt-2">
-                                All contracts are verified on Basescan. View source code on our <a href="https://github.com/odanilohenrique/prediction-battle" target="_blank" rel="noreferrer" className="text-primary hover:underline">GitHub</a>.
-                            </p>
                         </div>
-                    </section>
 
-                    {/* FAQ */}
-                    <section id="faq" className="space-y-6">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <HelpCircle className="w-6 h-6 text-purple-400" />
-                            8. Frequently Asked Questions
-                        </h2>
-                        <div className="space-y-4">
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                <h4 className="font-bold text-white mb-1">Is this gambling?</h4>
-                                <p className="text-xs text-white/60">
-                                    Prediction markets are speculative instruments based on real-world outcomes.
-                                    Legality varies by jurisdiction. Please consult local laws before participating.
-                                </p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                <h4 className="font-bold text-white mb-1">What happens if no one bets on one side?</h4>
-                                <p className="text-xs text-white/60">
-                                    If a market resolves with only YES or only NO bets, all participants get their stake back (minus gas fees).
-                                </p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                <h4 className="font-bold text-white mb-1">Can I cancel my bet?</h4>
-                                <p className="text-xs text-white/60">
-                                    No. Once a bet is placed on-chain, it cannot be reversed. Bets are final.
-                                </p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                <h4 className="font-bold text-white mb-1">What if the Cast is deleted?</h4>
-                                <p className="text-xs text-white/60">
-                                    If the underlying Cast is deleted before resolution, the market may be voided by an admin.
-                                    All participants would then receive their stake back.
-                                </p>
-                            </div>
+                        <InfoBox type="note">
+                            If no referrer was recorded for a winning bettor, the 5% referrer share is not collected — it stays in the pool and is distributed to all other winners, increasing their payout.
+                        </InfoBox>
+                    </Section>
+
+                    {/* 5 */}
+                    <Section id="payouts" number="05" icon={<Scale className="w-5 h-5" />} color="border-purple-500" title="Winning, Losing & Scenarios">
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2">If You Win</h3>
+                        <ol className="list-decimal pl-5 space-y-1">
+                            <li>You receive <strong className="text-white">100% of your original stake back.</strong></li>
+                            <li>You receive a proportional share of the losing side's pool.</li>
+                            <li>From that profit, 21% is deducted in fees (see Section 4).</li>
+                            <li>Your net USDC is available to claim on your Profile page once the market is finalized.</li>
+                        </ol>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">If You Lose</h3>
+                        <p>
+                            You lose <strong className="text-red-400">100%</strong> of your staked USDC. Your funds are immediately locked in the contract and transferred to the winning pool for distribution. There is no partial refund and no cancellation after a bet is placed.
+                        </p>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">DRAW — Technical Tie</h3>
+                        <p>
+                            If the market resolves as a <strong className="text-white">technical draw</strong> (e.g., exact tie in a measurable metric), <strong className="text-white">all bettors on both sides</strong> receive their original stake back in full. The protocol does NOT collect fees on a draw.
+                        </p>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">CANCELLED — Admin Void</h3>
+                        <p>
+                            If an admin cancels the market (e.g., the subject became unverifiable, or the market was fraudulently created), <strong className="text-white">all participants receive 100% of their stake back.</strong> Gas fees spent placing bets are not refunded.
+                        </p>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">One-sided Market (No Losers)</h3>
+                        <p>
+                            If a market resolves and the losing side had <strong className="text-white">$0 in bets</strong> (everyone bet on the same side), there is no losing pool to distribute. All participants simply receive their original stake back, net of nothing.
+                        </p>
+                    </Section>
+
+                    {/* 6 */}
+                    <Section id="resolution" number="06" icon={<Shield className="w-5 h-5" />} color="border-cyan-500" title="Decentralized Resolution">
+                        <p>
+                            Market resolution does not depend on a central server or oracle. It uses a <strong className="text-white">Bond-backed proposal system</strong> where economic incentives punish dishonest reporters.
+                        </p>
+
+                        <div className="space-y-4 mt-6">
+                            {[
+                                {
+                                    step: '1',
+                                    color: 'bg-blue-500 shadow-blue-500/30',
+                                    title: 'Proposal (Verification)',
+                                    body: <>
+                                        After the market deadline, any user clicks <strong className="text-white">"Verify / Approve Result"</strong>. They must submit a <strong className="text-white">Bond</strong> starting at <strong className="text-white">5 USDC</strong> (scales with total pool size) along with a link to evidence (e.g. a screenshot or archive URL).
+                                        <br /><br />
+                                        The proposer defines the winning side. The market immediately enters the <strong className="text-white">PROPOSED</strong> state.
+                                    </>
+                                },
+                                {
+                                    step: '2',
+                                    color: 'bg-yellow-500 shadow-yellow-500/30 text-black',
+                                    title: '12-Hour Dispute Window',
+                                    body: <>
+                                        The market is frozen in <strong className="text-white">PROPOSED</strong> state for exactly <strong className="text-white">12 hours (43,200 seconds)</strong>. During this time, anyone who believes the result is incorrect can submit a <strong className="text-white">Challenge</strong>.
+                                        <br /><br />
+                                        To challenge, the disputer must deposit a bond <strong className="text-white">at least equal to the original proposal bond</strong>. The proposer cannot challenge their own proposal.
+                                    </>
+                                },
+                                {
+                                    step: '3',
+                                    color: 'bg-green-500 shadow-green-500/30 text-black',
+                                    title: 'Finalization (No Dispute)',
+                                    body: <>
+                                        If the 12-hour window passes without a challenge, any user can call <strong className="text-white">"Finalize Market"</strong>. The proposed outcome is locked on-chain permanently. The proposer receives:
+                                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                                            <li>Their full bond returned.</li>
+                                            <li>The <strong className="text-white">1% Reporter Reward</strong> from the market's profit pool.</li>
+                                        </ul>
+                                    </>
+                                },
+                                {
+                                    step: '4',
+                                    color: 'bg-red-500 shadow-red-500/30',
+                                    title: 'Admin Arbitration (If Disputed)',
+                                    body: <>
+                                        If a challenge is submitted, the market enters <strong className="text-white">DISPUTED</strong> state. An admin (or in future, a DAO) reviews both evidence URLs and decides the correct outcome.
+                                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                                            <li>The <strong className="text-white">honest party</strong> gets their bond back + <strong className="text-white">80% of the liar's bond</strong> as a bounty reward.</li>
+                                            <li>The <strong className="text-red-400">dishonest party</strong> loses their entire bond. 20% goes to the protocol treasury.</li>
+                                            <li>The winning party also inherits the <strong className="text-white">1% Reporter Reward</strong>.</li>
+                                        </ul>
+                                    </>
+                                },
+                            ].map(({ step, color, title, body }) => (
+                                <div key={step} className="relative flex gap-5">
+                                    <div className={`w-8 h-8 rounded-full ${color} flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-lg mt-1`}>{step}</div>
+                                    <div className="flex-1 p-5 bg-white/[0.03] border border-white/5 rounded-xl">
+                                        <h4 className="font-bold text-white mb-2 text-base">{title}</h4>
+                                        <div className="text-sm text-white/60">{body}</div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    </section>
+                    </Section>
+
+                    {/* 7 */}
+                    <Section id="slash" number="07" icon={<TriangleAlert className="w-5 h-5" />} color="border-red-500" title="Punishment & Slashing">
+                        <InfoBox type="danger">
+                            <strong>⚠️ Slashing is irreversible.</strong> Once a slash is executed on-chain, funds are permanently confiscated and sent to the protocol treasury. There is no appeal process after on-chain execution.
+                        </InfoBox>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">1. Bond Slashing (Dishonest Reporter)</h3>
+                        <p>
+                            If a user submits a false outcome proposal and is successfully challenged and overturned in arbitration, they are slashed:
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1 mt-2">
+                            <li>The liar loses <strong className="text-red-400">100%</strong> of their bond.</li>
+                            <li><strong className="text-white">80%</strong> of that bond is awarded to the honest challenger as a bounty.</li>
+                            <li><strong className="text-white">20%</strong> is permanently sent to the protocol treasury.</li>
+                        </ul>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">2. Seed Confiscation (Fraudulent Market Creator)</h3>
+                        <p>
+                            If an admin determines that a market was created with fraudulent intent (e.g., designed to deceive bettors, with manipulated subject matter, or citing fabricated content), the creator's seed deposit is permanently confiscated:
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1 mt-2">
+                            <li>The creator's seed (minimum 1 USDC, can be any deposited amount) is transferred in full to the protocol treasury.</li>
+                            <li>The creator loses all right to recover their seed.</li>
+                            <li>Bettors of the market are protected — their stakes are refunded (the market resolves as CANCELLED).</li>
+                        </ul>
+
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">What Triggers a Slash?</h3>
+                        <ul className="list-disc pl-5 space-y-2">
+                            <li>Submitting a false result as a verifier/proposer.</li>
+                            <li>Creating a market with fabricated or unverifiable questions designed to steal bets.</li>
+                            <li>Collusion attempts detected by the arbitration process.</li>
+                        </ul>
+
+                        <InfoBox type="warning">
+                            The slash mechanism exists to make dishonest behavior more expensive than honest behavior. The bond requirement scales with pool size, so attempting to manipulate a large market requires a proportionally large bond at risk.
+                        </InfoBox>
+                    </Section>
+
+                    {/* 8 */}
+                    <Section id="faq" number="08" icon={<HelpCircle className="w-5 h-5" />} color="border-white/20" title="FAQ">
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {[
+                                ['Can I cancel my bet?', 'No. Blockchain transactions are immutable. Once your stake is submitted to the contract, it is locked until the market resolves. Bets cannot be reversed.'],
+                                ['Can I bet on both sides?', 'Technically yes, but the contract treats each side independently. Betting on both sides does not create arbitrage; you will simply win on one side and lose on the other, netting negative due to fees.'],
+                                ['What happens if the market expires but no one verifies it?', 'The market stays in OPEN state indefinitely until someone submits a proposal. There is an Emergency Timeout of 30 days after which the admin can force-void the market and refund all bettors.'],
+                                ['Who gets the creator fee if the creator is slashed?', 'If the creator was slashed (fraudulent market), the market is cancelled. No fees are collected on cancelled markets — all bettors receive 100% refunds.'],
+                                ['Is there a fee to create a market?', 'No protocol fee for creation. You only need to deposit the Seed (min 1 USDC). That seed is returned to you after resolution. You will pay a small gas fee (~$0.01 or less on Base).'],
+                                ['Can the same wallet bet multiple times on the same market?', 'Yes. Multiple bets from the same wallet on the same side are accumulated into a single position. You cannot bet on both sides with the same wallet.'],
+                                ['What is the minimum to participate?', 'The minimum bet is 0.05 USDC. The minimum to create a market is a 1 USDC seed deposit.'],
+                                ['Is this legal in my country?', 'Prediction markets are speculative instruments under DeFi. Their legal classification varies by jurisdiction. Consult local regulations before participating.'],
+                            ].map(([q, a]) => (
+                                <div key={q} className="p-5 bg-white/[0.03] rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                                    <h4 className="font-bold text-white mb-2 text-sm">{q}</h4>
+                                    <p className="text-xs text-white/50 leading-relaxed">{a}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
 
                 </div>
             </div>

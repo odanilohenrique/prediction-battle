@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Home, Flame, User, Trophy, LayoutGrid, Book, Users, Wallet, Menu } from 'lucide-react';
+import { Home, Flame, User, Trophy, LayoutGrid, Book, Users, Wallet, Menu, Swords } from 'lucide-react';
 // import { cn } from '@/lib/utils'; // Removed to avoid error
 import { motion } from 'framer-motion';
 import WalletButton from './WalletButton';
@@ -45,12 +45,13 @@ export default function Navigation() {
                             className="object-cover"
                         />
                     </div>
-                    <div className="text-center">
+                    <div className="text-center relative">
                         <h1 className="text-xl font-black text-white italic tracking-widest uppercase leading-none mb-1">
                             PREDICTION
                         </h1>
-                        <h1 className="text-xl font-black text-primary italic tracking-widest uppercase leading-none">
+                        <h1 className="text-[1.2rem] font-black text-primary italic tracking-widest uppercase leading-none flex items-center justify-center gap-1.5">
                             BATTLE
+                            <span className="bg-primary/20 text-primary border border-primary/30 text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider not-italic mb-1">Beta</span>
                         </h1>
                     </div>
                 </div>
@@ -124,7 +125,10 @@ export default function Navigation() {
                             className="object-cover"
                         />
                     </div>
-                    <span className="text-lg font-black text-white italic tracking-widest truncate">PREDICTION BATTLE</span>
+                    <div className="flex flex-col">
+                        <span className="text-lg font-black text-white italic tracking-widest truncate leading-tight">PREDICTION BATTLE</span>
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 w-fit px-1.5 rounded border border-primary/20">Beta phase</span>
+                    </div>
                 </div>
                 <div>
                     <WalletButton />
@@ -132,18 +136,16 @@ export default function Navigation() {
             </header>
 
             {/* MOBILE BOTTOM NAV */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-black/80 backdrop-blur-xl border-t border-white/5 z-50 px-2 pb-5 pt-2 flex items-center justify-between">
-                {/* We pick 4-5 main items for mobile */}
-                {/* Custom list: Home, Create (Center), Earnings, Profile */}
-                {['/', '/create', '/earnings', '/profile'].map((path, idx) => {
-                    // Custom mapping for Mobile Bottom Bar visualization
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-black/90 backdrop-blur-2xl border-t border-white/10 z-50 px-4 pb-safe flex items-center justify-between">
+                {/* We use 5 evenly spaced slots: Home, gap, Create (Center), gap, Profile/Earnings */}
+                {['/', '/earnings', '/create', '/docs', '/profile'].map((path) => {
                     let item = NAV_ITEMS.find(n => n.href === path);
                     if (path === '/create') {
-                        // Central Action Button
+                        // Central Action Button (Swords for Battle)
                         return (
-                            <Link href="/create" key="mob-create" className="relative -top-5">
-                                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-black">
-                                    <LayoutGrid className="w-6 h-6 text-white" />
+                            <Link href="/create" key="mob-create" className="relative shrink-0 flex items-center justify-center transform -translate-y-4">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.4)] border-[3px] border-[#0a0a0a]">
+                                    <Swords className="w-6 h-6 text-white" />
                                 </div>
                             </Link>
                         )
@@ -157,10 +159,10 @@ export default function Navigation() {
                         <Link
                             key={`mob-${item.label}`}
                             href={item.soon ? '#' : item.href}
-                            className="flex flex-col items-center gap-1 min-w-[60px]"
+                            className="flex flex-col items-center justify-center gap-1 w-14 h-full"
                         >
                             <div className={cnLocal(
-                                "p-1.5 rounded-xl transition-all",
+                                "p-1.5 rounded-xl transition-all flex items-center justify-center",
                                 isActive ? "bg-white/10 text-primary" : "text-white/40"
                             )}>
                                 <item.icon className="w-5 h-5" />
