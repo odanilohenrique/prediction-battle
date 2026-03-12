@@ -11,9 +11,9 @@ export const metadata: Metadata = {
     title: "Prediction Battle",
     description: "Arena descentralizada de palpites. Aposte USDC em eventos do mundo real e ganhe com quem perder.",
     icons: {
-        icon: '/icon.png',
-        shortcut: '/icon.png',
-        apple: '/icon.png',
+        icon: '/icon.png?v=2',
+        shortcut: '/icon.png?v=2',
+        apple: '/icon.png?v=2',
     },
     manifest: '/manifest.json',
 };

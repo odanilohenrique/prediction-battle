@@ -113,7 +113,7 @@ export default function Navigation() {
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow shadow-primary/20 overflow-hidden">
                         <Image
-                            src="/icon.png"
+                            src="/icon.png?v=2"
                             alt="Logo"
                             width={32}
                             height={32}
