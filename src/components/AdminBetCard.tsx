@@ -933,17 +933,20 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
         <>
             <div className="glass-card rounded-3xl p-0 overflow-hidden group hover:neon-border transition-all duration-300 w-full max-w-full">
                 {/* Header Ticket Stub */}
-                <div className="bg-white/5 border-b border-white/5 p-4 flex justify-between items-center bg-[url('/noise.png')]">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${bet.status === 'active' && !isMarketResolved && !deadlineReached ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                        <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
-                            {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : deadlineReached ? 'EXPIRED' : 'LIVE BATTLE'}
-                        </span>
+                <div className="bg-white/5 border-b border-white/5 p-4 space-y-3 bg-[url('/noise.png')]">
+                    {/* Row 1: Status + Creator */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${bet.status === 'active' && !isMarketResolved && !deadlineReached ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            <span suppressHydrationWarning className="text-xs font-mono text-white/60 tracking-widest uppercase">
+                                {bet.status !== 'active' || isMarketResolved ? 'RESOLVED' : deadlineReached ? 'EXPIRED' : 'LIVE BATTLE'}
+                            </span>
+                        </div>
                         {/* Creator Badge */}
                         {bet.creatorAddress && (
                             <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-white/40">created by:</span>
-                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${isAdmin(bet.creatorAddress)
+                                <span className="text-[10px] text-white/30">by</span>
+                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isAdmin(bet.creatorAddress)
                                     ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
                                     : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                                     }`}>
@@ -964,39 +967,52 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </div>
                             </div>
                         )}
-                        {/* Delete Button (Only for Admin) */}
-                        {address && isAdmin(address) && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                                disabled={isDeleting}
-                                className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors ml-2"
-                                title="Delete Bet"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                            </button>
-                        )}
                     </div>
-                    {/* Deadline Timer - Top Right Corner */}
-                    {bet.status === 'active' && !isMarketResolved && Date.now() < effectiveDeadlineMs && (
-                        <div className="flex items-center gap-1.5 text-xs font-mono text-white/80 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-                            <Clock className="w-3 h-3 text-primary" />
-                            <span suppressHydrationWarning>
-                                {getTimeDisplay()}
-                            </span>
+                    {/* Row 2: Timer + Delete + Rules */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            {/* Deadline Timer */}
+                            {bet.status === 'active' && !isMarketResolved && Date.now() < effectiveDeadlineMs && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-mono text-white/80 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                                    <Clock className="w-3 h-3 text-primary" />
+                                    <span suppressHydrationWarning>
+                                        {getTimeDisplay()}
+                                    </span>
+                                </div>
+                            )}
+                            {/* Open-Ended badge when no deadline */}
+                            {bet.status === 'active' && !isMarketResolved && effectiveDeadlineMs === 0 && (
+                                <div className="flex items-center gap-1 text-[10px] font-mono text-white/60 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                                    <span>♾️</span>
+                                    <span>Open-Ended</span>
+                                </div>
+                            )}
                         </div>
-                    )}
-
-                    {/* [NEW] Rules Toggle Button */}
-                    {bet.rules && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setShowRules(!showRules); }}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all ml-2 ${showRules ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'}`}
-                            title="View Rules"
-                        >
-                            <ScrollText className="w-3 h-3" />
-                            <span className="text-xs font-bold uppercase hidden sm:inline">Rules</span>
-                        </button>
-                    )}
+                        <div className="flex items-center gap-2">
+                            {/* Delete Button (Only for Admin) */}
+                            {address && isAdmin(address) && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                    disabled={isDeleting}
+                                    className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                                    title="Delete Bet"
+                                >
+                                    <Trash2 className="w-3 h-3" />
+                                </button>
+                            )}
+                            {/* Rules Toggle Button */}
+                            {bet.rules && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setShowRules(!showRules); }}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${showRules ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'}`}
+                                    title="View Rules"
+                                >
+                                    <ScrollText className="w-3 h-3" />
+                                    <span className="text-[10px] font-bold uppercase">Rules</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* [NEW] Rules Content Section */}

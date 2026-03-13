@@ -77,14 +77,14 @@ export default function DocsPage() {
                     <Section id="what-is" number="01" icon={<Flame className="w-5 h-5" />} color="border-orange-500" title="What Is Prediction Battle">
                         <p>
                             Prediction Battle is a <strong className="text-white">non-custodial prediction market</strong> running fully on the <strong className="text-white">Base blockchain</strong>.
-                            All funds are held exclusively by a verified smart contract. No central authority can freeze, move, or confiscate your stake — except in explicitly defined <a href="#slash" className="text-primary hover:underline">slash conditions</a>.
+                            All funds are held exclusively by a verified smart contract. No central authority can freeze, move, or confiscate your stake (the only exception being explicitly defined <a href="#slash" className="text-primary hover:underline">slash conditions</a>).
                         </p>
                         <p>
                             Markets are structured as <strong className="text-white">binary disputes</strong> between two sides (e.g., <em>Creator A vs Creator B</em>, <em>Ethereum vs Solana this quarter</em>, <em>Will @user hit 1M followers before @other?</em>).
                             Participants stake USDC on the side they believe will win. Winners claim a share of the losing pool.
                         </p>
                         <InfoBox type="note">
-                            <strong>No House Edge in the traditional sense.</strong> The "house" only takes a fixed fee percentage. There is no counter-party risk — the protocol never bets against you.
+                            <strong>No House Edge.</strong> The protocol only takes a fixed fee percentage from profits. It never bets against you, so there is zero counter-party risk.
                         </InfoBox>
                     </Section>
 
@@ -155,7 +155,7 @@ export default function DocsPage() {
                             <p className="text-white/50 mb-2">{`// Simplified formula`}</p>
                             <p><span className="text-primary">yourShare</span> = (yourBet / totalWinningSidePool) × totalLosingPool</p>
                             <p><span className="text-primary">grossPayout</span> = yourShare + yourOriginalBet</p>
-                            <p><span className="text-primary">netPayout</span> = grossPayout − 21% fees (on profit only)</p>
+                            <p><span className="text-primary">netPayout</span> = grossPayout - 21% fees (on profit only)</p>
                         </div>
 
                         <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">Numerical Example</h3>
@@ -236,7 +236,7 @@ export default function DocsPage() {
                         </div>
 
                         <InfoBox type="note">
-                            If no referrer was recorded for a winning bettor, the 5% referrer share is not collected — it stays in the pool and is distributed to all other winners, increasing their payout.
+                            If no referrer was recorded for a winning bettor, the 5% referrer share stays in the pool and gets distributed to all other winners, increasing their payout.
                         </InfoBox>
                     </Section>
 
@@ -255,12 +255,12 @@ export default function DocsPage() {
                             You lose <strong className="text-red-400">100%</strong> of your staked USDC. Your funds are immediately locked in the contract and transferred to the winning pool for distribution. There is no partial refund and no cancellation after a bet is placed.
                         </p>
 
-                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">DRAW — Technical Tie</h3>
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">DRAW (Technical Tie)</h3>
                         <p>
                             If the market resolves as a <strong className="text-white">technical draw</strong> (e.g., exact tie in a measurable metric), <strong className="text-white">all bettors on both sides</strong> receive their original stake back in full. The protocol does NOT collect fees on a draw.
                         </p>
 
-                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">CANCELLED — Admin Void</h3>
+                        <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">CANCELLED (Admin Void)</h3>
                         <p>
                             If an admin cancels the market (e.g., the subject became unverifiable, or the market was fraudulently created), <strong className="text-white">all participants receive 100% of their stake back.</strong> Gas fees spent placing bets are not refunded.
                         </p>
@@ -359,7 +359,7 @@ export default function DocsPage() {
                         <ul className="list-disc pl-5 space-y-1 mt-2">
                             <li>The creator's seed (minimum 1 USDC, can be any deposited amount) is transferred in full to the protocol treasury.</li>
                             <li>The creator loses all right to recover their seed.</li>
-                            <li>Bettors of the market are protected — their stakes are refunded (the market resolves as CANCELLED).</li>
+                            <li>Bettors of the market are protected: their stakes are refunded and the market resolves as CANCELLED.</li>
                         </ul>
 
                         <h3 className="text-lg font-bold text-white border-b border-white/10 pb-2 mt-6">What Triggers a Slash?</h3>
@@ -381,7 +381,7 @@ export default function DocsPage() {
                                 ['Can I cancel my bet?', 'No. Blockchain transactions are immutable. Once your stake is submitted to the contract, it is locked until the market resolves. Bets cannot be reversed.'],
                                 ['Can I bet on both sides?', 'Technically yes, but the contract treats each side independently. Betting on both sides does not create arbitrage; you will simply win on one side and lose on the other, netting negative due to fees.'],
                                 ['What happens if the market expires but no one verifies it?', 'The market stays in OPEN state indefinitely until someone submits a proposal. There is an Emergency Timeout of 30 days after which the admin can force-void the market and refund all bettors.'],
-                                ['Who gets the creator fee if the creator is slashed?', 'If the creator was slashed (fraudulent market), the market is cancelled. No fees are collected on cancelled markets — all bettors receive 100% refunds.'],
+                                ['Who gets the creator fee if the creator is slashed?', 'If the creator was slashed (fraudulent market), the market is cancelled. No fees are collected on cancelled markets, so all bettors receive 100% refunds.'],
                                 ['Is there a fee to create a market?', 'No protocol fee for creation. You only need to deposit the Seed (min 1 USDC). That seed is returned to you after resolution. You will pay a small gas fee (~$0.01 or less on Base).'],
                                 ['Can the same wallet bet multiple times on the same market?', 'Yes. Multiple bets from the same wallet on the same side are accumulated into a single position. You cannot bet on both sides with the same wallet.'],
                                 ['What is the minimum to participate?', 'The minimum bet is 0.05 USDC. The minimum to create a market is a 1 USDC seed deposit.'],

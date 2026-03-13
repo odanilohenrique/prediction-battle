@@ -30,9 +30,9 @@ export default function WhitepaperPage() {
                     <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500 uppercase">
                         Prediction Battle
                     </h1>
-                    <p className="text-xl font-bold text-white/70 mt-1">Technical Whitepaper — v2.0</p>
+                    <p className="text-xl font-bold text-white/70 mt-1">Technical Whitepaper · v2.0</p>
                     <p className="text-sm text-white/35 mt-1 font-mono">
-                        Contract: <a href="https://sepolia.basescan.org/address/0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattleV10</a> · Base Sepolia Testnet · March 2026
+                        Contract: <a href="https://sepolia.basescan.org/address/0x8ce4f5A398D6D80F8387687bEae494Cd8fA2A1E9#code" target="_blank" rel="noreferrer" className="text-primary hover:underline">PredictionBattle v1.0</a> · Base Sepolia Testnet · March 2026
                     </p>
                 </div>
 
@@ -66,9 +66,9 @@ export default function WhitepaperPage() {
                             <h2 className="text-lg font-bold text-white uppercase tracking-wider">Abstract</h2>
                         </div>
                         <p className="text-sm text-white/70 leading-relaxed">
-                            Prediction Battle is a fully non-custodial, permissionless prediction market protocol deployed on Base — Coinbase&apos;s Layer 2 Ethereum network.
+                            Prediction Battle is a fully non-custodial, permissionless prediction market protocol deployed on Base (Coinbase&apos;s Layer 2 Ethereum network).
                             The protocol enables any participant to create or bet on outcome markets framed as binary disputes between two subjects (e.g., <em>Creator A vs Creator B</em>),
-                            with settlement enforced entirely by the <strong className="text-white">PredictionBattleV10</strong> smart contract.
+                            with settlement enforced entirely by the <strong className="text-white">PredictionBattle v1.0</strong> smart contract.
                         </p>
                         <p className="text-sm text-white/70 leading-relaxed mt-3">
                             Resolution is achieved through an optimistic, bond-backed verification system in which economic penalties for dishonesty
@@ -159,7 +159,7 @@ export default function WhitepaperPage() {
                             <p className="text-white/40 mt-2 mb-1">{`// At claim time`}</p>
                             <p><span className="text-primary">yourSlice</span> = (yourShares / totalWinningSideShares) × totalLosingPool</p>
                             <p><span className="text-primary">grossPayout</span> = yourOriginalBet + yourSlice</p>
-                            <p><span className="text-primary">netPayout</span> = grossPayout − fees (applied to profit only)</p>
+                            <p><span className="text-primary">netPayout</span> = grossPayout - fees (applied to profit only)</p>
                         </div>
 
                         <p className="font-bold text-white mt-4">4.2 Multiplier Dynamics</p>
@@ -246,7 +246,7 @@ export default function WhitepaperPage() {
                     {/* 8. Slash */}
                     <WPSection id="slash" n="8" icon={<TriangleAlert className="w-5 h-5" />} color="border-orange-500" title="Punishment & Slashing">
                         <p>
-                            The slashing system is not a discretionary penalty — it is a <strong className="text-white">hardcoded economic deterrent</strong> written into the contract&apos;s resolution logic. Slashing is irreversible once executed on-chain.
+                            The slashing system is not a discretionary penalty. It is a <strong className="text-white">hardcoded economic deterrent</strong> written into the contract&apos;s resolution logic. Slashing is irreversible once executed on-chain.
                         </p>
 
                         <p className="font-bold text-white mt-4">8.1 Bond Slashing (Dishonest Reporters)</p>
@@ -277,10 +277,14 @@ export default function WhitepaperPage() {
                     <WPSection id="roadmap" n="9" icon={<Globe className="w-5 h-5" />} color="border-cyan-500" title="Roadmap">
                         <div className="grid md:grid-cols-2 gap-4">
                             {[
-                                ['✅ Phase 1 — Beta (Complete)', 'text-green-400', 'Core smart contract (V10), Base Sepolia testnet, frontend MVP, manual resolution, basic market creation.'],
-                                ['🚀 Phase 2 — Testnet (Current)', 'text-blue-400', 'Base Sepolia Testnet deployment. Verified contract. Referral system. Early bird bonuses. Production frontend and full decentralized resolution.'],
-                                ['🗓 Phase 3 — Scale', 'text-yellow-400', 'Resolution automation. Dispute dashboard improvements. Creator analytics. API for third-party integrations. Expanded market categories (sports, crypto, politics).'],
-                                ['🌐 Phase 4 — Decentralization', 'text-purple-400', 'DAO governance for dispute arbitration. Multi-sig treasury. Governance token ($BATTLE) for protocol fee sharing and resolution voting.'],
+                                ['✅ Foundation (Complete)', 'text-green-400', 'Core smart contract (v1.0), Base Sepolia testnet, frontend MVP, decentralized resolution logic, and referral system.'],
+                                ['📱 Base & Farcaster Native App', 'text-blue-400', 'Deep integration within the Base ecosystem and Farcaster clients for instant distribution and one-click connection.'],
+                                ['⚡ Viral Social Hooks', 'text-yellow-400', 'Automated winner flex-cards and one-click sharing mechanics to drive organic growth across all platforms.'],
+                                ['🌐 Omnichannel Integrations', 'text-purple-400', 'Expanding prediction markets beyond Farcaster to include TikTok, YouTube, Instagram, and other major social networks.'],
+                                ['🛡️ Decentralized Oracles', 'text-cyan-400', 'Integration with UMA or Kleros to fully decentralize the dispute resolution process, removing the dependency on a central Administrator.'],
+                                ['📈 Orderbook & AMM Transition', 'text-orange-400', 'Upgrading from the Pari-Mutuel model to an automated market maker or orderbook, enabling advanced position trading.'],
+                                ['💳 Fiat Onramp Solution', 'text-emerald-400', 'Direct fiat-to-crypto payments allowing mainstream users to participate seamlessly without holding ETH.'],
+                                ['🏆 Governance & Tokenization', 'text-amber-400', 'Launch of the native token to initiate full protocol decentralization, where staked tokens will be the central element in result verification, dispute arbitration solutions, voting, and protocol governance.'],
                             ].map(([title, color, desc]) => (
                                 <div key={title} className="p-4 bg-white/[0.03] border border-white/10 rounded-xl">
                                     <h4 className={`font-bold mb-2 text-sm ${color}`}>{title}</h4>
@@ -295,7 +299,7 @@ export default function WhitepaperPage() {
                         <h2 className="text-xl font-bold text-white mb-3">Conclusion</h2>
                         <p className="text-sm text-white/70 leading-relaxed">
                             Prediction Battle is a fully on-chain primitive for converting social disagreement into verifiable, economically-settled outcomes.
-                            By removing custody from operators and oracle trust from centralized providers, we build a system where the only way to win is to be right —
+                            By removing custody from operators and oracle trust from centralized providers, we build a system where the only way to win is to be right,
                             and the only way to lose is to be wrong or to lie. Capital, reputation, and truth align by design.
                         </p>
                         <p className="text-sm text-white/40 mt-3 italic">

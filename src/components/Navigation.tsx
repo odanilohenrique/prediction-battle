@@ -109,34 +109,35 @@ export default function Navigation() {
             </aside>
 
             {/* MOBILE TOP BAR (Header Replacement) */}
-            <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-black/60 backdrop-blur-xl border-b border-white/5 z-50 flex items-center justify-between px-4">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow shadow-primary/20 overflow-hidden">
+            <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-black/60 backdrop-blur-xl border-b border-white/5 z-50 flex items-center justify-between px-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-primary/20 overflow-hidden shrink-0">
                         <Image
                             src="/icon.png?v=2"
                             alt="Logo"
-                            width={32}
-                            height={32}
+                            width={44}
+                            height={44}
                             className="object-cover"
                         />
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-lg font-black text-white italic tracking-widest truncate leading-tight">PREDICTION BATTLE</span>
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 w-fit px-1.5 rounded border border-primary/20">Beta phase</span>
+                    <div className="flex flex-col min-w-0 gap-0.5">
+                        <div className="flex flex-col -space-y-0.5">
+                            <span className="text-[13px] font-black text-white italic tracking-wider leading-tight">PREDICTION</span>
+                            <span className="text-[13px] font-black text-primary italic tracking-wider leading-tight">BATTLE</span>
+                        </div>
+                        <span className="text-[7px] font-bold text-primary uppercase tracking-wider bg-primary/10 w-fit px-1.5 py-px rounded border border-primary/20 leading-tight">Beta</span>
                     </div>
                 </div>
-                <div>
+                <div className="shrink-0 ml-2">
                     <WalletButton />
                 </div>
             </header>
 
             {/* MOBILE BOTTOM NAV */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-black/90 backdrop-blur-2xl border-t border-white/10 z-50 px-4 pb-safe flex items-center justify-between">
-                {/* We use 5 evenly spaced slots: Home, gap, Create (Center), gap, Profile/Earnings */}
-                {['/', '/earnings', '/create', '/docs', '/profile'].map((path) => {
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-black/90 backdrop-blur-2xl border-t border-white/10 z-50 px-2 pb-safe flex items-center justify-around">
+                {['/', '/earnings', '/create', '/leaderboard', '/profile'].map((path) => {
                     let item = NAV_ITEMS.find(n => n.href === path);
                     if (path === '/create') {
-                        // Central Action Button (Swords for Battle)
                         return (
                             <Link href="/create" key="mob-create" className="relative shrink-0 flex items-center justify-center transform -translate-y-4">
                                 <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.4)] border-[3px] border-[#0a0a0a]">
@@ -146,15 +147,30 @@ export default function Navigation() {
                         )
                     }
 
-                    if (!item) return null; // Should not happen
+                    if (!item) return null;
 
                     const isActive = pathname === item.href;
+
+                    if (item.soon) {
+                        return (
+                            <div
+                                key={`mob-${item.label}`}
+                                className="flex flex-col items-center justify-center gap-0.5 w-16 h-full cursor-default opacity-40"
+                            >
+                                <div className="p-1.5 rounded-xl flex items-center justify-center text-white/30">
+                                    <item.icon className="w-5 h-5" />
+                                </div>
+                                <span className="text-[10px] font-medium text-white/30 leading-none">{item.label}</span>
+                                <span className="text-[8px] font-bold text-primary/60 leading-none">(soon)</span>
+                            </div>
+                        );
+                    }
 
                     return (
                         <Link
                             key={`mob-${item.label}`}
-                            href={item.soon ? '#' : item.href}
-                            className="flex flex-col items-center justify-center gap-1 w-14 h-full"
+                            href={item.href}
+                            className="flex flex-col items-center justify-center gap-0.5 w-16 h-full"
                         >
                             <div className={cnLocal(
                                 "p-1.5 rounded-xl transition-all flex items-center justify-center",
@@ -163,17 +179,14 @@ export default function Navigation() {
                                 <item.icon className="w-5 h-5" />
                             </div>
                             <span className={cnLocal(
-                                "text-[10px] font-medium",
+                                "text-[10px] font-medium leading-none",
                                 isActive ? "text-white" : "text-white/40"
                             )}>
                                 {item.label}
-                                {item.soon && <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-primary" />}
                             </span>
                         </Link>
                     );
                 })}
-
-
             </nav>
         </>
     );
