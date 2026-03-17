@@ -233,38 +233,31 @@ export default function CreateCommunityBet() {
             }
             console.log('[ADMIN CREATE] USDC Approved!');
 
-            // 2. Create the bet via Permissionless API
-            console.log('Creating prediction...');
+            // 2. Prepare question and metadata BEFORE on-chain creation
+            console.log('Preparing prediction data...');
 
             // Construct text based on mode
             let finalQuestion = '';
             let username = formData.username;
 
             if (creationMode === 'battle') {
-                // Battle mode: use custom question and set both players as author
                 finalQuestion = formData.battleQuestion;
                 username = `${formData.optionA.label} vs ${formData.optionB.label}`;
 
-                // Save players to database for future autocomplete
+                // Save players to database for future autocomplete (non-critical)
                 try {
                     if (formData.optionA.label) {
                         await fetch('/api/players', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: formData.optionA.label,
-                                pfpUrl: formData.optionA.imageUrl,
-                            }),
+                            body: JSON.stringify({ username: formData.optionA.label, pfpUrl: formData.optionA.imageUrl }),
                         });
                     }
                     if (formData.optionB.label) {
                         await fetch('/api/players', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: formData.optionB.label,
-                                pfpUrl: formData.optionB.imageUrl,
-                            }),
+                            body: JSON.stringify({ username: formData.optionB.label, pfpUrl: formData.optionB.imageUrl }),
                         });
                     }
                 } catch (e) {
@@ -282,9 +275,104 @@ export default function CreateCommunityBet() {
             const maxBetNum = parseFloat(formData.maxBet) || 0;
             const targetValueNum = parseFloat(formData.targetValue) || 0;
 
+            // 3. Create on Smart Contract FIRST (Uses USDC transferFrom — this is the step that costs money)
+            console.log('Registering prediction on-chain...');
 
+            // Calculate duration from deadline datetime
+            let durationSeconds = 0; // Default: open-ended market
 
+            if (formData.deadlineDateTime) {
+                const deadlineMs = new Date(formData.deadlineDateTime).getTime();
+                const nowMs = Date.now();
+                durationSeconds = Math.ceil((deadlineMs - nowMs) / 1000);
 
+                console.log(`[ADMIN CREATE] Using Custom Deadline: ${formData.deadlineDateTime} (${durationSeconds}s)`);
+
+                if (durationSeconds < 86400) {
+                    showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
+                    setIsSubmitting(false);
+                    return;
+                }
+            } else {
+                console.log(`[ADMIN CREATE] Creating OPEN-ENDED market (no deadline, durationSeconds=0)`);
+            }
+
+            const bonusDuration = Math.floor(durationSeconds / 4);
+
+            const createHash = await writeContractAsync({
+                address: getContractAddress(),
+                abi: PredictionBattleABI.abi,
+                functionName: 'createMarket',
+                args: [
+                    finalQuestion,
+                    totalSeedWei,
+                    BigInt(durationSeconds),
+                    BigInt(bonusDuration)
+                ],
+                gas: BigInt(500000),
+            });
+
+            console.log('CreateMarket Tx:', createHash);
+
+            // Wait for on-chain confirmation
+            let realMarketId: string | null = null;
+
+            if (publicClient) {
+                const receipt = await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
+                if (receipt.status !== 'success') {
+                    throw new Error('Contract transaction reverted');
+                }
+                console.log('✅ On-chain creation confirmed');
+
+                // Extract the real market ID from the receipt logs
+                try {
+                    let guessedTimestamps: bigint[] = [];
+
+                    try {
+                        const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                        guessedTimestamps = [block.timestamp];
+                        console.log('[ADMIN CREATE DEBUG] Fetched exact block timestamp:', block.timestamp);
+                    } catch (blockErr) {
+                        console.warn('[ADMIN CREATE DEBUG] RPC failed to find block! Brute-forcing timestamp...', blockErr);
+                        const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+                        guessedTimestamps.push(nowSecs);
+                        for (let i = 1; i <= 60; i++) {
+                            guessedTimestamps.push(nowSecs - BigInt(i));
+                            guessedTimestamps.push(nowSecs + BigInt(i));
+                        }
+                    }
+
+                    const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
+                    const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
+
+                    if (!creationLog || !creationLog.topics[1]) {
+                        throw new Error(`MarketCreated log not found. Logs: ${receipt.logs.length}`);
+                    }
+
+                    const targetHash = creationLog.topics[1];
+
+                    for (const ts of guessedTimestamps) {
+                        for (let n = 0; n < 100 && !realMarketId; n++) {
+                            const candidateId = keccak256(encodePacked(
+                                ['address', 'string', 'uint256', 'uint256'],
+                                [receipt.from, finalQuestion, ts, BigInt(n)]
+                            ));
+                            const candidateHash = keccak256(stringToBytes(candidateId));
+                            if (candidateHash === targetHash) {
+                                realMarketId = candidateId;
+                                console.log(`[ADMIN CREATE] ✅ Zero-Latency ID Match! nonce=${n}, ts=${ts}, ID=${realMarketId}`);
+                                break;
+                            }
+                        }
+                        if (realMarketId) break;
+                    }
+                } catch (e) {
+                    console.error('[ADMIN CREATE] ❌ ID extraction failed:', e);
+                }
+            }
+
+            // 4. NOW save to Database — only after on-chain success
+            console.log('[ADMIN CREATE] Saving to database...');
 
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
@@ -318,12 +406,14 @@ export default function CreateCommunityBet() {
                     optionB: creationMode === 'battle' ? formData.optionB : undefined,
                     predictionImage: formData.predictionImage,
 
-                    // Timeframe (CRITICAL - was missing!)
+                    // Timeframe
                     timeframe: formData.timeframe,
                     castUrl: formData.castUrl,
                     rules: formData.rules,
-                    // [NEW] Send explicit timestamp if custom deadline is set
                     expiryTimestamp: formData.deadlineDateTime ? new Date(formData.deadlineDateTime).getTime() : undefined,
+
+                    // Pass the real on-chain ID so DB uses it directly
+                    ...(realMarketId ? { forceId: realMarketId } : {}),
                 }),
             });
 
@@ -331,155 +421,29 @@ export default function CreateCommunityBet() {
             console.log('[ADMIN CREATE] API Response:', JSON.stringify(data));
 
             if (!data.success) {
-                throw new Error(data.error || 'API failed to register bet');
-            }
-
-            console.log('[ADMIN CREATE] Bet created with ID:', data.predictionId);
-
-            // 3. Create on Smart Contract (Uses USDC transferFrom)
-            try {
-                console.log('Registering prediction on-chain...');
-
-                // Calculate duration from deadline datetime
-                let durationSeconds = 0; // Default: open-ended market (no deadline, can verify anytime)
-
-                if (formData.deadlineDateTime) {
-                    const deadlineMs = new Date(formData.deadlineDateTime).getTime();
-                    const nowMs = Date.now();
-                    durationSeconds = Math.ceil((deadlineMs - nowMs) / 1000);
-
-                    console.log(`[ADMIN CREATE] Using Custom Deadline: ${formData.deadlineDateTime} (${durationSeconds}s)`);
-
-                    // Enforce minimum 24 hours
-                    if (durationSeconds < 86400) {
-                        showAlert('Invalid Deadline', 'Deadline must be at least 24 hours from now.', 'warning');
-                        setIsSubmitting(false);
-                        return;
-                    }
-                } else {
-                    console.log(`[ADMIN CREATE] Creating OPEN-ENDED market (no deadline, durationSeconds=0)`);
-                }
-
-                const bonusDuration = Math.floor(durationSeconds / 4); // 25% for boost period
-
-
-
-                const createHash = await writeContractAsync({
-                    address: getContractAddress(),
-                    abi: PredictionBattleABI.abi,
-                    functionName: 'createMarket',
-                    args: [
-                        finalQuestion,
-                        totalSeedWei,
-                        BigInt(durationSeconds),
-                        BigInt(bonusDuration)
-                    ],
-                    gas: BigInt(500000),
-                });
-
-                console.log('CreateMarket Tx:', createHash);
-
-                if (publicClient) {
-                    const receipt = await publicClient.waitForTransactionReceipt({ hash: createHash, timeout: 180000 });
-                    if (receipt.status !== 'success') {
-                        throw new Error('Contract transaction reverted');
-                    }
-                    console.log('✅ On-chain creation confirmed');
-
-                    // [ZERO-LATENCY FIX + DEEP DEBUG] Reconstruct market ID fully offline
-                    try {
-                        let realId: string | null = null;
-                        let guessedTimestamps: bigint[] = [];
-
-                        try {
-                            const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
-                            guessedTimestamps = [block.timestamp];
-                            console.log('[ADMIN CREATE DEBUG] Fetched exact block timestamp:', block.timestamp);
-                        } catch (blockErr) {
-                            console.warn('[ADMIN CREATE DEBUG] RPC failed to find block! Brute-forcing timestamp...', blockErr);
-                            // Sweep a 120-second window (+/- 60 seconds)
-                            const nowSecs = BigInt(Math.floor(Date.now() / 1000));
-                            guessedTimestamps.push(nowSecs);
-                            for (let i = 1; i <= 60; i++) {
-                                guessedTimestamps.push(nowSecs - BigInt(i));
-                                guessedTimestamps.push(nowSecs + BigInt(i));
-                            }
-                        }
-
-                        const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
-                        const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
-
-                        console.log('[ADMIN CREATE DEBUG] tx.from:', receipt.from);
-                        console.log('[ADMIN CREATE DEBUG] finalQuestion:', finalQuestion);
-                        console.log('[ADMIN CREATE DEBUG] first guessed ts:', guessedTimestamps[0]);
-                        console.log('[ADMIN CREATE DEBUG] receipt.logs length:', receipt.logs.length);
-
-                        if (!creationLog || !creationLog.topics[1]) {
-                            throw new Error(`DEBUG_1: MarketCreated log not found. Logs: ${receipt.logs.length}. Signature: ${marketCreatedSignature}`);
-                        }
-
-                        const targetHash = creationLog.topics[1]; // keccak256(bytes(realId)) emitted by the contract
-                        console.log(`[ADMIN CREATE DEBUG] Target Hash from log: ${targetHash}`);
-
-                        let debugLastCandidateHash = '';
-                        let debugLastCandidateId = '';
-
-                        // Brute-force the local nonce mathematically. Costs 0 network requests.
-                        for (const ts of guessedTimestamps) {
-                            for (let n = 0; n < 100 && !realId; n++) {
-                                const candidateId = keccak256(encodePacked(
-                                    ['address', 'string', 'uint256', 'uint256'],
-                                    [receipt.from, finalQuestion, ts, BigInt(n)]
-                                ));
-
-                                const candidateHash = keccak256(stringToBytes(candidateId));
-
-                                if (n === 0 && ts === guessedTimestamps[0]) {
-                                    debugLastCandidateId = candidateId;
-                                    debugLastCandidateHash = candidateHash;
-                                    console.log(`[ADMIN CREATE DEBUG] Nonce 0, primary ts candidate ID: ${candidateId}, Hash: ${candidateHash}`);
-                                }
-
-                                if (candidateHash === targetHash) {
-                                    realId = candidateId;
-                                    console.log(`[ADMIN CREATE] ✅ Zero-Latency ID Match! nonce=${n}, ts=${ts}, ID=${realId}`);
-                                    break;
-                                }
-                            }
-                            if (realId) break;
-                        }
-
-                        if (!realId) {
-                            throw new Error(`DEBUG_2: Failed to match hash after tracking ${guessedTimestamps.length} timestamps. Target: ${targetHash}. N0_T0_ID: ${debugLastCandidateId}. N0_T0_Hash: ${debugLastCandidateHash}. from: ${receipt.from}. question: "${finalQuestion}"`);
-                        }
-
-                        // Step 4: Sync ID with database
-                        if (data.predictionId && data.predictionId !== realId) {
-                            console.log(`[ADMIN CREATE] Syncing DB: ${data.predictionId} → ${realId}`);
-                            const syncRes = await fetch('/api/predictions/update-id', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ oldId: data.predictionId, newId: realId })
-                            });
-                            const syncData = await syncRes.json();
-                            if (!syncRes.ok || !syncData.success) {
-                                throw new Error(`DB Sync failed: ${syncData.error || 'Unknown'}`);
-                            }
-                            console.log('[ADMIN CREATE] ✅ DB synced!');
-                        }
-                    } catch (e) {
-                        console.error('[ADMIN CREATE] ❌ ID sync failed:', e);
-                        showAlert('Sync Warning', `Market created on-chain but failed to sync ID: ${(e as Error).message}. It may appear as Off-Chain.`, 'warning');
-                    }
-                } else {
-                    console.log('✅ On-chain creation confirmed (no public client to verify receipt/logs)');
-                }
-
-            } catch (contractError) {
-                console.error('Failed to create on contract:', contractError);
-                showAlert('Partial Error', 'Bet saved to DB but failed on Blockchain. Please retry or contact dev.', 'error');
+                showAlert('Partial Error', `Market created on-chain but DB save failed: ${data.error}. The market exists on blockchain.`, 'warning');
                 setIsSubmitting(false);
                 return;
+            }
+
+            console.log('[ADMIN CREATE] Bet saved to DB with ID:', data.predictionId);
+
+            // Sync IDs if needed (DB generated a different ID than the on-chain one)
+            if (realMarketId && data.predictionId && data.predictionId !== realMarketId) {
+                try {
+                    console.log(`[ADMIN CREATE] Syncing DB: ${data.predictionId} → ${realMarketId}`);
+                    const syncRes = await fetch('/api/predictions/update-id', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ oldId: data.predictionId, newId: realMarketId })
+                    });
+                    const syncData = await syncRes.json();
+                    if (syncRes.ok && syncData.success) {
+                        console.log('[ADMIN CREATE] ✅ DB synced!');
+                    }
+                } catch (e) {
+                    console.error('[ADMIN CREATE] ❌ ID sync failed:', e);
+                }
             }
 
             showModal({

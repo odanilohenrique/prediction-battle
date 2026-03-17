@@ -289,10 +289,10 @@ export default function CreateCommunityBet() {
             console.log('[CREATE PAGE] USDC Approved!');
 
             // 3. Prepare Data
-            console.log('Creating prediction...');
+            console.log('Preparing prediction data...');
 
             if (creationMode === 'battle') {
-                // Save players logic (silent)
+                // Save players logic (silent, non-critical)
                 try {
                     if (formData.optionA.label) {
                         await fetch('/api/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: formData.optionA.label, pfpUrl: formData.optionA.imageUrl }) }).catch(() => { });
@@ -304,7 +304,104 @@ export default function CreateCommunityBet() {
 
             }
 
-            // 4. MAIN API CALL (Register in Database)
+            // 4. Create on Smart Contract FIRST (Uses USDC transferFrom — this costs money)
+            let realMarketId: string | null = null;
+
+            if (CURRENT_CONFIG.contractAddress) {
+                console.log('[CREATE PAGE] Creating on-chain prediction...');
+
+                // Calculate duration
+                let duration = 0; // Default: open-ended market
+
+                if (formData.deadlineDateTime) {
+                    const deadline = new Date(formData.deadlineDateTime).getTime();
+                    const now = Date.now();
+                    const diffSeconds = Math.ceil((deadline - now) / 1000);
+
+                    if (diffSeconds < 86400) {
+                        console.warn('[CREATE PAGE] Deadline too short, defaulting to 24h');
+                        duration = 86400;
+                    } else {
+                        duration = diffSeconds;
+                        console.log(`[CREATE PAGE] Using Custom Deadline: ${formData.deadlineDateTime} (${duration}s)`);
+                    }
+                } else {
+                    console.log(`[CREATE PAGE] Creating OPEN-ENDED market (no deadline, durationSeconds=0)`);
+                }
+
+                const bonusDuration = Math.floor(duration / 4);
+
+                const contractHash = await writeContractAsync({
+                    address: CURRENT_CONFIG.contractAddress as `0x${string}`,
+                    abi: PredictionBattleABI.abi,
+                    functionName: 'createMarket',
+                    args: [
+                        finalQuestion,
+                        totalSeedWei,
+                        BigInt(duration),
+                        BigInt(bonusDuration)
+                    ],
+                    gas: BigInt(500000),
+                });
+                console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
+
+                if (publicClient) {
+                    const receipt = await publicClient.waitForTransactionReceipt({
+                        hash: contractHash,
+                        timeout: 180000
+                    });
+                    if (receipt.status !== 'success') {
+                        throw new Error('Contract transaction reverted');
+                    }
+                    console.log('[CREATE PAGE] On-chain creation confirmed!');
+
+                    // Extract real market ID from receipt logs
+                    try {
+                        let guessedTimestamps: bigint[] = [];
+
+                        try {
+                            const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
+                            guessedTimestamps = [block.timestamp];
+                        } catch (blockErr) {
+                            const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+                            guessedTimestamps.push(nowSecs);
+                            for (let i = 1; i <= 60; i++) {
+                                guessedTimestamps.push(nowSecs - BigInt(i));
+                                guessedTimestamps.push(nowSecs + BigInt(i));
+                            }
+                        }
+
+                        const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
+                        const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
+
+                        if (creationLog && creationLog.topics[1]) {
+                            const targetHash = creationLog.topics[1];
+
+                            for (const ts of guessedTimestamps) {
+                                for (let n = 0; n < 100 && !realMarketId; n++) {
+                                    const candidateId = keccak256(encodePacked(
+                                        ['address', 'string', 'uint256', 'uint256'],
+                                        [receipt.from, finalQuestion, ts, BigInt(n)]
+                                    ));
+                                    const candidateHash = keccak256(stringToBytes(candidateId));
+                                    if (candidateHash === targetHash) {
+                                        realMarketId = candidateId;
+                                        console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ts=${ts}, ID=${realMarketId}`);
+                                        break;
+                                    }
+                                }
+                                if (realMarketId) break;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[CREATE PAGE] ❌ ID extraction failed:', e);
+                    }
+                }
+            }
+
+            // 5. NOW save to Database — only after on-chain success
+            console.log('[CREATE PAGE] Saving to database...');
+
             const response = await fetch('/api/predictions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -330,6 +427,8 @@ export default function CreateCommunityBet() {
                     castUrl: formData.castUrl,
                     rules: formData.rules,
                     autoVerify: formData.autoVerify,
+                    // Pass the real on-chain ID so DB uses it directly
+                    ...(realMarketId ? { forceId: realMarketId } : {}),
                 }),
             });
 
@@ -337,220 +436,28 @@ export default function CreateCommunityBet() {
             const data = await response.json();
 
             if (!response.ok || !data.success) {
-                throw new Error(data.error || 'Server returned failure.');
+                showAlert('Partial Error', `Market created on-chain but DB save failed: ${data.error || 'Unknown'}. The market exists on blockchain.`, 'warning');
+                setIsSubmitting(false);
+                return;
             }
 
-            console.log('[CREATE PAGE] Bet created with ID:', data.predictionId);
+            console.log('[CREATE PAGE] Bet saved to DB with ID:', data.predictionId);
 
-            // 5. Create Prediction on Smart Contract (Uses USDC transferFrom)
-            if (CURRENT_CONFIG.contractAddress && data.predictionId) {
+            // Sync IDs if needed
+            if (realMarketId && data.predictionId && data.predictionId !== realMarketId) {
                 try {
-                    console.log('[CREATE PAGE] Creating on-chain prediction...');
-                    console.log('[CREATE PAGE] Contract Address:', CURRENT_CONFIG.contractAddress);
-                    console.log('[CREATE PAGE] Prediction ID:', data.predictionId);
-
-                    // PRE-CHECK: Does this prediction already exist on-chain? (Recovery from previous timeout)
-                    if (publicClient) {
-                        try {
-                            const alreadyExists = await publicClient.readContract({
-                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'marketExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
-                                functionName: 'marketExists',
-                                args: [data.predictionId],
-                            });
-                            if (alreadyExists) {
-                                console.log('[CREATE PAGE] Prediction already exists on-chain! Skipping creation (recovery mode).');
-                                // Skip contract creation - it already succeeded in a previous attempt
-                            }
-                        } catch (checkError) {
-                            console.warn('[CREATE PAGE] Could not check if prediction exists, proceeding anyway:', checkError);
-                        }
+                    console.log(`[CREATE PAGE] Syncing DB: ${data.predictionId} → ${realMarketId}`);
+                    const syncRes = await fetch('/api/predictions/update-id', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ oldId: data.predictionId, newId: realMarketId })
+                    });
+                    const syncData = await syncRes.json();
+                    if (syncRes.ok && syncData.success) {
+                        console.log('[CREATE PAGE] ✅ DB synced!');
                     }
-
-                    // Calculate duration from formData.timeframe (same as API)
-                    const TIMEFRAME_SECONDS: Record<string, number> = {
-                        '30m': 30 * 60,
-                        '6h': 6 * 60 * 60,
-                        '12h': 12 * 60 * 60,
-                        '24h': 24 * 60 * 60,
-                        '7d': 7 * 24 * 60 * 60,
-                        '1y': 365 * 24 * 60 * 60,
-                        'none': 100 * 365 * 24 * 60 * 60,
-                    };
-                    // Calculate duration
-                    let duration = 0; // Default: open-ended market (no deadline, can verify anytime)
-
-                    // V10 Fix: Use custom deadline if set, otherwise open-ended (0)
-                    if (formData.deadlineDateTime) {
-                        const deadline = new Date(formData.deadlineDateTime).getTime();
-                        const now = Date.now();
-                        const diffSeconds = Math.ceil((deadline - now) / 1000);
-
-                        if (diffSeconds < 86400) {
-                            // Should be caught by input min, but double check
-                            console.warn('[CREATE PAGE] Deadline too short, defaulting to 24h');
-                            duration = 86400;
-                        } else {
-                            duration = diffSeconds;
-                            console.log(`[CREATE PAGE] Using Custom Deadline: ${formData.deadlineDateTime} (${duration}s)`);
-                        }
-                    } else {
-                        console.log(`[CREATE PAGE] Creating OPEN-ENDED market (no deadline, durationSeconds=0)`);
-                    }
-                    // Check again if already exists to avoid the call
-                    let skipCreation = false;
-                    if (publicClient) {
-                        try {
-                            const exists = await publicClient.readContract({
-                                address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                                abi: [{ inputs: [{ name: '', type: 'string' }], name: 'marketExists', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' }],
-                                functionName: 'marketExists',
-                                args: [data.predictionId],
-                            });
-                            skipCreation = exists as boolean;
-                        } catch { }
-                    }
-
-                    if (!skipCreation) {
-                        const bonusDuration = Math.floor(duration / 4); // 25% for boost
-
-
-
-                        const contractHash = await writeContractAsync({
-                            address: CURRENT_CONFIG.contractAddress as `0x${string}`,
-                            abi: PredictionBattleABI.abi,
-                            functionName: 'createMarket',
-                            args: [
-                                finalQuestion, // question string
-                                totalSeedWei,  // USDC seed amount
-                                BigInt(duration),
-                                BigInt(bonusDuration)
-                            ],
-                            gas: BigInt(500000),
-                        });
-                        console.log('[CREATE PAGE] On-chain creation tx:', contractHash);
-
-                        if (publicClient) {
-                            const receipt = await publicClient.waitForTransactionReceipt({
-                                hash: contractHash,
-                                timeout: 180000
-                            });
-                            if (receipt.status !== 'success') {
-                                throw new Error('Contract transaction reverted');
-                            }
-                            console.log('[CREATE PAGE] On-chain creation confirmed!');
-
-                            // [ZERO-LATENCY FIX + DEEP DEBUG] Reconstruct market ID fully offline
-                            try {
-                                let realId: string | null = null;
-                                let guessedTimestamps: bigint[] = [];
-
-                                try {
-                                    const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
-                                    guessedTimestamps = [block.timestamp];
-                                    console.log('[CREATE PAGE DEBUG] Fetched exact block timestamp:', block.timestamp);
-                                } catch (blockErr) {
-                                    console.warn('[CREATE PAGE DEBUG] RPC failed to find block! Brute-forcing timestamp...', blockErr);
-                                    // 100% offline fallback: the transaction just mined, so the block timestamp is extremely close to Date.now()
-                                    // Sweep a 120-second window (+/- 60 seconds)
-                                    const nowSecs = BigInt(Math.floor(Date.now() / 1000));
-                                    // Add the exact 'now' first, then spread outwards
-                                    guessedTimestamps.push(nowSecs);
-                                    for (let i = 1; i <= 60; i++) {
-                                        guessedTimestamps.push(nowSecs - BigInt(i));
-                                        guessedTimestamps.push(nowSecs + BigInt(i));
-                                    }
-                                }
-
-                                const marketCreatedSignature = keccak256(stringToBytes('MarketCreated(string,address,uint256,uint256)'));
-                                const creationLog = receipt.logs.find(l => l.topics[0] === marketCreatedSignature);
-
-                                console.log('[CREATE PAGE DEBUG] tx.from:', receipt.from);
-                                console.log('[CREATE PAGE DEBUG] finalQuestion:', finalQuestion);
-                                console.log('[CREATE PAGE DEBUG] first guessed ts:', guessedTimestamps[0]);
-                                console.log('[CREATE PAGE DEBUG] receipt.logs length:', receipt.logs.length);
-
-                                if (!creationLog || !creationLog.topics[1]) {
-                                    throw new Error(`DEBUG_1: MarketCreated log not found. Logs: ${receipt.logs.length}. Signature: ${marketCreatedSignature}`);
-                                }
-
-                                const targetHash = creationLog.topics[1];
-                                console.log(`[CREATE PAGE DEBUG] Target Hash from log: ${targetHash}`);
-
-                                let debugLastCandidateHash = '';
-                                let debugLastCandidateId = '';
-
-                                for (const ts of guessedTimestamps) {
-                                    for (let n = 0; n < 100 && !realId; n++) {
-                                        const candidateId = keccak256(encodePacked(
-                                            ['address', 'string', 'uint256', 'uint256'],
-                                            [receipt.from, finalQuestion, ts, BigInt(n)]
-                                        ));
-
-                                        const candidateHash = keccak256(stringToBytes(candidateId));
-
-                                        if (n === 0 && ts === guessedTimestamps[0]) {
-                                            debugLastCandidateId = candidateId;
-                                            debugLastCandidateHash = candidateHash;
-                                            console.log(`[CREATE PAGE DEBUG] Nonce 0, primary ts candidate ID: ${candidateId}, Hash: ${candidateHash}`);
-                                        }
-
-                                        if (candidateHash === targetHash) {
-                                            realId = candidateId;
-                                            console.log(`[CREATE PAGE] ✅ Zero-Latency ID Match! nonce=${n}, ts=${ts}, ID=${realId}`);
-                                            break; // exit inner loop
-                                        }
-                                    }
-                                    if (realId) break; // exit outer loop
-                                }
-
-                                if (!realId) {
-                                    throw new Error(`DEBUG_2: Failed to match hash after tracking ${guessedTimestamps.length} timestamps. Target: ${targetHash}. N0_T0_ID: ${debugLastCandidateId}. N0_T0_Hash: ${debugLastCandidateHash}. from: ${receipt.from}. question: "${finalQuestion}"`);
-                                }
-
-                                // Step 4: Sync ID with database
-                                if (data.predictionId && data.predictionId !== realId) {
-                                    console.log(`[CREATE PAGE] Syncing DB: ${data.predictionId} → ${realId}`);
-                                    const syncRes = await fetch('/api/predictions/update-id', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ oldId: data.predictionId, newId: realId })
-                                    });
-                                    const syncData = await syncRes.json();
-                                    if (!syncRes.ok || !syncData.success) {
-                                        throw new Error(`DB Sync failed: ${syncData.error || 'Unknown'}`);
-                                    }
-                                    console.log('[CREATE PAGE] ✅ DB synced!');
-                                }
-                            } catch (e) {
-                                console.error('[CREATE PAGE] ❌ ID sync failed:', e);
-                            }
-
-                        }
-                    } // End of if (!skipCreation)
-                } catch (contractError: any) {
-                    console.error('[CREATE PAGE] Contract creation failed:', contractError);
-                    // Try to extract more useful error message
-                    let errorMsg = 'Unknown error';
-                    if (contractError?.shortMessage) {
-                        errorMsg = contractError.shortMessage;
-                    } else if (contractError?.cause?.shortMessage) {
-                        errorMsg = contractError.cause.shortMessage;
-                    } else if (contractError?.message) {
-                        // Try to find revert reason in message
-                        const match = contractError.message.match(/reverted with reason string '([^']+)'/);
-                        if (match) {
-                            errorMsg = match[1];
-                        } else {
-                            errorMsg = contractError.message;
-                        }
-                    }
-                    console.error('[CREATE PAGE] Contract Error Full Object:', JSON.stringify(contractError, null, 2));
-                    console.error('[CREATE PAGE] Extracted error:', errorMsg);
-                    showAlert('On-Chain Creation Failed', `Bet was saved to DB but NOT created on blockchain: ${errorMsg}. Users will NOT be able to bet on this.`, 'error');
-                    // Don't proceed - this is a critical failure
-                    setIsSubmitting(false);
-                    return;
+                } catch (e) {
+                    console.error('[CREATE PAGE] ❌ ID sync failed:', e);
                 }
             }
 
