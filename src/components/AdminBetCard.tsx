@@ -1493,7 +1493,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                 </button>
                             </div>
 
-                            <div className="p-3 md:p-6 space-y-3 md:space-y-6 overflow-y-auto max-h-[calc(90dvh-80px)]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                            <div className="p-3 md:p-6 space-y-3 md:space-y-6 overflow-y-auto max-h-[calc(100dvh-80px)] md:max-h-[calc(90dvh-80px)] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
                                 {/* Stylized Header for Battle Mode */}
                                 {bet.optionA && bet.optionB ? (
