@@ -1481,45 +1481,45 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                             {/* Top Accent */}
                             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-white to-primary opacity-50"></div>
 
-                            <div className="px-6 py-6 border-b border-white/5 flex items-center justify-between">
-                                <h2 className="text-xl font-black text-white italic uppercase tracking-wider">
+                            <div className="px-4 py-3 md:px-6 md:py-4 border-b border-white/5 flex items-center justify-between">
+                                <h2 className="text-lg md:text-xl font-black text-white italic uppercase tracking-wider">
                                     Battle Station
                                 </h2>
                                 <button
                                     onClick={() => setIsBattleModalOpen(false)}
-                                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                                    className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                                 >
-                                    <X className="w-5 h-5 text-white/60" />
+                                    <X className="w-4 h-4 md:w-5 md:h-5 text-white/60" />
                                 </button>
                             </div>
 
-                            <div className="p-3 md:p-6 space-y-3 md:space-y-6 overflow-y-auto max-h-[calc(100dvh-80px)] md:max-h-[calc(90dvh-80px)] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                            <div className="p-3 md:p-4 space-y-2 md:space-y-4 overflow-y-auto max-h-[calc(100dvh-60px)] md:max-h-[calc(90dvh-70px)] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
                                 {/* Stylized Header for Battle Mode */}
                                 {bet.optionA && bet.optionB ? (
-                                    <div className="bg-gradient-to-br from-black/60 to-black/20 rounded-2xl p-4 border border-white/10 text-center relative overflow-hidden">
+                                    <div className="bg-gradient-to-br from-black/60 to-black/20 rounded-2xl p-3 md:p-4 border border-white/10 text-center relative overflow-hidden">
                                         <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20"></div>
-                                        <div className="relative z-10 flex items-center justify-center gap-6">
+                                        <div className="relative z-10 flex items-center justify-center gap-4 md:gap-6">
                                             {/* Player 1 */}
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                            <div className="flex flex-col items-center gap-1.5 md:gap-2">
+                                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
                                                     {bet.optionA.imageUrl ? <img src={bet.optionA.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-green-500/20" />}
                                                 </div>
                                                 <div className="text-[10px] md:text-sm font-black text-green-500">{bet.optionA.label}</div>
                                             </div>
 
-                                            <div className="text-2xl md:text-4xl font-black italic text-white/20">VS</div>
+                                            <div className="text-xl md:text-3xl font-black italic text-white/20">VS</div>
 
                                             {/* Player 2 */}
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                            <div className="flex flex-col items-center gap-1.5 md:gap-2">
+                                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl overflow-hidden border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                                                     {bet.optionB.imageUrl ? <img src={bet.optionB.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-red-500/20" />}
                                                 </div>
                                                 <div className="text-[10px] md:text-sm font-black text-red-500">{bet.optionB.label}</div>
                                             </div>
                                         </div>
-                                        <div className="mt-4 pt-4 border-t border-white/5">
-                                            <div className="text-white text-lg font-bold leading-tight">
+                                        <div className="mt-2 pt-2 md:mt-4 md:pt-4 border-t border-white/5">
+                                            <div className="text-white text-sm md:text-base font-bold leading-tight">
                                                 "{bet.castText || bet.type}"
                                             </div>
                                         </div>
@@ -1545,36 +1545,36 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                 {/* Choice Selection */}
                                 <div>
-                                    <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-3">
+                                    <label className="block text-[10px] md:text-xs font-bold text-white/60 uppercase tracking-widest mb-1.5 md:mb-2">
                                         Choose Position
                                     </label>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3 md:gap-4">
                                         <button
                                             onClick={() => setChoice('yes')}
-                                            className={`p-2 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'yes'
+                                            className={`p-2 py-3 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'yes'
                                                 ? 'border-green-500 bg-green-500/10'
                                                 : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
                                         >
                                             {bet.optionA?.imageUrl && (
-                                                <img src={bet.optionA.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                                <img src={bet.optionA.imageUrl} alt="" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover" />
                                             )}
-                                            <div className="text-lg md:text-2xl font-black text-green-500">
+                                            <div className="text-base md:text-xl font-black text-green-500">
                                                 {bet.optionA?.label || 'YES'}
                                             </div>
                                             {choice === 'yes' && <div className="absolute inset-0 bg-green-500/5 animate-pulse" />}
                                         </button>
                                         <button
                                             onClick={() => setChoice('no')}
-                                            className={`p-2 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'no'
+                                            className={`p-2 py-3 md:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 md:gap-2 relative overflow-hidden ${choice === 'no'
                                                 ? 'border-red-500 bg-red-500/10'
                                                 : 'border-white/10 bg-white/5 hover:border-white/20'
                                                 }`}
                                         >
                                             {bet.optionB?.imageUrl && (
-                                                <img src={bet.optionB.imageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                                <img src={bet.optionB.imageUrl} alt="" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover" />
                                             )}
-                                            <div className="text-lg md:text-2xl font-black text-red-500">
+                                            <div className="text-base md:text-xl font-black text-red-500">
                                                 {bet.optionB?.label || 'NO'}
                                             </div>
                                             {choice === 'no' && <div className="absolute inset-0 bg-red-500/5 animate-pulse" />}
@@ -1584,10 +1584,10 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
 
                                 {/* Amount Selection - Flexible Input */}
                                 <div>
-                                    <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-3">
+                                    <label className="block text-[10px] md:text-xs font-bold text-white/60 uppercase tracking-widest mb-1.5 md:mb-2">
                                         Entry Size (USDC)
                                     </label>
-                                    <div className="space-y-3">
+                                    <div className="space-y-1.5 md:space-y-3">
                                         {/* Slider */}
                                         <input
                                             type="range"
@@ -1596,7 +1596,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             step={0.01}
                                             value={parseFloat(amount) || bet.minBet}
                                             onChange={(e) => setAmount(e.target.value)}
-                                            className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                            className="w-full h-1.5 md:h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
                                         />
                                         {/* Input + Quick Buttons */}
                                         <div className="flex items-center gap-2">
@@ -1613,7 +1613,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                             setAmount(val);
                                                         }
                                                     }}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 md:py-3 text-white font-bold text-base md:text-lg focus:outline-none focus:border-primary"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-7 pr-3 py-1.5 md:pl-8 md:pr-4 md:py-3 text-white font-bold text-sm md:text-lg focus:outline-none focus:border-primary"
                                                     placeholder={bet.minBet.toString()}
                                                 />
                                             </div>
@@ -1621,32 +1621,29 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                             <button
                                                 type="button"
                                                 onClick={() => setAmount(bet.minBet.toString())}
-                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${parseFloat(amount) === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-[10px] md:text-xs font-bold border ${parseFloat(amount) === bet.minBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MIN
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setAmount(bet.maxBet.toString())}
-                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs font-bold border ${parseFloat(amount) === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
+                                                className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-[10px] md:text-xs font-bold border ${parseFloat(amount) === bet.maxBet ? 'border-primary bg-primary/20 text-primary' : 'border-white/10 text-white/60 hover:border-white/30'}`}
                                             >
                                                 MAX
                                             </button>
                                         </div>
-                                        <p className="text-xs text-white/40 text-center">
-                                            Range: ${(bet.minBet || 0).toFixed(2)} - ${(bet.maxBet || 0).toFixed(2)}
-                                        </p>
                                     </div>
                                 </div>
 
                                 {/* Summary & Multiplier */}
-                                <div className="bg-black rounded-xl p-3 md:p-4 border border-white/10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-2 opacity-20">
-                                        <Zap className="w-12 h-12 text-white" />
+                                <div className="bg-black rounded-xl p-2 md:p-4 border border-white/10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-1.5 md:p-2 opacity-20">
+                                        <Zap className="w-8 h-8 md:w-12 md:h-12 text-white" />
                                     </div>
                                     <div className="relative z-10">
-                                        <div className="text-xs text-white/60 mb-1">Potential Payout</div>
-                                        <div className="text-3xl font-black text-white flex items-end gap-2">
+                                        <div className="text-[10px] md:text-xs text-white/60 mb-0.5 md:mb-1">Potential Payout</div>
+                                        <div className="text-xl md:text-3xl font-black text-white flex items-end gap-1.5 md:gap-2">
                                             ${(() => {
                                                 const numericAmount = parseFloat(amount) || 0;
                                                 const yesPool = (bet?.participants?.yes || []).reduce((a: any, b: any) => a + (b.amount || 0), 0);
@@ -1703,7 +1700,7 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                     <button
                                         onClick={handleSubmit}
                                         disabled={isSubmitting}
-                                        className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none"
+                                        className="w-full bg-primary hover:bg-white hover:text-black text-black font-black py-2.5 md:py-4 rounded-xl transition-all uppercase tracking-widest text-sm md:text-lg shadow-[0_0_20px_rgba(255,95,31,0.4)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)] animate-pulse-fast disabled:opacity-50 disabled:animate-none mt-1"
                                     >
                                         {isSubmitting ? 'INITIATING...' : 'CONFIRM ENTRY'}
                                     </button>
@@ -1717,9 +1714,9 @@ export default function AdminBetCard({ bet, onBet }: AdminBetCardProps) {
                                                 alert('No wallet connectors found. Please install Rabby or MetaMask.');
                                             }
                                         }}
-                                        className="w-full bg-primary hover:bg-secondary text-background font-black py-3 md:py-4 rounded-xl transition-all uppercase tracking-widest text-base md:text-lg flex items-center justify-center gap-2"
+                                        className="w-full bg-primary hover:bg-secondary text-background font-black py-2.5 md:py-4 rounded-xl transition-all uppercase tracking-widest text-sm md:text-lg flex items-center justify-center gap-2 mt-1"
                                     >
-                                        <Wallet className="w-5 h-5" /> Wallet
+                                        <Wallet className="w-4 h-4 md:w-5 md:h-5" /> Wallet
                                     </button>
                                 )}
                             </div>
