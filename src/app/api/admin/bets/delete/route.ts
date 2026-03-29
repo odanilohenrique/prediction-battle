@@ -1,21 +1,19 @@
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { store } from '@/lib/store';
+import { verifyAdminFromBody } from '@/lib/adminAuth';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         const { betId, adminAddress } = await req.json();
+
+        // SECURITY: Verify admin
+        const authError = verifyAdminFromBody(adminAddress);
+        if (authError) return authError;
 
         if (!betId) {
             return NextResponse.json({ error: 'Missing betId' }, { status: 400 });
         }
-
-        // Validate admin (simple check, ideally authenticate via session or signature)
-        // For this MVP, we rely on the client ensuring only admins call this, 
-        // but backend should technically check against whitelist too if we had authenticated headers.
-        // We will just proceed with deletion for now as requested.
-
-        console.log(`[DELETE] Request to delete bet ${betId}`);
 
         const bet = await store.getBet(betId);
         if (!bet) {
@@ -23,12 +21,10 @@ export async function POST(req: Request) {
         }
 
         await store.deleteBet(betId);
-        console.log(`[DELETE] Bet ${betId} deleted successfully.`);
 
         return NextResponse.json({ success: true });
 
     } catch (error) {
-        console.error('Error deleting bet:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

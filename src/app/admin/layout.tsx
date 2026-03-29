@@ -24,6 +24,31 @@ export default function AdminLayout({
         checkAuth();
     }, []);
 
+    // SECURITY: Global fetch interceptor — auto-injects x-admin-address header
+    // for all /api/admin requests made from the admin panel
+    useEffect(() => {
+        if (!walletAddress || !isAuthenticated) return;
+
+        const originalFetch = window.fetch;
+        window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+            const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+
+            if (url.includes('/api/admin')) {
+                const headers = new Headers(init?.headers || {});
+                if (!headers.has('x-admin-address')) {
+                    headers.set('x-admin-address', walletAddress);
+                }
+                return originalFetch(input, { ...init, headers });
+            }
+
+            return originalFetch(input, init);
+        };
+
+        return () => {
+            window.fetch = originalFetch;
+        };
+    }, [walletAddress, isAuthenticated]);
+
     async function checkAuth() {
         try {
             // Check if wallet is connected

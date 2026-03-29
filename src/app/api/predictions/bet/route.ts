@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { store, BetParticipant } from '@/lib/store';
+import { createPublicClient, http } from 'viem';
+import { baseSepolia, base } from 'viem/chains';
+import { CURRENT_CONFIG } from '@/lib/config';
+import { kv } from '@vercel/kv';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { betId, choice, amount, userAddress } = body;
+        const { betId, choice, amount, userAddress, txHash } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback to demo_user (though frontend should enforce login)
         const userId = userAddress || 'demo_user';
 
         // Validate input
-        if (!betId || !choice || !amount) {
+        if (!betId || !choice || !amount || !txHash) {
             return NextResponse.json(
                 { success: false, error: 'Missing required fields' },
+                { status: 400 }
+            );
+        }
+
+        // Check if transaction was already processed
+        const txProcessed = await kv.get(`tx_processed:${txHash}`);
+        if (txProcessed) {
+            return NextResponse.json(
+                { success: false, error: 'Transaction already processed' },
                 { status: 400 }
             );
         }
@@ -55,6 +68,7 @@ export async function POST(request: NextRequest) {
 
         // Save updated bet to Redis
         await store.saveBet(bet);
+        await kv.set(`tx_processed:${txHash}`, 'true', { ex: 2592000 }); // Store for 30 days
 
         return NextResponse.json({
             success: true,

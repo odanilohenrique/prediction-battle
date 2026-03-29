@@ -3,6 +3,15 @@ import { revalidatePath } from 'next/cache';
 import { store, Bet, BetParticipant } from '@/lib/store';
 import { getOperatorClient } from '@/lib/contracts';
 import { BLOCK_TIME_SECONDS } from '@/lib/blockTime';
+import { kv } from '@vercel/kv';
+import { createPublicClient, http } from 'viem';
+import { baseSepolia, base } from 'viem/chains';
+import { CURRENT_CONFIG } from '@/lib/config';
+
+const publicClient = createPublicClient({
+    chain: CURRENT_CONFIG.chainId === 84532 ? baseSepolia : base,
+    transport: http(CURRENT_CONFIG.rpcUrl),
+});
 
 export async function POST(request: NextRequest) {
     console.log('[API CREATE] Received create request!');
@@ -35,6 +44,7 @@ export async function POST(request: NextRequest) {
             profileUrl, // [NEW] Explicit profile link
             rules, // [NEW] Custom Rules
             expiryTimestamp, // [NEW] Explicit expiration timestamp (overrides timeframe)
+            txHash, // [NEW] Transaction hash for idempotency
         } = body;
 
         // Use wallet address as user ID if provided, otherwise fallback
@@ -49,6 +59,29 @@ export async function POST(request: NextRequest) {
         if (!betAmount) return NextResponse.json({ success: false, error: 'Missing required field: betAmount' }, { status: 400 });
 
         // Check for existing active prediction for this cast + metric + target
+        
+        // --- SECURITY: Verify On-Chain Transaction ---
+        if (txHash) {
+            try {
+                const txProcessed = await kv.get(`tx_processed_create:${txHash}`);
+                if (txProcessed) {
+                    return NextResponse.json({ success: false, error: 'Transaction already processed for market creation' }, { status: 400 });
+                }
+                const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
+                if (!receipt || receipt.status !== 'success') {
+                    return NextResponse.json({ success: false, error: 'Transaction failed or not found on-chain' }, { status: 400 });
+                }
+                const txDetails = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
+                if (!txDetails || txDetails.to?.toLowerCase() !== CURRENT_CONFIG.contractAddress.toLowerCase()) {
+                    return NextResponse.json({ success: false, error: 'Invalid transaction target address' }, { status: 400 });
+                }
+            } catch (txError) {
+                console.error('Tx creation verification failed:', txError);
+                return NextResponse.json({ success: false, error: 'Failed to verify market creation transaction signature' }, { status: 400 });
+            }
+        }
+        // --- END SECURITY CHECK ---
+
         const allBets = await store.getBets();
         const existingBet = allBets.find(b =>
             b.castHash === castHash &&
@@ -204,6 +237,7 @@ export async function POST(request: NextRequest) {
 
         try {
             await store.saveBet(bet);
+            if (txHash) await kv.set(`tx_processed_create:${txHash}`, 'true', { ex: 2592000 });
             console.log('[API CREATE] ✅ Bet saved successfully to Redis!');
         } catch (saveError) {
             console.error('[API CREATE] ❌ REDIS SAVE FAILED:', saveError);

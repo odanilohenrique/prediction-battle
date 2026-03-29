@@ -1,16 +1,23 @@
 
 import { put } from '@vercel/blob';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: Request): Promise<NextResponse> {
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get('filename') || 'evidence-image';
 
-    // ⚠️ The Vercel Blob token is required in your environment variables:
-    // BLOB_READ_WRITE_TOKEN=...
+    // SECURITY: Require wallet address for upload
+    const uploaderAddress = searchParams.get('address');
+    if (!uploaderAddress || !uploaderAddress.startsWith('0x')) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
         return NextResponse.json(
-            { error: 'Vercel Blob not configured. Env var BLOB_READ_WRITE_TOKEN is missing.' },
+            { error: 'Upload service not configured' },
             { status: 500 }
         );
     }
@@ -23,17 +30,26 @@ export async function POST(request: Request): Promise<NextResponse> {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Upload to Vercel Blob
+        // SECURITY: Validate file type
+        if (!ALLOWED_TYPES.includes(file.type)) {
+            return NextResponse.json({ error: 'Invalid file type. Only images are allowed.' }, { status: 400 });
+        }
+
+        // SECURITY: Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({ error: 'File too large. Maximum 5MB.' }, { status: 400 });
+        }
+
         const blob = await put(file.name || filename, file, {
             access: 'public',
         });
 
         return NextResponse.json({ url: blob.url });
     } catch (error) {
-        console.error('Upload error:', error);
         return NextResponse.json(
-            { error: 'Upload failed', details: (error as Error).message },
+            { error: 'Upload failed' },
             { status: 500 }
         );
     }
 }
+

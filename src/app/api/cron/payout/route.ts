@@ -5,13 +5,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     try {
-        // 1. Auth Check
+        // SECURITY: Strict cron authentication (no bypass)
         const authHeader = req.headers.get('authorization');
         const CRON_SECRET = process.env.CRON_SECRET;
-        if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-            if (process.env.NODE_ENV === 'production') {
-                return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-            }
+        if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
         // 2. Fetch Completed but Unpaid Bets

@@ -412,6 +412,8 @@ export default function CreateCommunityBet() {
                     rules: formData.rules,
                     expiryTimestamp: formData.deadlineDateTime ? new Date(formData.deadlineDateTime).getTime() : undefined,
 
+                    // Security: Pass the transaction hash for backend verification
+                    txHash: createHash,
                     // Pass the real on-chain ID so DB uses it directly
                     ...(realMarketId ? { forceId: realMarketId } : {}),
                 }),

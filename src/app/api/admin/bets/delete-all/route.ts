@@ -1,22 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { store } from '@/lib/store';
+import { verifyAdminFromBody } from '@/lib/adminAuth';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         const { adminAddress } = await req.json();
 
-        // Basic admin check (client side mostly for now, but good practice to expect it)
-        // if (!isAdmin(adminAddress)) ... 
-
-        console.log(`[DELETE ALL] Request to NUKE all bets`);
+        // SECURITY: Verify admin (this is a destructive operation)
+        const authError = verifyAdminFromBody(adminAddress);
+        if (authError) return authError;
 
         await store.deleteAllBets();
-        console.log(`[DELETE ALL] All bets deleted successfully.`);
 
         return NextResponse.json({ success: true });
 
     } catch (error) {
-        console.error('Error deleting all bets:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
